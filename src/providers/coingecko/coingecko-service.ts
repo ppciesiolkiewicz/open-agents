@@ -15,6 +15,7 @@ export class CoingeckoService {
   async fetchTokenPriceUSD(coingeckoId: string): Promise<number> {
     const url = `${this.baseUrl}/simple/price?ids=${encodeURIComponent(coingeckoId)}&vs_currencies=usd`;
     const res = await fetch(url, {
+      // demo-tier header; switch to 'x-cg-pro-api-key' if upgrading to a pro plan
       headers: { 'x-cg-demo-api-key': this.apiKey, accept: 'application/json' },
     });
     if (!res.ok) {
