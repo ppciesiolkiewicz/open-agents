@@ -62,4 +62,13 @@ describe('WalletFactory (live)', () => {
     const real = factory.forAgent(makeAgent('a2', false));
     expect(dry.getAddress()).toBe(real.getAddress());
   });
+
+  it('caches one wallet per agent id (same instance on repeat calls)', () => {
+    const a1First = factory.forAgent(makeAgent('a1', true));
+    const a1Second = factory.forAgent(makeAgent('a1', true));
+    const a2 = factory.forAgent(makeAgent('a2', true));
+    expect(a1First).toBe(a1Second);     // same reference
+    expect(a1First).not.toBe(a2);       // different agent → different wallet
+    console.log('[wallet-factory] cache reuse OK for a1');
+  });
 });

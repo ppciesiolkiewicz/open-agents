@@ -7,15 +7,25 @@ import { DryRunWallet, type DryRunWalletEnv } from '../dry-run/dry-run-wallet';
 export type WalletFactoryEnv = RealWalletEnv & DryRunWalletEnv;
 
 export class WalletFactory {
+  // Cache wallets per agentId. The cached AgentConfig reference is from
+  // the FIRST forAgent() call, so config edits (dryRun flip,
+  // dryRunSeedBalances change) require a restart to take effect — fine
+  // for v1 because the project convention is to clear the DB between
+  // modes anyway.
+  private readonly cache = new Map<string, Wallet>();
+
   constructor(
     private readonly env: WalletFactoryEnv,
     private readonly transactions: TransactionRepository,
   ) {}
 
   forAgent(agent: AgentConfig): Wallet {
-    if (agent.dryRun) {
-      return new DryRunWallet(agent, this.transactions, this.env);
-    }
-    return new RealWallet(this.env);
+    const cached = this.cache.get(agent.id);
+    if (cached) return cached;
+    const wallet = agent.dryRun
+      ? new DryRunWallet(agent, this.transactions, this.env)
+      : new RealWallet(this.env);
+    this.cache.set(agent.id, wallet);
+    return wallet;
   }
 }
