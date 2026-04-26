@@ -112,7 +112,7 @@ Single `Wallet` interface. Two impls:
 
 Agent **never knows** it's dry-run. Same tool surface, same return shapes. Same `Transaction` row shape (no `simulated` flag).
 
-Dry-run swaps are identified by a **sentinel hash pattern**: `0x` + 60 zeros + 4 hex chars (counter/timestamp suffix for uniqueness). Detection regex: `/^0x0{60}[0-9a-f]{4}$/`. Real Ethereum tx hashes have ~16⁻⁶⁰ chance of matching, so the sentinel is safe.
+Dry-run swaps are minted with a **sentinel hash pattern**: `0x` + 60 zeros + 4 hex chars (counter suffix for uniqueness). This is **documentation, not a runtime filter** — operators clear the DB between dry-run and real-run sessions, so within a session every tx belongs to the active mode by construction. `generateDryRunHash()` lives in `wallet/dry-run/`.
 
 Other Transaction fields for dry-run: `gasUsed`/`gasPriceWei`/`gasCostWei` use estimated values (real-time gas price × typical swap gas) so dry-run cost accounting matches reality; `blockNumber: null`; `status: 'success'`. `tokenIn`/`tokenOut` are quote-derived. Wallets compute dry-run balances by replaying these rows against the seed.
 

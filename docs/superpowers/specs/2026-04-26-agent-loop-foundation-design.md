@@ -148,7 +148,7 @@ interface AgentRepository {
   list(): Promise<AgentConfig[]>;
   findById(id: string): Promise<AgentConfig | null>;
   upsert(agent: AgentConfig): Promise<void>;
-  delete(id: string): Promise<void>;
+  // No delete in v1 — operators clear the DB by hand when needed.
 }
 
 interface TransactionRepository {
@@ -253,14 +253,16 @@ bigints serialized as strings everywhere in JSON.
 
 ### Dry-run hash sentinel
 
-Dry-run swaps still record a `Transaction` row — same shape, same fields. Instead of carrying a `simulated: boolean` flag we use a recognizable sentinel hash pattern: **`0x` + 60 zeros + 4 hex chars** (a counter or timestamp suffix to keep each one unique).
+Dry-run swaps still record a `Transaction` row — same shape, same fields. Instead of carrying a `simulated: boolean` flag we mint a recognizable sentinel hash: **`0x` + 60 zeros + 4 hex chars** (a counter suffix for uniqueness).
 
 ```
 real:    0xa1f3...c9b2 (random 64 hex)
 dry-run: 0x000000000000000000000000000000000000000000000000000000000000abcd
 ```
 
-Detection is a regex (`/^0x0{60}[0-9a-f]{4}$/`); real Ethereum transaction hashes have ~16⁻⁶⁰ chance of matching, so the sentinel is safe.
+This is **documentation, not a filter** — a human eyeballing `database.json` can spot dry-run rows instantly. Runtime code does not branch on hash shape, because **the DB is wiped between dry-run and real-run sessions** (single-mode-per-DB convention). Inside a session, every transaction belongs to the active mode by construction.
+
+`generateDryRunHash()` lives in `wallet/dry-run/`. No consumer-side filter helper is needed.
 
 For dry-run rows the other fields are populated as follows:
 - `gasUsed`, `gasPriceWei`, `gasCostWei` — estimated values (real-time gas price from RPC × the swap's typical gas usage), so dry-run cost accounting matches real-world economics
@@ -268,9 +270,8 @@ For dry-run rows the other fields are populated as follows:
 - `status` — `'success'` (dry-run never fails for blockchain reasons; risk-limit / quote failures throw before a Transaction is written)
 - `tokenIn`/`tokenOut` — exactly the quote-derived amounts from `UniswapService.getQuote`
 
-Wallets compute dry-run balances by replaying these Transaction rows against the seed:
-- Filter `Transaction[]` where `agentId = X AND hash matches sentinel pattern`
-- For each row: subtract `tokenIn.amountRaw` from that token's balance, add `tokenOut.amountRaw` to the other, subtract `gasCostWei` from `"native"`
+Wallets compute dry-run balances by replaying **all** of the agent's Transaction rows against the seed:
+- For each `tx` in `transactions.listByAgent(agentId)`: subtract `tokenIn.amountRaw` from that token's balance, add `tokenOut.amountRaw` to the other, subtract `gasCostWei` from `"native"`.
 
 ## Wallet
 
@@ -286,7 +287,7 @@ interface Wallet {
 ```
 
 - `RealWallet` — viem signer from `WALLET_PRIVATE_KEY`. Reads on-chain balances.
-- `DryRunWallet` — same interface. Computes balance as `seed + sum(deltas from sentinel-hash txs)` (see "Dry-run hash sentinel" above). Native (gas) balance is part of `dryRunSeedBalances` under the sentinel key `"native"`; estimated gas costs from dry-run swaps debit it like any other token. `signAndSendTransaction` writes a Transaction with a sentinel hash and returns a synthetic receipt with the same hash.
+- `DryRunWallet` — same interface. Computes balance as `seed + sum(deltas from all the agent's Transactions)`. The DB is wiped between dry-run and real-run sessions (see "Dry-run hash sentinel" above), so every tx in the agent's history belongs to the current mode. Native (gas) balance is part of `dryRunSeedBalances` under the sentinel key `"native"`; estimated gas costs debit it like any other token. `signAndSendTransaction` writes a Transaction with a sentinel hash and returns a synthetic receipt with the same hash.
 - `WalletFactory.forAgent(config)` returns the right impl based on `agent.dryRun`.
 
 **Agent never knows it's in dry-run.** Same tool surface, same return shapes. Dry-run is a wiring concern.
