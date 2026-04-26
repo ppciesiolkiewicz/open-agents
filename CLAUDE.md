@@ -110,7 +110,7 @@ Single `Wallet` interface. Two impls:
 
 ### Dry-run is a wiring concern
 
-Agent **never knows** it's dry-run. Same tool surface, same return shapes. Same `Transaction` row shape (no `simulated` flag).
+Agent **never knows** it's dry-run. Same tool surface, same return shapes. Same `Transaction` row shape.
 
 Dry-run swaps are minted with a **sentinel hash pattern**: `0x` + 60 zeros + 4 hex chars (counter suffix for uniqueness). This is **documentation, not a runtime filter** — operators clear the DB between dry-run and real-run sessions, so within a session every tx belongs to the active mode by construction. `generateDryRunHash()` lives in `wallet/dry-run/`.
 

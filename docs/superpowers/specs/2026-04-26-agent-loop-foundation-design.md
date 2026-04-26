@@ -253,7 +253,7 @@ bigints serialized as strings everywhere in JSON.
 
 ### Dry-run hash sentinel
 
-Dry-run swaps still record a `Transaction` row — same shape, same fields. Instead of carrying a `simulated: boolean` flag we mint a recognizable sentinel hash: **`0x` + 60 zeros + 4 hex chars** (a counter suffix for uniqueness).
+Dry-run swaps record a `Transaction` row with a recognizable sentinel hash: **`0x` + 60 zeros + 4 hex chars** (a counter suffix for uniqueness).
 
 ```
 real:    0xa1f3...c9b2 (random 64 hex)
