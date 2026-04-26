@@ -1,0 +1,34 @@
+import { z } from 'zod';
+
+const envSchema = z.object({
+  WALLET_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/, 'WALLET_PRIVATE_KEY must be 0x-prefixed 32-byte hex'),
+
+  ALCHEMY_API_KEY: z.string().min(1),
+  UNICHAIN_RPC_URL: z.string().url().optional(),
+
+  ZEROG_NETWORK: z.enum(['mainnet', 'testnet']),
+  ZEROG_PROVIDER_ADDRESS: z.string().optional(),
+
+  COINGECKO_API_KEY: z.string().min(1),
+  COINMARKETCAP_API_KEY: z.string().min(1),
+  SERPER_API_KEY: z.string().min(1),
+  FIRECRAWL_API_KEY: z.string().min(1),
+
+  DB_DIR: z.string().default('./db'),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+export function loadEnv(raw: Record<string, string | undefined> = process.env): Env {
+  const parsed = envSchema.safeParse(raw);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join('; ');
+    throw new Error(`Invalid env: ${issues}`);
+  }
+  return parsed.data;
+}
