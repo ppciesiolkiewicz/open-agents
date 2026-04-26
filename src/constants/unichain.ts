@@ -3,10 +3,10 @@ export interface UnichainConfig {
   nativeSymbol: 'ETH';
 }
 
-export const UNICHAIN: UnichainConfig = {
+export const UNICHAIN = {
   chainId: 130,
   nativeSymbol: 'ETH',
-};
+} as const satisfies UnichainConfig;
 
 export function resolveUnichainRpcUrl(env: {
   UNICHAIN_RPC_URL?: string;
