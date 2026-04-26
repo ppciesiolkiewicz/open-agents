@@ -1,0 +1,56 @@
+export interface TokenAmount {
+  tokenAddress: string;
+  symbol: string;
+  amountRaw: string;            // bigint as string
+  decimals: number;
+}
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  intervalMs: number;
+  prompt: string;
+  walletAddress: string;
+  dryRun: boolean;
+  dryRunSeedBalances?: Record<string, string>;  // tokenAddr (or "native") → raw bigint string
+  riskLimits: { maxTradeUSD: number; [k: string]: unknown };
+  lastTickAt: number | null;
+  createdAt: number;
+}
+
+export interface Transaction {
+  id: string;
+  agentId: string;
+  hash: string;                 // real 0x-prefixed hash, or dry-run sentinel
+  chainId: number;
+  from: string;
+  to: string;
+  tokenIn?: TokenAmount;
+  tokenOut?: TokenAmount;
+  gasUsed: string;              // bigint as string; estimated for dry-run
+  gasPriceWei: string;          // bigint as string
+  gasCostWei: string;           // bigint as string; gasUsed * gasPriceWei
+  status: 'pending' | 'success' | 'failed';
+  blockNumber: number | null;   // null for dry-run
+  timestamp: number;
+}
+
+export interface Position {
+  id: string;
+  agentId: string;
+  amount: TokenAmount;
+  costBasisUSD: number;
+  openedByTransactionId: string;
+  closedByTransactionId?: string;
+  openedAt: number;
+  closedAt: number | null;
+  realizedPnlUSD: number | null;
+}
+
+export interface AgentMemory {
+  agentId: string;
+  notes: string;
+  state: Record<string, unknown>;
+  updatedAt: number;
+}
