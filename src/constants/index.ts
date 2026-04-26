@@ -1,5 +1,5 @@
 export * from './unichain';
 export * from './zerog-networks';
 export * from './tokens';
-export * from './pools';
+export * from './fee-tiers';
 export * from './looper';
