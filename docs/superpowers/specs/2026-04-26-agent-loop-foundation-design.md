@@ -287,7 +287,7 @@ interface Wallet {
 ```
 
 - `RealWallet` — viem signer from `WALLET_PRIVATE_KEY`. Reads on-chain balances.
-- `DryRunWallet` — same interface. Computes balance as `seed + sum(deltas from all the agent's Transactions)`. The DB is wiped between dry-run and real-run sessions (see "Dry-run hash sentinel" above), so every tx in the agent's history belongs to the current mode. Native (gas) balance is part of `dryRunSeedBalances` under the sentinel key `"native"`; estimated gas costs debit it like any other token. `signAndSendTransaction` writes a Transaction with a sentinel hash and returns a synthetic receipt with the same hash.
+- `DryRunWallet` — same interface. Computes balance as `seed + sum(deltas from all the agent's Transactions)`. The DB is wiped between dry-run and real-run sessions (see "Dry-run hash sentinel" above), so every tx in the agent's history belongs to the current mode. Native (gas) balance is part of `dryRunSeedBalances` under the sentinel key `"native"`; estimated gas costs debit it like any other token. `signAndSendTransaction` returns a synthetic receipt with a sentinel hash; **the corresponding `Transaction` row is written by `UniswapService` (slice 7) after the call**, not by the wallet. Wallets never write to `TransactionRepository`.
 - `WalletFactory.forAgent(config)` returns the right impl based on `agent.dryRun`.
 
 **Agent never knows it's in dry-run.** Same tool surface, same return shapes. Dry-run is a wiring concern.
