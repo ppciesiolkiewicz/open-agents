@@ -2,6 +2,9 @@ import 'dotenv/config';
 import { loadEnv, type Env } from './config/env';
 import { LOOPER } from './constants';
 import { Looper } from './agent-looper/looper';
+import { FileDatabase } from './database/file-database/file-database';
+import { FileActivityLogStore } from './agent-activity-log/file-activity-log-store';
+import { AgentActivityLog } from './agent-activity-log/agent-activity-log';
 
 function main(): void {
   let env: Env;
@@ -11,12 +14,23 @@ function main(): void {
     console.error('[bootstrap] env validation failed:', (err as Error).message);
     process.exit(1);
   }
-  console.log(`[bootstrap] env loaded — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}`);
+
+  const db = new FileDatabase(env.DB_DIR);
+  const activityLog = new AgentActivityLog(new FileActivityLogStore(env.DB_DIR));
+  void activityLog;  // wired for slice 4; not used this slice
+
+  console.log(
+    `[bootstrap] env loaded — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}`,
+  );
+  console.log(`[bootstrap] database + activity log initialized at ${env.DB_DIR}`);
 
   const looper = new Looper({
     tickIntervalMs: LOOPER.tickIntervalMs,
     onTick: async () => {
-      console.log(`[looper] tick @ ${new Date().toISOString()} — no agents loaded`);
+      const agents = await db.agents.list();
+      console.log(
+        `[looper] tick @ ${new Date().toISOString()} — ${agents.length} agent(s) loaded`,
+      );
     },
   });
 
