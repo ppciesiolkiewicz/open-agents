@@ -48,7 +48,7 @@ export class ZeroGLLMClient implements LLMClient {
   }
 
   private async invokeOnce(prompt: string): Promise<LLMResponse> {
-    const headers = (await this.broker.inference.getRequestHeaders(this.providerAddress, prompt)) as unknown as Record<string, string>;
+    const headers = (await this.broker.inference.getRequestHeaders(this.providerAddress)) as unknown as Record<string, string>;
     const completion = await this.openai.chat.completions.create(
       { messages: [{ role: 'user', content: prompt }], model: this.model },
       { headers },
@@ -66,8 +66,8 @@ export class ZeroGLLMClient implements LLMClient {
         completion.id,
         content,
       );
-      if (isValid === false) {
-        console.warn('[zerog-llm] processResponse returned false; provider settlement may have rejected this call');
+      if (isValid !== true) {
+        console.warn(`[zerog-llm] processResponse returned ${isValid}; provider settlement may have rejected or could not verify this call`);
       }
     } catch (err) {
       console.warn('[zerog-llm] processResponse threw:', (err as Error).message);

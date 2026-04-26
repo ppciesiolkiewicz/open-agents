@@ -336,20 +336,28 @@ The bootstrap file exists specifically because **funding a 0G sub-account costs 
 
 ### Bootstrap flow
 
-`ZeroGBrokerService.bootstrap(env)`:
+`ZeroGBrokerService` (with `bootstrap-cli.ts` as its driver) and `ZeroGBootstrapStore`:
 - Connects to 0G chain via `ZEROG_NETWORK` (mainnet|testnet, RPC + chainId from `constants/`) using `WALLET_PRIVATE_KEY` — that wallet must hold 0G on the chosen network.
-- If `./db/zerog-bootstrap.json` exists and matches the requested network → load + return its `{ providerAddress, serviceUrl, model, secret }`. Skip everything below.
-- Otherwise: `broker.inference.listService()`, auto-pick first available provider (or one matching optional `ZEROG_PROVIDER_ADDRESS` override), deposit + transfer 0G to provider sub-account, fetch `app-sk-<SECRET>` and the provider's `serviceUrl` + `model`.
-- Persist `{ network, providerAddress, serviceUrl, model, secret }` to `./db/zerog-bootstrap.json` (gitignored). Re-bootstrap manually (delete the file) when funds run low or provider changes.
+- If `./db/zerog-bootstrap.json` exists and matches the requested network → load + reuse its `{ providerAddress, serviceUrl, model, acknowledgedAt, fundedAt, fundAmountOG }`.
+- Otherwise: `broker.inference.listService()` → CLI prints providers; operator sets `ZEROG_PROVIDER_ADDRESS` in `.env` and re-runs; CLI then `broker.ledger.addLedger(3 OG min)` (skipped if exists), `broker.ledger.transferFund(provider, 'inference', N OG)` (1 OG min), `broker.inference.acknowledgeProviderSigner(provider)`, `broker.inference.getServiceMetadata(provider)` → cache `serviceUrl` + `model`.
+- Persist to `./db/zerog-bootstrap.json` (gitignored). Re-bootstrap manually (delete the file) when funds run low or provider changes.
 
-`buildChatModel(cfg)`:
+**No persistent secret.** 0G auth is per-call. `ZeroGLLMClient.invoke(prompt)` calls `broker.inference.getRequestHeaders(provider)` to get fresh settlement headers each request, then sends to the provider's OpenAI-compatible endpoint. Optional `broker.inference.processResponse(provider, completionId, content)` validates the response post-call (best-effort: warn on null/false, return content regardless).
+
+### Runtime (per agent tick)
+
+`ZeroGLLMClient` wraps the broker + `openai` SDK. Construction:
+
 ```ts
-return new ChatOpenAI({
-  apiKey: cfg.secret,
-  configuration: { baseURL: `${cfg.serviceUrl}/v1/proxy` },
-  modelName: cfg.model,
+new ZeroGLLMClient({
+  broker,                  // from buildZeroGBroker(env)
+  providerAddress,         // from bootstrap.json
+  serviceUrl,              // from bootstrap.json (broker.inference.getServiceMetadata cached)
+  model,                   // from bootstrap.json
 });
 ```
+
+Single retry on transient failure with 1s delay. Returns `LLMResponse { content, tokenCount? }` — token count from `completion.usage.total_tokens` when available.
 
 `AgentRunner` constructs the chat model + Langchain agent executor with the full `ToolRegistry`, runs the prompt, persists memory and logs.
 

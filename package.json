@@ -10,11 +10,11 @@
     "build": "tsc -p tsconfig.json",
     "start": "NODE_OPTIONS=--conditions=require tsx src/index.ts",
     "dev": "NODE_OPTIONS=--conditions=require tsx watch src/index.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:interactive": "INTERACTIVE_TESTS=1 vitest run",
+    "test": "NODE_OPTIONS=--conditions=require vitest run",
+    "test:watch": "NODE_OPTIONS=--conditions=require vitest",
+    "test:interactive": "NODE_OPTIONS=--conditions=require INTERACTIVE_TESTS=1 vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "zerog-bootstrap": "tsx src/ai/zerog-broker/bootstrap-cli.ts"
+    "zerog-bootstrap": "NODE_OPTIONS=--conditions=require tsx src/ai/zerog-broker/bootstrap-cli.ts"
   },
   "dependencies": {
     "@0glabs/0g-serving-broker": "^0.7.5",
