@@ -13,10 +13,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:interactive": "INTERACTIVE_TESTS=1 vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "zerog-bootstrap": "tsx src/ai/zerog-broker/bootstrap-cli.ts"
   },
   "dependencies": {
+    "@0glabs/0g-serving-broker": "^0.7.5",
     "dotenv": "^16.4.5",
+    "ethers": "^6.16.0",
+    "openai": "^4.104.0",
     "viem": "^2.21.0",
     "zod": "^3.23.8"
   },
