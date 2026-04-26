@@ -5,6 +5,7 @@ import { Looper } from './agent-looper/looper';
 import { FileDatabase } from './database/file-database/file-database';
 import { FileActivityLogStore } from './agent-activity-log/file-activity-log-store';
 import { AgentActivityLog } from './agent-activity-log/agent-activity-log';
+import { WalletFactory } from './wallet/factory/wallet-factory';
 
 function main(): void {
   let env: Env;
@@ -17,12 +18,15 @@ function main(): void {
 
   const db = new FileDatabase(env.DB_DIR);
   const activityLog = new AgentActivityLog(new FileActivityLogStore(env.DB_DIR));
-  void activityLog;  // wired for slice 4; not used this slice
+  const walletFactory = new WalletFactory(env, db.transactions);
+  void activityLog;     // wired for slice 4; not used this slice
+  void walletFactory;   // wired for slice 4; not used this slice
 
   console.log(
     `[bootstrap] env loaded — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}`,
   );
   console.log(`[bootstrap] database + activity log initialized at ${env.DB_DIR}`);
+  console.log(`[bootstrap] wallet factory initialized`);
 
   const looper = new Looper({
     tickIntervalMs: LOOPER.tickIntervalMs,
