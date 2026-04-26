@@ -137,6 +137,35 @@ describe('AgentRunner (live, real db + activity log)', () => {
     expect(reloaded?.lastTickAt).toBe(9_000);
   });
 
+  it('does not rethrow even when activity log itself fails on the error path', async () => {
+    const agent = makeAgent('double-fail');
+    await db.agents.upsert(agent);
+    const fixedClock: Clock = { now: () => 12_000 };
+
+    class AlwaysFailingLLM implements LLMClient {
+      modelName() { return 'broken'; }
+      async invoke(): Promise<never> { throw new Error('llm boom'); }
+    }
+
+    // Wrap activityLog so .error() also throws
+    const realLog = activityLog;
+    const brokenLog = new Proxy(realLog, {
+      get(target, prop, receiver) {
+        if (prop === 'error') {
+          return async () => { throw new Error('log boom'); };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    }) as typeof activityLog;
+
+    const runner = new AgentRunner(db, brokenLog, walletFactory, new AlwaysFailingLLM(), fixedClock);
+    await expect(runner.run(agent)).resolves.toBeUndefined();  // does NOT rethrow
+
+    // lastTickAt still updates in finally
+    const reloaded = await db.agents.findById('double-fail');
+    expect(reloaded?.lastTickAt).toBe(12_000);
+  });
+
   it('uses cached wallet from WalletFactory across two ticks of the same agent', async () => {
     const agent = makeAgent('a1');
     await db.agents.upsert(agent);

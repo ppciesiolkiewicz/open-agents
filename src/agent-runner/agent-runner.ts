@@ -21,9 +21,9 @@ export class AgentRunner {
 
   async run(agent: AgentConfig): Promise<void> {
     const tickId = `${agent.id}-${this.clock.now()}`;
-    await this.activityLog.tickStart(agent.id, tickId);
 
     try {
+      await this.activityLog.tickStart(agent.id, tickId);
       const memory = await this.loadOrInitMemory(agent.id);
       // Wallet is constructed (cached by factory) but not yet exposed to the
       // LLM as tools — slice 6 wires balance/swap tools.
@@ -47,12 +47,18 @@ export class AgentRunner {
       });
     } catch (err) {
       const e = err as Error;
-      await this.activityLog.error(agent.id, tickId, {
-        message: e.message,
-        stack: e.stack,
-      });
-      await this.activityLog.tickEnd(agent.id, tickId, { ok: false });
-      // Do NOT rethrow — orchestrator continues with the next agent.
+      // Best-effort error logging. If the activity log itself is failing,
+      // swallow the secondary error so run() never rethrows. lastTickAt
+      // still updates in finally.
+      try {
+        await this.activityLog.error(agent.id, tickId, {
+          message: e.message,
+          stack: e.stack,
+        });
+        await this.activityLog.tickEnd(agent.id, tickId, { ok: false });
+      } catch {
+        // intentionally ignored
+      }
     } finally {
       // Skip-backlog invariant: lastTickAt updates on success AND failure.
       await this.db.agents.upsert({ ...agent, lastTickAt: this.clock.now() });

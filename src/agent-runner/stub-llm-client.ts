@@ -1,7 +1,6 @@
 import type { LLMClient, LLMResponse } from './llm-client';
 
-// Production stub used by slice 4 (no real LLM yet) and as a test seam later.
-// Slice 5 introduces a real LLMClient backed by 0G via Langchain.
+// Production stub used until slice 5 replaces it with the 0G-backed client.
 export class StubLLMClient implements LLMClient {
   modelName(): string {
     return 'stub';
