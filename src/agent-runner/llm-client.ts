@@ -1,5 +1,6 @@
 export interface LLMResponse {
   content: string;
+  tokenCount?: number;
 }
 
 export interface LLMClient {

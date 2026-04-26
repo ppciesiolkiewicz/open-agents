@@ -39,6 +39,7 @@ export class AgentRunner {
       await this.activityLog.llmResponse(agent.id, tickId, {
         model: this.llm.modelName(),
         responseChars: response.content.length,
+        ...(response.tokenCount !== undefined ? { tokenCount: response.tokenCount } : {}),
       });
 
       await this.activityLog.tickEnd(agent.id, tickId, {
