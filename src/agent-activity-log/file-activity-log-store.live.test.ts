@@ -60,13 +60,23 @@ describe('FileActivityLogStore (live, real filesystem)', () => {
     expect(last2.map((e) => e.tickId)).toEqual(['t3', 't4']);
   });
 
-  it('sinceTickId returns entries after the matching tickId', async () => {
+  it('sinceTickId returns entries strictly after the LAST entry of the anchor tick (multi-entry per tick)', async () => {
+    // tick t1 has 3 entries (tick_start, llm_call, tick_end), t2 has 1
+    await store.append(makeEntry('a1', 't1', 'tick_start'));
+    await store.append(makeEntry('a1', 't1', 'llm_call'));
+    await store.append(makeEntry('a1', 't1', 'tick_end'));
+    await store.append(makeEntry('a1', 't2', 'tick_start'));
+
+    const afterT1 = await store.listByAgent('a1', { sinceTickId: 't1' });
+    expect(afterT1.map((e) => `${e.tickId}/${e.type}`)).toEqual(['t2/tick_start']);
+  });
+
+  it('sinceTickId returns all entries when the anchor tickId is not present', async () => {
     await store.append(makeEntry('a1', 't1', 'tick_start'));
     await store.append(makeEntry('a1', 't2', 'tick_start'));
-    await store.append(makeEntry('a1', 't3', 'tick_start'));
 
-    const after1 = await store.listByAgent('a1', { sinceTickId: 't1' });
-    expect(after1.map((e) => e.tickId)).toEqual(['t2', 't3']);
+    const all = await store.listByAgent('a1', { sinceTickId: 'nope' });
+    expect(all.map((e) => e.tickId)).toEqual(['t1', 't2']);
   });
 
   it('writes NDJSON (one JSON object per line) to db/activity-log/<agentId>.json', async () => {

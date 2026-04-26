@@ -28,8 +28,19 @@ export class FileActivityLogStore implements ActivityLogStore {
     let entries = lines.map((l) => JSON.parse(l) as AgentActivityLogEntry);
 
     if (opts?.sinceTickId) {
-      const idx = entries.findIndex((e) => e.tickId === opts.sinceTickId);
-      if (idx >= 0) entries = entries.slice(idx + 1);
+      // Scan backwards so we slice after the LAST entry of the anchor tick.
+      // A real tick emits multiple entries sharing the same tickId
+      // (tick_start, llm_call, tool_call, ..., tick_end); slicing after
+      // the first would leak the anchor tick's later entries.
+      // If sinceTickId is not found, return all entries (expected on first call).
+      let lastIdx = -1;
+      for (let i = entries.length - 1; i >= 0; i--) {
+        if (entries[i]!.tickId === opts.sinceTickId) {
+          lastIdx = i;
+          break;
+        }
+      }
+      if (lastIdx >= 0) entries = entries.slice(lastIdx + 1);
     }
 
     if (typeof opts?.limit === 'number') {
