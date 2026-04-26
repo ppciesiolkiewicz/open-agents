@@ -3,13 +3,13 @@ import { z } from 'zod';
 const envSchema = z.object({
   WALLET_PRIVATE_KEY: z
     .string()
-    .regex(/^0x[0-9a-fA-F]{64}$/, 'WALLET_PRIVATE_KEY must be 0x-prefixed 32-byte hex'),
+    .regex(/^0x[0-9a-fA-F]{64}$/, 'must be 0x-prefixed 32-byte hex'),
 
   ALCHEMY_API_KEY: z.string().min(1),
   UNICHAIN_RPC_URL: z.string().url().optional(),
 
   ZEROG_NETWORK: z.enum(['mainnet', 'testnet']),
-  ZEROG_PROVIDER_ADDRESS: z.string().optional(),
+  ZEROG_PROVIDER_ADDRESS: z.string().min(1).optional(),
 
   COINGECKO_API_KEY: z.string().min(1),
   COINMARKETCAP_API_KEY: z.string().min(1),
