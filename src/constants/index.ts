@@ -4,3 +4,4 @@ export * from './tokens';
 export * from './fee-tiers';
 export * from './looper';
 export * from './agent-runner';
+export * from './uniswap';
