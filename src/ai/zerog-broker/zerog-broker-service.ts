@@ -2,22 +2,34 @@ import { ethers } from 'ethers';
 import type { ProviderListing } from './types';
 import type { ZeroGBroker } from './zerog-broker-factory';
 
+const CHAT_SERVICE_TYPES = new Set(['chatbot', 'inference', 'chat', 'llm']);
+
 export class ZeroGBrokerService {
   constructor(private readonly broker: ZeroGBroker) {}
 
   /**
-   * Lists every provider exposed by the network. Best-effort enrichment with
-   * sub-account balance; returns undefined for that field if the SDK does not
-   * expose it cleanly.
+   * Lists chat/inference providers only (drops image and audio services).
+   * Optionally filtered by ZEROG_MODEL_FILTER env var (case-insensitive substring on model name).
+   * Populates subAccountBalanceWei from broker.ledger.getProvidersWithBalance.
    */
   async listProviders(): Promise<ProviderListing[]> {
     const services = (await this.broker.inference.listService()) as unknown as Array<Record<string, unknown>>;
+
+    const modelFilter = process.env.ZEROG_MODEL_FILTER?.toLowerCase();
+
+    const balanceMap = await buildBalanceMap(this.broker);
+
     const out: ProviderListing[] = [];
     for (const svc of services) {
+      const serviceType = pickString(svc, ['serviceType']);
+      if (!isChatService(serviceType)) continue;
+
       const providerAddress = pickAddress(svc, ['provider', 'providerAddress', 'address']);
       const serviceUrl = pickString(svc, ['url', 'endpoint', 'serviceUrl']);
       const model = pickString(svc, ['model']);
       if (!providerAddress || !serviceUrl || !model) continue;
+
+      if (modelFilter && !model.toLowerCase().includes(modelFilter)) continue;
 
       out.push({
         providerAddress,
@@ -25,7 +37,7 @@ export class ZeroGBrokerService {
         model,
         inputPricePerToken: pickBigInt(svc, ['inputPrice', 'inputPricePerToken']),
         outputPricePerToken: pickBigInt(svc, ['outputPrice', 'outputPricePerToken']),
-        subAccountBalanceWei: undefined,  // see balance note below
+        subAccountBalanceWei: balanceMap.get(providerAddress.toLowerCase()) ?? 0n,
       });
     }
     return out;
@@ -73,6 +85,25 @@ export class ZeroGBrokerService {
     }
     return { serviceUrl, model };
   }
+}
+
+function isChatService(serviceType: string | undefined): boolean {
+  if (!serviceType) return false;
+  const t = serviceType.toLowerCase();
+  return CHAT_SERVICE_TYPES.has(t) || t.includes('chat') || t.includes('completion') || t.includes('inference') || t.includes('llm');
+}
+
+async function buildBalanceMap(broker: ZeroGBroker): Promise<Map<string, bigint>> {
+  const map = new Map<string, bigint>();
+  try {
+    const entries = await broker.ledger.getProvidersWithBalance('inference');
+    for (const [addr, balance] of entries) {
+      map.set(addr.toLowerCase(), balance);
+    }
+  } catch {
+    // Ledger may not exist yet (no addLedger called); return empty map.
+  }
+  return map;
 }
 
 function pickString(obj: Record<string, unknown>, keys: string[]): string | undefined {
