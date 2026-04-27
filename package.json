@@ -12,7 +12,9 @@
     "dev": "NODE_OPTIONS=--conditions=require tsx watch src/index.ts",
     "test": "NODE_OPTIONS=--conditions=require vitest run",
     "test:watch": "NODE_OPTIONS=--conditions=require vitest",
-    "test:interactive": "NODE_OPTIONS=--conditions=require tsx scripts/interactive-swap.ts",
+    "swap:buy-uni": "NODE_OPTIONS=--conditions=require tsx scripts/swap-buy-uni.ts",
+    "swap:sell-uni": "NODE_OPTIONS=--conditions=require tsx scripts/swap-sell-uni.ts",
+    "llm:probe": "NODE_OPTIONS=--conditions=require tsx scripts/zerog-llm-probe.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "zerog-bootstrap": "NODE_OPTIONS=--conditions=require tsx src/ai/zerog-broker/bootstrap-cli.ts"
   },
