@@ -13,6 +13,11 @@ import type { LLMClient } from './agent-runner/llm-client';
 import { ZeroGBootstrapStore } from './ai/zerog-broker/zerog-bootstrap-store';
 import { buildZeroGBroker } from './ai/zerog-broker/zerog-broker-factory';
 import { ZeroGLLMClient } from './ai/chat-model/zerog-llm-client';
+import { ToolRegistry } from './ai-tools/tool-registry';
+import { CoingeckoService } from './providers/coingecko/coingecko-service';
+import { CoinMarketCapService } from './providers/coinmarketcap/coinmarketcap-service';
+import { SerperService } from './providers/serper/serper-service';
+import { FirecrawlService } from './providers/firecrawl/firecrawl-service';
 
 async function buildLLM(env: Env): Promise<LLMClient> {
   const store = new ZeroGBootstrapStore(env.DB_DIR);
@@ -54,7 +59,14 @@ async function main(): Promise<void> {
   const activityLog = new AgentActivityLog(new FileActivityLogStore(env.DB_DIR));
   const walletFactory = new WalletFactory(env, db.transactions);
   const llm = await buildLLM(env);
-  const runner = new AgentRunner(db, activityLog, walletFactory, llm);
+  const toolRegistry = new ToolRegistry({
+    coingecko: new CoingeckoService({ apiKey: env.COINGECKO_API_KEY }),
+    coinmarketcap: new CoinMarketCapService({ apiKey: env.COINMARKETCAP_API_KEY }),
+    serper: new SerperService({ apiKey: env.SERPER_API_KEY }),
+    firecrawl: new FirecrawlService({ apiKey: env.FIRECRAWL_API_KEY }),
+    db,
+  });
+  const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
   const orchestrator = new AgentOrchestrator(db, runner);
 
   console.log(
