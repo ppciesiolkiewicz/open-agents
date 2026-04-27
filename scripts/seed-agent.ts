@@ -32,6 +32,9 @@ async function writeDb(file: DatabaseFile): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const realMode = process.argv.includes('--real');
+  const dryRun = !realMode;
+
   const db = await readDb();
   const existing = db.agents.find((a) => a.id === SEED_AGENT_ID);
   if (existing) {
@@ -40,20 +43,26 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const modeLabel = dryRun
+    ? 'DRY-RUN (synthetic swaps, simulated balances, no real funds)'
+    : 'REAL ONCHAIN (every swap signs + broadcasts a real tx; agent will spend gas + tokens from your wallet)';
   const ok = await confirmContinue(
-    `Install UNI MA trader seed agent into ${dbPath}? (dryRun=true, 1000 USDC + 0.1 ETH seed, intervalMs=60s)`,
+    `Install UNI MA trader seed agent into ${dbPath}? Mode: ${modeLabel}`,
   );
   if (!ok) {
     console.log('[seed-agent] cancelled.');
     return;
   }
 
-  const seed = buildSeedAgentConfig();
+  const seed = buildSeedAgentConfig({ dryRun });
   db.agents.push(seed);
   await writeDb(db);
 
-  console.log(`[seed-agent] installed agent "${seed.id}" into ${dbPath}.`);
+  console.log(`[seed-agent] installed agent "${seed.id}" into ${dbPath} (dryRun=${dryRun}).`);
   console.log(`[seed-agent] total agents in db: ${db.agents.length}.`);
+  if (!dryRun) {
+    console.log(`[seed-agent] WARNING: real-onchain mode. Make sure the wallet has UNI/USDC + gas before running \`npm start\`.`);
+  }
   console.log(`[seed-agent] next: \`npm start\` to run the loop. Watch \`${dbDir}/activity-log/${seed.id}.json\` for tick-by-tick activity.`);
 }
 

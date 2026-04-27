@@ -115,7 +115,8 @@ The 0G `serviceUrl` / `secret-equivalent` / `model` are discovered at bootstrap 
 | `npm run llm:probe` | tiny OG fee | send one trivial inference to your funded provider |
 | `npm run swap:buy-uni` | 0.5 USDC + ~$0.01 gas | swap 0.5 USDC → UNI on Unichain (opens position) |
 | `npm run swap:sell-uni` | 0.1 UNI + ~$0.01 gas | swap 0.1 UNI → USDC on Unichain (closes most-recent UNI position) |
-| `npm run seed-agent` | — | install canonical UNI MA trader into `db/database.json` |
+| `npm run seed-agent` | — | install canonical UNI MA trader (default `dryRun: true`) |
+| `npm run seed-agent -- --real` | — | install seed in REAL onchain mode (every swap broadcasts; needs wallet UNI/USDC + gas) |
 | `npm run reset-db` | — | wipe `db/` (preserves `zerog-bootstrap.json`) |
 | `npm run reset-db -- --all` | — | wipe `db/` entirely (you'll need to re-fund 0G) |
 

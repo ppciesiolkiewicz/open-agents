@@ -25,7 +25,14 @@ Every tick, do exactly:
 
 Always pass amountIn as a string of base-units (no decimal scaling). USDC has 6 decimals, UNI has 18.`;
 
-export function buildSeedAgentConfig(now: number = Date.now()): AgentConfig {
+export interface SeedAgentOptions {
+  dryRun?: boolean;        // default true — every swap goes through DryRunWallet
+  now?: number;
+}
+
+export function buildSeedAgentConfig(opts: SeedAgentOptions = {}): AgentConfig {
+  const dryRun = opts.dryRun ?? true;
+  const now = opts.now ?? Date.now();
   return {
     id: SEED_AGENT_ID,
     name: 'UNI Moving Average Trader',
@@ -33,7 +40,9 @@ export function buildSeedAgentConfig(now: number = Date.now()): AgentConfig {
     intervalMs: 60_000,
     prompt: PROMPT,
     walletAddress: '',
-    dryRun: true,
+    dryRun,
+    // Seeded balances are only consumed when dryRun=true. We always set them
+    // anyway so toggling dryRun in db/database.json still works without edits.
     dryRunSeedBalances: {
       native: '100000000000000000',
       [TOKENS.USDC.address]: '1000000000',
