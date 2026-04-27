@@ -1,4 +1,5 @@
-export type FeeTier = 500 | 3_000 | 10_000;
+import type { FeeTier } from '../constants/fee-tiers';
+export type { FeeTier };
 
 // Uniswap v4 PoolKey shape — the canonical identifier for a v4 pool.
 export interface PoolKey {

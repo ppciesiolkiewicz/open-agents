@@ -65,10 +65,12 @@ export class UniswapService {
       approvalTxs.push(tx);
     }
 
-    const actualTokenOut: TokenAmount = {
-      ...args.tokenOut,
-      amountRaw: args.amountOutMinimum.toString(),
-    };
+    // Best-effort estimate of the received amount. We use the quote value
+    // (already in args.tokenOut.amountRaw) rather than amountOutMinimum so
+    // dry-run balances and Position.amount reflect typical fills, not the
+    // worst-case slippage floor. The real receipt logs aren't parsed in v1;
+    // actual received may be slightly higher or lower than this value.
+    const actualTokenOut: TokenAmount = args.tokenOut;
     const swapTx = this.receiptToTransaction(agent.id, swapReceipt, args.tokenIn, actualTokenOut);
     await this.db.transactions.insert(swapTx);
 

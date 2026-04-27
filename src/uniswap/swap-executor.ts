@@ -1,14 +1,9 @@
 import {
-  createPublicClient,
-  http,
   encodeFunctionData,
-  type PublicClient,
   type Hex,
   type TransactionReceipt,
 } from 'viem';
-import { unichain } from 'viem/chains';
 import {
-  resolveUnichainRpcUrl,
   UNISWAP_V4_UNICHAIN,
   SWAP_DEADLINE_BUFFER_SECONDS,
 } from '../constants';
@@ -32,7 +27,10 @@ const UNIVERSAL_ROUTER_ABI = [
   },
 ] as const;
 
-const ALLOWANCE_REFRESH_THRESHOLD = (1n << 200n);  // refresh well before MaxUint160 hits
+const MAX_UINT160 = (1n << 160n) - 1n;
+// Refresh when allowance is below half of MAX_UINT160. Prevents redundant
+// re-approvals while still leaving plenty of headroom for many swaps.
+const ALLOWANCE_REFRESH_THRESHOLD = MAX_UINT160 / 2n;
 
 export interface SwapExecutorEnv {
   ALCHEMY_API_KEY: string;
@@ -40,12 +38,9 @@ export interface SwapExecutorEnv {
 }
 
 export class SwapExecutor {
-  private readonly publicClient: PublicClient;
   private readonly allowance: Permit2Allowance;
 
   constructor(env: SwapExecutorEnv) {
-    const rpcUrl = resolveUnichainRpcUrl(env);
-    this.publicClient = createPublicClient({ chain: unichain, transport: http(rpcUrl) }) as PublicClient;
     this.allowance = new Permit2Allowance(env);
   }
 
