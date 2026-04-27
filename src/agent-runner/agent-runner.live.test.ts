@@ -106,6 +106,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
       serper: new SerperService({ apiKey: 'dummy' }),
       firecrawl: new FirecrawlService({ apiKey: 'dummy' }),
       db,
+      uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
     });
   });
 

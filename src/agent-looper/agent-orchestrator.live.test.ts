@@ -64,6 +64,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
       serper: new SerperService({ apiKey: 'dummy' }),
       firecrawl: new FirecrawlService({ apiKey: 'dummy' }),
       db,
+      uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
     });
     clock = new MutableClock(10_000);
     runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), toolRegistry, clock);

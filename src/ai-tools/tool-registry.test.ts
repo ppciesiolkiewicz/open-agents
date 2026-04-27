@@ -9,13 +9,14 @@ import type { Database } from '../database/database';
 // Pure-logic test: verifies the canonical tool list is what the LLM sees.
 // No I/O — services and DB are constructed but never called.
 describe('ToolRegistry.build', () => {
-  it('returns the expected 10 tools in order', () => {
+  it('returns the expected 12 tools in order', () => {
     const registry = new ToolRegistry({
       coingecko: new CoingeckoService({ apiKey: 'unused' }),
       coinmarketcap: new CoinMarketCapService({ apiKey: 'unused' }),
       serper: new SerperService({ apiKey: 'unused' }),
       firecrawl: new FirecrawlService({ apiKey: 'unused' }),
       db: {} as Database,
+      uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
     });
     const names = registry.build().map((t) => t.name);
     expect(names).toEqual([
@@ -29,6 +30,8 @@ describe('ToolRegistry.build', () => {
       'updateMemory',
       'saveMemoryEntry',
       'searchMemoryEntries',
+      'getUniswapQuoteExactIn',
+      'executeUniswapSwapExactIn',
     ]);
   });
 
@@ -39,6 +42,7 @@ describe('ToolRegistry.build', () => {
       serper: new SerperService({ apiKey: 'unused' }),
       firecrawl: new FirecrawlService({ apiKey: 'unused' }),
       db: {} as Database,
+      uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
     });
     for (const tool of registry.build()) {
       expect(tool.description.length).toBeGreaterThan(10);

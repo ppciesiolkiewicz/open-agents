@@ -8,6 +8,7 @@ import { CoinMarketCapService } from '../providers/coinmarketcap/coinmarketcap-s
 import { SerperService } from '../providers/serper/serper-service';
 import { FirecrawlService } from '../providers/firecrawl/firecrawl-service';
 import { FileDatabase } from '../database/file-database/file-database';
+import { UniswapService } from '../uniswap/uniswap-service';
 import { DryRunWallet } from '../wallet/dry-run/dry-run-wallet';
 import { TOKENS } from '../constants';
 import type { AgentConfig } from '../database/types';
@@ -45,12 +46,16 @@ describe('ToolRegistry tools (live, real services + fs)', () => {
     agent = makeAgent('a1');
     const wallet = new DryRunWallet(agent, db.transactions, { WALLET_PRIVATE_KEY: TEST_KEY });
     ctx = { agent, wallet, tickId: 'tick-test-1' };
+    const ALCHEMY = process.env.ALCHEMY_API_KEY;
     registry = new ToolRegistry({
       coingecko: new CoingeckoService({ apiKey: COINGECKO ?? 'dummy' }),
       coinmarketcap: new CoinMarketCapService({ apiKey: process.env.COINMARKETCAP_API_KEY ?? 'dummy' }),
       serper: new SerperService({ apiKey: process.env.SERPER_API_KEY ?? 'dummy' }),
       firecrawl: new FirecrawlService({ apiKey: process.env.FIRECRAWL_API_KEY ?? 'dummy' }),
       db,
+      uniswap: ALCHEMY
+        ? new UniswapService({ ALCHEMY_API_KEY: ALCHEMY, UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL }, db)
+        : ({} as UniswapService),
     });
   });
 
@@ -124,5 +129,18 @@ describe('ToolRegistry tools (live, real services + fs)', () => {
     expect(result.notes).toContain('rally');
     expect(result.recentEntries).toHaveLength(1);
     expect(result.recentEntries[0]!.content).toBe('price=7.42');
+  });
+
+  it.skipIf(!process.env.ALCHEMY_API_KEY)('getUniswapQuoteExactIn returns a positive amountOut for 1 USDC → UNI', async () => {
+    const tool = registry.build().find((t) => t.name === 'getUniswapQuoteExactIn');
+    if (!tool) throw new Error('quote tool missing');
+    const result = (await tool.invoke({
+      tokenIn: 'USDC',
+      tokenOut: 'UNI',
+      amountIn: '1000000',
+    }, ctx)) as { amountOut: string; feeTier: number };
+    console.log('[tool-registry] uniswap quote:', result);
+    expect(BigInt(result.amountOut)).toBeGreaterThan(0n);
+    expect(result.feeTier).toBe(3_000);
   });
 });

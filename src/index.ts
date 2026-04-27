@@ -18,6 +18,7 @@ import { CoingeckoService } from './providers/coingecko/coingecko-service';
 import { CoinMarketCapService } from './providers/coinmarketcap/coinmarketcap-service';
 import { SerperService } from './providers/serper/serper-service';
 import { FirecrawlService } from './providers/firecrawl/firecrawl-service';
+import { UniswapService } from './uniswap/uniswap-service';
 
 async function buildLLM(env: Env): Promise<LLMClient> {
   const store = new ZeroGBootstrapStore(env.DB_DIR);
@@ -58,6 +59,7 @@ async function main(): Promise<void> {
   const db = new FileDatabase(env.DB_DIR);
   const activityLog = new AgentActivityLog(new FileActivityLogStore(env.DB_DIR));
   const walletFactory = new WalletFactory(env, db.transactions);
+  const uniswap = new UniswapService(env, db);
   const llm = await buildLLM(env);
   const toolRegistry = new ToolRegistry({
     coingecko: new CoingeckoService({ apiKey: env.COINGECKO_API_KEY }),
@@ -65,6 +67,7 @@ async function main(): Promise<void> {
     serper: new SerperService({ apiKey: env.SERPER_API_KEY }),
     firecrawl: new FirecrawlService({ apiKey: env.FIRECRAWL_API_KEY }),
     db,
+    uniswap,
   });
   const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
   const orchestrator = new AgentOrchestrator(db, runner);
