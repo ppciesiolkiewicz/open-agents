@@ -7,8 +7,9 @@ import { ZeroGBrokerService } from './zerog-broker-service';
 import { ZeroGBootstrapStore } from './zerog-bootstrap-store';
 import type { ZeroGBootstrapState } from './types';
 
-const DEFAULT_LEDGER_OG = 3;       // 0G ledger minimum
-const DEFAULT_TRANSFER_OG = 1;     // 0G per-provider minimum
+const DEFAULT_LEDGER_OG = 3;            // 0G ledger minimum
+const DEFAULT_TRANSFER_OG = 1;          // 0G per-provider minimum
+const DEFAULT_MIN_BALANCE_OG = 0.3;     // skip top-up if sub-account >= this
 
 function formatWeiAsOG(wei: bigint | undefined): string {
   if (wei === undefined) return '?';
@@ -74,37 +75,58 @@ async function main(): Promise<void> {
 
   const ledgerOG = Number(process.env.ZEROG_LEDGER_OG ?? DEFAULT_LEDGER_OG);
   const transferOG = Number(process.env.ZEROG_TRANSFER_OG ?? DEFAULT_TRANSFER_OG);
+  const minBalanceOG = Number(process.env.ZEROG_MIN_BALANCE_OG ?? DEFAULT_MIN_BALANCE_OG);
+
+  const balanceOG = Number(chosen.subAccountBalanceWei ?? 0n) / 1e18;
+  const willTopUp = balanceOG < minBalanceOG;
 
   console.log(`[zerog-bootstrap] selected ${chosen.providerAddress} (${chosen.model})`);
-  console.log(`[zerog-bootstrap] plan: addLedger(${ledgerOG} OG) (skipped if exists), then transferFund(${transferOG} OG) to provider sub-account, then acknowledge.`);
+  console.log(`[zerog-bootstrap] sub-account balance: ${formatWeiAsOG(chosen.subAccountBalanceWei)} OG  (top-up threshold: ${minBalanceOG} OG)`);
 
-  const ok = await confirm(`Proceed? Total potential cost: ${ledgerOG} OG (only on first run; ${transferOG} OG on subsequent top-ups).`);
+  if (willTopUp) {
+    console.log(`[zerog-bootstrap] plan: balance below threshold → top up by transferFund(${transferOG} OG) (auto-deposits ${ledgerOG} OG to the main ledger first if needed), then acknowledge + persist.`);
+  } else {
+    console.log(`[zerog-bootstrap] plan: balance is sufficient → SKIP top-up; just acknowledge + persist. (Set ZEROG_MIN_BALANCE_OG=<n> in .env to change the threshold.)`);
+  }
+
+  const ok = await confirm(
+    willTopUp
+      ? `Proceed? Cost: up to ${transferOG} OG (or ${ledgerOG} OG if main ledger is empty).`
+      : `Proceed? Cost: 0 OG (no funds will move).`,
+  );
   if (!ok) {
     console.log('[zerog-bootstrap] cancelled.');
     return;
   }
 
-  console.log('[zerog-bootstrap] funding + acknowledging...');
-  const { serviceUrl, model } = await service.fundAndAcknowledge({
+  console.log('[zerog-bootstrap] running…');
+  const result = await service.fundAndAcknowledge({
     providerAddress: chosen.providerAddress,
     ledgerInitialOG: ledgerOG,
     transferOG,
+    topUpThresholdOG: minBalanceOG,
   });
+
+  if (result.toppedUp) {
+    console.log(`[zerog-bootstrap] topped up. balance: ${formatWeiAsOG(result.balanceBeforeWei)} OG → ${formatWeiAsOG(result.balanceAfterWei)} OG`);
+  } else {
+    console.log(`[zerog-bootstrap] no top-up needed (balance ${formatWeiAsOG(result.balanceBeforeWei)} OG ≥ ${minBalanceOG} OG).`);
+  }
 
   const now = Date.now();
   const state: ZeroGBootstrapState = {
     network: env.ZEROG_NETWORK,
     providerAddress: chosen.providerAddress,
-    serviceUrl,
-    model,
+    serviceUrl: result.serviceUrl,
+    model: result.model,
     acknowledgedAt: now,
     fundedAt: now,
-    fundAmountOG: transferOG,
+    fundAmountOG: result.toppedUp ? transferOG : 0,
   };
   await store.save(state);
 
   console.log(`[zerog-bootstrap] persisted ${env.DB_DIR}/zerog-bootstrap.json`);
-  console.log(`[zerog-bootstrap] next: run \`npm test\` to exercise the live LLM, or \`npm start\` to use it for agent ticks.`);
+  console.log(`[zerog-bootstrap] next: \`npm run llm:probe\` to sanity-check, or \`npm start\` to run the loop.`);
 }
 
 main().catch((err) => {

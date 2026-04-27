@@ -44,16 +44,41 @@ export class ZeroGBrokerService {
   }
 
   /**
-   * Funds the ledger if it does not already exist (ledger creation requires
-   * 3 OG minimum), transfers `transferOG` to the provider sub-account
-   * (1 OG minimum per provider), acknowledges the provider, then returns
-   * the cached service metadata.
+   * Reads the current sub-account balance for a provider (best-effort; returns
+   * 0n if the user has no ledger yet or the lookup fails).
+   */
+  async readSubAccountBalanceWei(providerAddress: `0x${string}`): Promise<bigint> {
+    const map = await buildBalanceMap(this.broker);
+    return map.get(providerAddress.toLowerCase()) ?? 0n;
+  }
+
+  /**
+   * Idempotent setup for a provider:
+   *   1. Read current sub-account balance.
+   *   2. If balance < `topUpThresholdOG` → top up the sub-account by
+   *      `transferOG` (depositing into the main ledger first if needed).
+   *   3. Acknowledge the provider signer (idempotent — secondary calls swallowed).
+   *   4. Fetch service metadata.
+   *
+   * Returns the service URL + model + the action taken so the CLI can report
+   * exactly what happened.
+   *
+   * `ledgerInitialOG` is the deposit size used when the main ledger needs to
+   * be created or topped up to cover a transfer (3 OG minimum per 0G rules).
+   * `transferOG` is the per-provider top-up amount (1 OG minimum).
    */
   async fundAndAcknowledge(args: {
     providerAddress: `0x${string}`;
-    ledgerInitialOG: number;   // 3 OG minimum
-    transferOG: number;        // 1 OG minimum
-  }): Promise<{ serviceUrl: string; model: string }> {
+    ledgerInitialOG: number;    // 3 OG minimum
+    transferOG: number;         // 1 OG minimum
+    topUpThresholdOG: number;   // skip top-up when sub-account >= this
+  }): Promise<{
+    serviceUrl: string;
+    model: string;
+    balanceBeforeWei: bigint;
+    balanceAfterWei: bigint;
+    toppedUp: boolean;
+  }> {
     if (args.ledgerInitialOG < 3) {
       throw new Error('ledgerInitialOG must be >= 3 (0G ledger minimum)');
     }
@@ -61,21 +86,24 @@ export class ZeroGBrokerService {
       throw new Error('transferOG must be >= 1 (per-provider minimum)');
     }
 
-    try {
-      await this.broker.ledger.addLedger(args.ledgerInitialOG);
-    } catch (err) {
-      // addLedger throws if the ledger already exists; that's expected on top-up runs.
-      const msg = (err as Error).message ?? '';
-      if (!/already|exist/i.test(msg)) throw err;
+    const balanceBeforeWei = await this.readSubAccountBalanceWei(args.providerAddress);
+    const thresholdWei = ethers.parseEther(String(args.topUpThresholdOG));
+    const transferWei = ethers.parseEther(String(args.transferOG));
+
+    let toppedUp = false;
+    if (balanceBeforeWei < thresholdWei) {
+      await this.ensureMainLedgerAndTransfer(args.providerAddress, args.ledgerInitialOG, transferWei);
+      toppedUp = true;
     }
 
-    await this.broker.ledger.transferFund(
-      args.providerAddress,
-      'inference',
-      ethers.parseEther(String(args.transferOG)),
-    );
-
-    await this.broker.inference.acknowledgeProviderSigner(args.providerAddress);
+    // acknowledgeProviderSigner is required once per provider; secondary calls
+    // throw on the contract side. Swallow only "already" errors.
+    try {
+      await this.broker.inference.acknowledgeProviderSigner(args.providerAddress);
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      if (!/already|acknowledged|exist/i.test(msg)) throw err;
+    }
 
     const metadata = await this.broker.inference.getServiceMetadata(args.providerAddress);
     const serviceUrl = (metadata as { endpoint?: string }).endpoint ?? '';
@@ -83,7 +111,45 @@ export class ZeroGBrokerService {
     if (!serviceUrl || !model) {
       throw new Error(`getServiceMetadata returned unexpected shape: ${JSON.stringify(metadata)}`);
     }
-    return { serviceUrl, model };
+
+    const balanceAfterWei = toppedUp
+      ? await this.readSubAccountBalanceWei(args.providerAddress)
+      : balanceBeforeWei;
+
+    return { serviceUrl, model, balanceBeforeWei, balanceAfterWei, toppedUp };
+  }
+
+  /**
+   * Move `transferWei` from the main ledger to the provider sub-account.
+   * If the main ledger doesn't exist yet, create it with `ledgerInitialOG`.
+   * If it exists but has insufficient balance, deposit `ledgerInitialOG` more.
+   */
+  private async ensureMainLedgerAndTransfer(
+    providerAddress: `0x${string}`,
+    ledgerInitialOG: number,
+    transferWei: bigint,
+  ): Promise<void> {
+    const tryTransfer = (): Promise<void> =>
+      this.broker.ledger.transferFund(providerAddress, 'inference', transferWei);
+
+    try {
+      await tryTransfer();
+      return;
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      const isNoLedger = /ledgerNotExists|LedgerNotExists/i.test(msg);
+      const isInsufficient = /InsufficientAvailableBalance|insufficient/i.test(msg);
+      if (!isNoLedger && !isInsufficient) throw err;
+
+      if (isNoLedger) {
+        // No ledger yet — addLedger creates one with the given OG amount.
+        await this.broker.ledger.addLedger(ledgerInitialOG);
+      } else {
+        // Ledger exists but main balance too low — deposit more.
+        await this.broker.ledger.depositFund(ledgerInitialOG);
+      }
+      await tryTransfer();
+    }
   }
 }
 
