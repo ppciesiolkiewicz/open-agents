@@ -13,7 +13,7 @@
     "test": "NODE_OPTIONS=--conditions=require vitest run",
     "test:watch": "NODE_OPTIONS=--conditions=require vitest",
     "test:interactive": "NODE_OPTIONS=--conditions=require INTERACTIVE_TESTS=1 vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "zerog-bootstrap": "NODE_OPTIONS=--conditions=require tsx src/ai/zerog-broker/bootstrap-cli.ts"
   },
   "dependencies": {
