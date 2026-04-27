@@ -173,6 +173,7 @@ describe('FileDatabase (live, real filesystem)', () => {
       notes: 'short MA below long MA',
       state: { priceHistory: [3.21, 3.22, 3.20] },
       updatedAt: Date.now(),
+      entries: [],
     };
     await db.agentMemory.upsert(mem);
 

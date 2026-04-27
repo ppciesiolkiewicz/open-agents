@@ -9,7 +9,14 @@ export class FileAgentMemoryRepository implements AgentMemoryRepository {
   async get(agentId: string): Promise<AgentMemory | null> {
     try {
       const raw = await readFile(this.pathFor(agentId), 'utf8');
-      return JSON.parse(raw) as AgentMemory;
+      const parsed = JSON.parse(raw) as Partial<AgentMemory> & { agentId: string };
+      return {
+        agentId: parsed.agentId,
+        notes: parsed.notes ?? '',
+        state: parsed.state ?? {},
+        updatedAt: parsed.updatedAt ?? 0,
+        entries: parsed.entries ?? [],
+      };
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw err;
