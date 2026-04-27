@@ -25,7 +25,7 @@ export function buildSearchMemoryEntriesTool(db: Database): AgentTool<typeof inp
       const max = limit ?? DEFAULT_LIMIT;
       const matches = mem.entries
         .filter((e) => (!type || e.type === type) && e.content.toLowerCase().includes(needle))
-        .reverse()
+        .toReversed()
         .slice(0, max);
       return { matches };
     },

@@ -46,7 +46,13 @@ export class AgentRunner {
       let rounds = 0;
       while (rounds < AGENT_RUNNER.maxToolRoundsPerTick) {
         rounds++;
-        const promptChars = messages.reduce((sum, m) => sum + this.messageChars(m), 0);
+        const promptChars = messages.reduce((sum, m) => {
+          let chars = m.content.length;
+          if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+            chars += JSON.stringify(m.toolCalls).length;
+          }
+          return sum + chars;
+        }, 0);
         await this.activityLog.llmCall(agent.id, tickId, {
           model: this.llm.modelName(),
           promptChars,
@@ -135,6 +141,10 @@ export class AgentRunner {
         output,
         durationMs,
       });
+      if (call.name === 'updateMemory' || call.name === 'saveMemoryEntry') {
+        const keysChanged = this.memoryKeysChanged(call.name, parsed);
+        await this.activityLog.memoryUpdate(agentId, tickId, { keysChanged });
+      }
       return { role: 'tool', toolCallId: call.id, content: JSON.stringify(output) };
     } catch (err) {
       const errMsg = (err as Error).message;
@@ -181,9 +191,15 @@ export class AgentRunner {
     };
   }
 
-  private messageChars(m: ChatMessage): number {
-    if (m.role === 'tool') return m.content.length;
-    if (m.role === 'assistant') return m.content.length;
-    return m.content.length;
+  private memoryKeysChanged(toolName: string, input: unknown): string[] {
+    const i = input as { state?: Record<string, unknown>; appendNote?: string; type?: string };
+    if (toolName === 'updateMemory') {
+      const keys: string[] = [];
+      if (i.state) keys.push(...Object.keys(i.state).map((k) => `state.${k}`));
+      if (i.appendNote) keys.push('notes');
+      return keys;
+    }
+    // saveMemoryEntry
+    return [`entries[type=${i.type ?? 'unknown'}]`];
   }
 }

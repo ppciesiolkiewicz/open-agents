@@ -125,7 +125,7 @@ export class ZeroGLLMClient implements LLMClient {
       } catch (err) {
         lastErr = err;
         if (attempt < this.retries) {
-          await new Promise((resolve) => setTimeout(resolve, 1_000));
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
         }
       }
     }
