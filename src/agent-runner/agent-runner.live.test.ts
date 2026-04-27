@@ -34,7 +34,7 @@ function makeAgent(id: string): AgentConfig {
     walletAddress: '',
     dryRun: true,
     dryRunSeedBalances: { native: '1000000000000000000' },
-    riskLimits: { maxTradeUSD: 100 },
+    riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
     lastTickAt: null,
     createdAt: 1000,
   };

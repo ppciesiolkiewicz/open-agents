@@ -40,7 +40,7 @@ function makeAgent(id: string): AgentConfig {
       [TOKENS.USDC.address]: '1000000000',            // 1000 USDC
       [TOKENS.UNI.address]: '0',
     },
-    riskLimits: { maxTradeUSD: 1_000 },
+    riskLimits: { maxTradeUSD: 1_000, maxSlippageBps: 100 },
     lastTickAt: null,
     createdAt: Date.now(),
   };

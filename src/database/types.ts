@@ -14,7 +14,11 @@ export interface AgentConfig {
   walletAddress: string;
   dryRun: boolean;
   dryRunSeedBalances?: Record<string, string>;  // tokenAddr (or "native") → raw bigint string
-  riskLimits: { maxTradeUSD: number; [k: string]: unknown };
+  riskLimits: {
+    maxTradeUSD: number;       // existing
+    maxSlippageBps: number;    // new — agent's ceiling on slippage tolerance (50 = 0.5%, 100 = 1%)
+    [k: string]: unknown;
+  };
   lastTickAt: number | null;
   createdAt: number;
 }

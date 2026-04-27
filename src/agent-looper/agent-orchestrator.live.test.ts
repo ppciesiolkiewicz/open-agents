@@ -30,7 +30,7 @@ function makeAgent(id: string, opts: { enabled?: boolean; intervalMs?: number; l
     walletAddress: '',
     dryRun: true,
     dryRunSeedBalances: { native: '0' },
-    riskLimits: { maxTradeUSD: 100 },
+    riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
     lastTickAt: opts.lastTickAt ?? null,
     createdAt: 0,
   };
