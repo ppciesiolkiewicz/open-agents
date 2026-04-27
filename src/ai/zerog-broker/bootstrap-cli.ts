@@ -7,9 +7,9 @@ import { ZeroGBrokerService } from './zerog-broker-service';
 import { ZeroGBootstrapStore } from './zerog-bootstrap-store';
 import type { ZeroGBootstrapState } from './types';
 
-const DEFAULT_LEDGER_OG = 3;            // 0G ledger minimum
-const DEFAULT_TRANSFER_OG = 1;          // 0G per-provider minimum
-const DEFAULT_MIN_BALANCE_OG = 0.3;     // skip top-up if sub-account >= this
+const DEFAULT_LEDGER_OG = 3;     // 0G ledger minimum
+const DEFAULT_TRANSFER_OG = 1;   // 0G per-provider minimum
+const MIN_BALANCE_OG = 0.3;      // skip top-up if sub-account >= this
 
 function formatWeiAsOG(wei: bigint | undefined): string {
   if (wei === undefined) return '?';
@@ -75,18 +75,17 @@ async function main(): Promise<void> {
 
   const ledgerOG = Number(process.env.ZEROG_LEDGER_OG ?? DEFAULT_LEDGER_OG);
   const transferOG = Number(process.env.ZEROG_TRANSFER_OG ?? DEFAULT_TRANSFER_OG);
-  const minBalanceOG = Number(process.env.ZEROG_MIN_BALANCE_OG ?? DEFAULT_MIN_BALANCE_OG);
 
   const balanceOG = Number(chosen.subAccountBalanceWei ?? 0n) / 1e18;
-  const willTopUp = balanceOG < minBalanceOG;
+  const willTopUp = balanceOG < MIN_BALANCE_OG;
 
   console.log(`[zerog-bootstrap] selected ${chosen.providerAddress} (${chosen.model})`);
-  console.log(`[zerog-bootstrap] sub-account balance: ${formatWeiAsOG(chosen.subAccountBalanceWei)} OG  (top-up threshold: ${minBalanceOG} OG)`);
+  console.log(`[zerog-bootstrap] sub-account balance: ${formatWeiAsOG(chosen.subAccountBalanceWei)} OG  (top-up threshold: ${MIN_BALANCE_OG} OG)`);
 
   if (willTopUp) {
     console.log(`[zerog-bootstrap] plan: balance below threshold → top up by transferFund(${transferOG} OG) (auto-deposits ${ledgerOG} OG to the main ledger first if needed), then acknowledge + persist.`);
   } else {
-    console.log(`[zerog-bootstrap] plan: balance is sufficient → SKIP top-up; just acknowledge + persist. (Set ZEROG_MIN_BALANCE_OG=<n> in .env to change the threshold.)`);
+    console.log(`[zerog-bootstrap] plan: balance is sufficient → SKIP top-up; just acknowledge + persist.`);
   }
 
   const ok = await confirm(
@@ -104,13 +103,13 @@ async function main(): Promise<void> {
     providerAddress: chosen.providerAddress,
     ledgerInitialOG: ledgerOG,
     transferOG,
-    topUpThresholdOG: minBalanceOG,
+    topUpThresholdOG: MIN_BALANCE_OG,
   });
 
   if (result.toppedUp) {
     console.log(`[zerog-bootstrap] topped up. balance: ${formatWeiAsOG(result.balanceBeforeWei)} OG → ${formatWeiAsOG(result.balanceAfterWei)} OG`);
   } else {
-    console.log(`[zerog-bootstrap] no top-up needed (balance ${formatWeiAsOG(result.balanceBeforeWei)} OG ≥ ${minBalanceOG} OG).`);
+    console.log(`[zerog-bootstrap] no top-up needed (balance ${formatWeiAsOG(result.balanceBeforeWei)} OG ≥ ${MIN_BALANCE_OG} OG).`);
   }
 
   const now = Date.now();
