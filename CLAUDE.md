@@ -132,19 +132,24 @@ Every agent gets every tool. Per-agent allowlist deferred until manual experimen
 
 Every tick, every tool call, every LLM call/response, every memory update → JSON log entry. Designed for later UI render.
 
-### Testing — providers/integrations only, live, `*.live.test.ts`
+### Testing — `npm test` is safe to run frequently; anything that spends money lives in `scripts/`
 
-**Tests live only for modules that talk to an external system** (provider HTTP, blockchain RPC, 0G chain). Pure-logic modules (env loader, constants, looper, factories) get no dedicated tests — they're exercised end-to-end by `npm start` and downstream integration tests.
+**Tests live only for modules that talk to an external system** (provider HTTP, blockchain RPC). Pure-logic modules (env loader, constants, looper, factories) get no dedicated tests — they're exercised end-to-end by `npm start` and downstream integration tests.
 
 - **File suffix:** `*.live.test.ts`.
-- **No mocked HTTP, no mocked external services.** Hit the real thing using UNI/USDC on Unichain.
+- **No mocked HTTP, no mocked external services.** Hit the real thing using UNI/USDC on Unichain (read-only RPC reads + provider GET calls).
 - Tests skip themselves when the relevant API key / RPC is missing from `.env`.
 - **Test style:** assert "we got something sensible", then `console.log` the payload so a human can eyeball it. Smoke checks + living usage examples. Avoid brittle assertions on exact response shapes.
 - Only acceptable fake: **time** (vitest fake timers), and only when the module has no external dependency.
 
-Two tiers:
-- **Default (`npm test`)** — all live, all read-only. Runs in CI when keys present.
-- **Interactive (`npm run test:interactive`)** — opt-in, for **any test that sends funds** (real pool swaps, real 0G top-ups). Requires `INTERACTIVE_TESTS=1` + per-call confirmation. Never in CI.
+**Policy:** anything that costs OG, ETH gas, or other paid credits goes in `scripts/`, NOT in `*.live.test.ts`. This way `npm test` never silently burns money no matter how often it runs.
+
+- `npm test` — read-only live tests + unit tests. Safe to run any time. Runs in CI when keys present.
+- `scripts/` — manual one-off operations with explicit y/n prompts via `confirmContinue` from `src/test-lib/interactive-prompt.ts`:
+  - `npm run zerog-bootstrap` — list 0G providers, optionally fund a sub-account (3 OG ledger + 1 OG transfer)
+  - `npm run llm:probe` — send one trivial inference request through the configured 0G provider (~tiny fee)
+  - `npm run swap:buy-uni` — 0.5 USDC → UNI on Unichain (real swap, opens a Position)
+  - `npm run swap:sell-uni` — 0.1 UNI → USDC on Unichain (closes most-recent UNI Position)
 
 ### Transactions + positions always recorded
 
