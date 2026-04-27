@@ -15,6 +15,8 @@
     "swap:buy-uni": "NODE_OPTIONS=--conditions=require tsx scripts/swap-buy-uni.ts",
     "swap:sell-uni": "NODE_OPTIONS=--conditions=require tsx scripts/swap-sell-uni.ts",
     "llm:probe": "NODE_OPTIONS=--conditions=require tsx scripts/zerog-llm-probe.ts",
+    "seed-agent": "NODE_OPTIONS=--conditions=require tsx scripts/seed-agent.ts",
+    "reset-db": "NODE_OPTIONS=--conditions=require tsx scripts/reset-db.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "zerog-bootstrap": "NODE_OPTIONS=--conditions=require tsx src/ai/zerog-broker/bootstrap-cli.ts"
   },
