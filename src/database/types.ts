@@ -48,9 +48,22 @@ export interface Position {
   realizedPnlUSD: number | null;
 }
 
+export type MemoryEntryType = 'snapshot' | 'observation' | 'gist' | 'note';
+
+export interface MemoryEntry {
+  id: string;
+  tickId: string;
+  type: MemoryEntryType;
+  content: string;
+  parentEntryIds?: string[];   // a 'gist' may reference the entries it summarizes
+  embedding?: number[];        // reserved for future similarity search; null/absent in v1
+  createdAt: number;
+}
+
 export interface AgentMemory {
   agentId: string;
   notes: string;
   state: Record<string, unknown>;
   updatedAt: number;
+  entries: MemoryEntry[];      // append-only history; populated by saveMemoryEntry tool
 }
