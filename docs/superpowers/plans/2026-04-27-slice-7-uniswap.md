@@ -20,8 +20,8 @@
 ## File Structure
 
 ```
-src/lib/
-  interactive-prompt.ts                       # NEW — confirmContinue() y/n helper for stdin
+src/test-lib/
+  interactive-prompt.ts                       # NEW — confirmContinue() y/n helper (test-only; gates fund-spending interactive tests)
 src/constants/
   uniswap.ts                                  # NEW — Uniswap v4 addresses on Unichain + v4 action selectors
 src/database/
@@ -69,7 +69,7 @@ Out-of-scope explicit:
 
 **Files:**
 - Modify: `src/database/types.ts`
-- Create: `src/lib/interactive-prompt.ts`
+- Create: `src/test-lib/interactive-prompt.ts`
 - Modify: `vitest.config.ts`
 - Create: `vitest.interactive.config.ts`
 - Modify: `package.json`
@@ -111,7 +111,7 @@ In each `makeAgent` factory, add `maxSlippageBps: 100` inside `riskLimits`.
 
 Re-run typecheck until exit 0 (both configs).
 
-- [ ] **Step 3: Create `src/lib/interactive-prompt.ts`**
+- [ ] **Step 3: Create `src/test-lib/interactive-prompt.ts`**
 
 ```ts
 import { createInterface } from 'node:readline/promises';
@@ -184,7 +184,7 @@ Expected: same as before (64 pass, 2 skip, 1 known fail). No `interactive` tests
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/database/types.ts src/lib/interactive-prompt.ts vitest.config.ts vitest.interactive.config.ts package.json src/database/file-database/file-database.live.test.ts src/wallet/dry-run/dry-run-wallet.live.test.ts src/wallet/factory/wallet-factory.live.test.ts src/agent-runner/agent-runner.live.test.ts src/agent-looper/agent-orchestrator.live.test.ts src/ai-tools/tool-registry.live.test.ts
+git add src/database/types.ts src/test-lib/interactive-prompt.ts vitest.config.ts vitest.interactive.config.ts package.json src/database/file-database/file-database.live.test.ts src/wallet/dry-run/dry-run-wallet.live.test.ts src/wallet/factory/wallet-factory.live.test.ts src/agent-runner/agent-runner.live.test.ts src/agent-looper/agent-orchestrator.live.test.ts src/ai-tools/tool-registry.live.test.ts
 git commit -m "feat: add maxSlippageBps + interactive-prompt + vitest config split for slice 7"
 ```
 
@@ -1977,7 +1977,7 @@ This test only runs when `INTERACTIVE_TESTS=1`. Each `it` asks y/n; on "n" the t
 import { describe, it, expect, beforeAll } from 'vitest';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { confirmContinue } from '../lib/interactive-prompt';
+import { confirmContinue } from '../test-lib/interactive-prompt';
 import { RealWallet } from '../wallet/real/real-wallet';
 import { UniswapService } from './uniswap-service';
 import { FileDatabase } from '../database/file-database/file-database';
