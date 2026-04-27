@@ -9,6 +9,11 @@ import { WalletFactory } from '../wallet/factory/wallet-factory';
 import { AgentRunner, type Clock } from '../agent-runner/agent-runner';
 import { StubLLMClient } from '../agent-runner/stub-llm-client';
 import { AgentOrchestrator } from './agent-orchestrator';
+import { ToolRegistry } from '../ai-tools/tool-registry';
+import { CoingeckoService } from '../providers/coingecko/coingecko-service';
+import { CoinMarketCapService } from '../providers/coinmarketcap/coinmarketcap-service';
+import { SerperService } from '../providers/serper/serper-service';
+import { FirecrawlService } from '../providers/firecrawl/firecrawl-service';
 import type { AgentConfig } from '../database/types';
 import type { LLMClient } from '../agent-runner/llm-client';
 
@@ -46,13 +51,22 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
   let runner: AgentRunner;
   let orchestrator: AgentOrchestrator;
 
+  let toolRegistry: ToolRegistry;
+
   beforeEach(async () => {
     dbDir = await mkdtemp(join(tmpdir(), 'agent-loop-orch-'));
     db = new FileDatabase(dbDir);
     activityLog = new AgentActivityLog(new FileActivityLogStore(dbDir));
     walletFactory = new WalletFactory(TEST_ENV, db.transactions);
+    toolRegistry = new ToolRegistry({
+      coingecko: new CoingeckoService({ apiKey: 'dummy' }),
+      coinmarketcap: new CoinMarketCapService({ apiKey: 'dummy' }),
+      serper: new SerperService({ apiKey: 'dummy' }),
+      firecrawl: new FirecrawlService({ apiKey: 'dummy' }),
+      db,
+    });
     clock = new MutableClock(10_000);
-    runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), clock);
+    runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), toolRegistry, clock);
     orchestrator = new AgentOrchestrator(db, runner, clock);
   });
 
@@ -125,9 +139,17 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
         if (prompt.includes('fails')) throw new Error('boom');
         return { content: 'ok' };
       }
+      async invokeWithTools(messages: import('../agent-runner/llm-client').ChatMessage[]): Promise<import('../agent-runner/llm-client').LLMTurnResult> {
+        const flat = messages.map((m) => 'content' in m ? m.content : '').join('\n');
+        if (flat.includes('fails')) throw new Error('boom');
+        return {
+          content: 'ok',
+          assistantMessage: { role: 'assistant', content: 'ok' },
+        };
+      }
     }
 
-    const failingRunner = new AgentRunner(db, activityLog, walletFactory, new SelectiveLLM(), clock);
+    const failingRunner = new AgentRunner(db, activityLog, walletFactory, new SelectiveLLM(), toolRegistry, clock);
     const failingOrch = new AgentOrchestrator(db, failingRunner, clock);
 
     await failingOrch.tick();

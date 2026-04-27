@@ -74,6 +74,7 @@ async function main(): Promise<void> {
   );
   console.log(`[bootstrap] database + activity log initialized at ${env.DB_DIR}`);
   console.log(`[bootstrap] wallet factory initialized`);
+  console.log(`[bootstrap] tool registry initialized (${toolRegistry.build().length} tools)`);
   console.log(`[bootstrap] agent runner initialized (LLM: ${llm.modelName()})`);
 
   const looper = new Looper({
