@@ -1,11 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { WalletFactory } from './wallet-factory';
 import { RealWallet } from '../real/real-wallet';
 import { DryRunWallet } from '../dry-run/dry-run-wallet';
-import { FileTransactionRepository } from '../../database/file-database/file-transaction-repository';
+import { PrismaTransactionRepository } from '../../database/prisma-database/prisma-transaction-repository';
+import { describeIfPostgres, getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
 import type { AgentConfig } from '../../database/types';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
@@ -29,19 +27,22 @@ function makeAgent(id: string, dryRun: boolean): AgentConfig {
   };
 }
 
-describe('WalletFactory (live)', () => {
-  let dbDir: string;
-  let txRepo: FileTransactionRepository;
+describeIfPostgres('WalletFactory (live)', () => {
+  const prisma = getTestPrisma()!;
+  let txRepo: PrismaTransactionRepository;
   let factory: WalletFactory;
 
-  beforeEach(async () => {
-    dbDir = await mkdtemp(join(tmpdir(), 'agent-loop-factory-'));
-    txRepo = new FileTransactionRepository(dbDir);
-    factory = new WalletFactory(TEST_ENV, txRepo);
+  beforeAll(async () => {
+    await prisma.$connect();
+  });
+  afterAll(async () => {
+    await prisma.$disconnect();
   });
 
-  afterEach(async () => {
-    await rm(dbDir, { recursive: true, force: true });
+  beforeEach(async () => {
+    await truncateAll(prisma);
+    txRepo = new PrismaTransactionRepository(prisma);
+    factory = new WalletFactory(TEST_ENV, txRepo);
   });
 
   it('returns DryRunWallet for an agent with dryRun=true', () => {

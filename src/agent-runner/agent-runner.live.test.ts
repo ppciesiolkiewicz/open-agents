@@ -1,8 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { FileDatabase } from '../database/file-database/file-database';
+import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { PrismaDatabase } from '../database/prisma-database/prisma-database';
+import { describeIfPostgres, getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
 import { AgentActivityLog } from '../database/agent-activity-log';
 import { WalletFactory } from '../wallet/factory/wallet-factory';
 import { ToolRegistry } from '../ai-tools/tool-registry';
@@ -86,16 +84,23 @@ class ScriptedLLMClient implements LLMClient {
   }
 }
 
-describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
-  let dbDir: string;
-  let db: FileDatabase;
+describeIfPostgres('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
+  const prisma = getTestPrisma()!;
+  let db: PrismaDatabase;
   let activityLog: AgentActivityLog;
   let walletFactory: WalletFactory;
   let toolRegistry: ToolRegistry;
 
+  beforeAll(async () => {
+    await prisma.$connect();
+  });
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
   beforeEach(async () => {
-    dbDir = await mkdtemp(join(tmpdir(), 'agent-loop-runner-'));
-    db = new FileDatabase(dbDir);
+    await truncateAll(prisma);
+    db = new PrismaDatabase(prisma);
     activityLog = new AgentActivityLog(db.activityLog);
     walletFactory = new WalletFactory(TEST_ENV, db.transactions);
     toolRegistry = new ToolRegistry({
@@ -106,10 +111,6 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
       db,
       uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
     });
-  });
-
-  afterEach(async () => {
-    await rm(dbDir, { recursive: true, force: true });
   });
 
   it('writes tick_start, llm_call, llm_response, tick_end and updates lastTickAt (no tool calls)', async () => {

@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { DryRunWallet } from './dry-run-wallet';
 import { DRY_RUN_HASH_REGEX } from './dry-run-hash';
-import { FileTransactionRepository } from '../../database/file-database/file-transaction-repository';
+import { PrismaTransactionRepository } from '../../database/prisma-database/prisma-transaction-repository';
+import { describeIfPostgres, getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
+import { PrismaAgentRepository } from '../../database/prisma-database/prisma-agent-repository';
 import { TOKENS } from '../../constants';
 import type { AgentConfig, Transaction, TokenAmount } from '../../database/types';
 
@@ -64,21 +63,26 @@ function makeSwapTx(id: string, agentId: string, tokenIn: TokenAmount, tokenOut:
   };
 }
 
-describe('DryRunWallet (live, real FileTransactionRepository)', () => {
-  let dbDir: string;
-  let txRepo: FileTransactionRepository;
+describeIfPostgres('DryRunWallet (live, real PrismaTransactionRepository)', () => {
+  const prisma = getTestPrisma()!;
+  const agentRepo = new PrismaAgentRepository(prisma);
+  let txRepo: PrismaTransactionRepository;
   let agent: AgentConfig;
   let wallet: DryRunWallet;
 
-  beforeEach(async () => {
-    dbDir = await mkdtemp(join(tmpdir(), 'agent-loop-wallet-'));
-    txRepo = new FileTransactionRepository(dbDir);
-    agent = makeAgent('a1');
-    wallet = new DryRunWallet(agent, txRepo, { WALLET_PRIVATE_KEY: TEST_KEY });
+  beforeAll(async () => {
+    await prisma.$connect();
+  });
+  afterAll(async () => {
+    await prisma.$disconnect();
   });
 
-  afterEach(async () => {
-    await rm(dbDir, { recursive: true, force: true });
+  beforeEach(async () => {
+    await truncateAll(prisma);
+    txRepo = new PrismaTransactionRepository(prisma);
+    agent = makeAgent('a1');
+    await agentRepo.upsert(agent);
+    wallet = new DryRunWallet(agent, txRepo, { WALLET_PRIVATE_KEY: TEST_KEY });
   });
 
   it('derives a deterministic address from the private key', () => {
@@ -123,6 +127,8 @@ describe('DryRunWallet (live, real FileTransactionRepository)', () => {
   });
 
   it('isolates balances per agent (other agent\'s txs do not leak)', async () => {
+    const other = makeAgent('someone-else');
+    await agentRepo.upsert(other);
     await txRepo.insert(makeSwapTx('1', 'someone-else', usdc, uni));
     const usdcBal = await wallet.getTokenBalance(TOKENS.USDC.address);
     expect(usdcBal).toBe(1_000_000_000n);  // unchanged

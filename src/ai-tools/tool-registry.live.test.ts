@@ -1,13 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { ToolRegistry } from './tool-registry';
 import { CoingeckoService } from '../providers/coingecko/coingecko-service';
 import { CoinMarketCapService } from '../providers/coinmarketcap/coinmarketcap-service';
 import { SerperService } from '../providers/serper/serper-service';
 import { FirecrawlService } from '../providers/firecrawl/firecrawl-service';
-import { FileDatabase } from '../database/file-database/file-database';
+import { PrismaDatabase } from '../database/prisma-database/prisma-database';
+import { describeIfPostgres, getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
 import { UniswapService } from '../uniswap/uniswap-service';
 import { DryRunWallet } from '../wallet/dry-run/dry-run-wallet';
 import { TOKENS } from '../constants';
@@ -32,17 +30,25 @@ function makeAgent(id: string): AgentConfig {
   };
 }
 
-describe('ToolRegistry tools (live, real services + fs)', () => {
-  let dbDir: string;
+describeIfPostgres('ToolRegistry tools (live, real services + postgres)', () => {
+  const prisma = getTestPrisma()!;
   let registry: ToolRegistry;
   let agent: AgentConfig;
   let ctx: AgentToolContext;
-  let db: FileDatabase;
+  let db: PrismaDatabase;
+
+  beforeAll(async () => {
+    await prisma.$connect();
+  });
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
 
   beforeEach(async () => {
-    dbDir = await mkdtemp(join(tmpdir(), 'agent-loop-toolreg-'));
-    db = new FileDatabase(dbDir);
+    await truncateAll(prisma);
+    db = new PrismaDatabase(prisma);
     agent = makeAgent('a1');
+    await db.agents.upsert(agent);
     const wallet = new DryRunWallet(agent, db.transactions, { WALLET_PRIVATE_KEY: TEST_KEY });
     ctx = { agent, wallet, tickId: 'tick-test-1' };
     const ALCHEMY = process.env.ALCHEMY_API_KEY;
@@ -56,10 +62,6 @@ describe('ToolRegistry tools (live, real services + fs)', () => {
         ? new UniswapService({ ALCHEMY_API_KEY: ALCHEMY, UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL }, db)
         : ({} as UniswapService),
     });
-  });
-
-  afterEach(async () => {
-    await rm(dbDir, { recursive: true, force: true });
   });
 
   it.skipIf(!COINGECKO)('fetchTokenPriceUSD returns a sensible UNI price', async () => {
