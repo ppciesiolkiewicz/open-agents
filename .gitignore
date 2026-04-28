@@ -1,6 +1,7 @@
 node_modules/
 dist/
 db/
+.worktrees/
 .env
 .env.*
 !.env.example
