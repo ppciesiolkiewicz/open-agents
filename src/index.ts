@@ -111,6 +111,7 @@ async function main(): Promise<void> {
       db,
       activityLog,
       runner,
+      tickGuard,
       port: env.PORT,
       ...(env.DOCS_PORT !== undefined ? { docsPort: env.DOCS_PORT } : {}),
       ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
