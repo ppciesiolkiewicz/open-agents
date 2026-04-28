@@ -12,7 +12,6 @@ import { assertAgentOwnedBy } from '../middleware/auth';
 import { BadRequestError, NotFoundError } from '../middleware/error-handler';
 import { decodeCursor, encodeCursor } from '../pagination/cursor';
 import { PaginationQuerySchema, PostMessageBodySchema } from '../openapi/schemas';
-import { SseWriter } from '../sse/event-stream';
 
 interface Deps {
   db: Database;
@@ -80,50 +79,17 @@ export function buildMessagesRouter(deps: Deps): Router {
       if (!agent) throw new NotFoundError();
       assertAgentOwnedBy(agent, req.user!);
 
-      const sse = new SseWriter(res);
-
-      await new Promise<void>((resolve) => {
-        const runTask = async (): Promise<void> => {
-          sse.send({ type: 'started' });
-          let assistantContent = '';
-          try {
-            const strategy = new ChatTickStrategy(deps.activityLog, body.content);
-            await deps.runner.run(agent, strategy, {
-              onToken: (text) => {
-                assistantContent += text;
-                sse.send({ type: 'token', text });
-              },
-            });
-            const recent = await deps.activityLog.list(agentId);
-            const finalLlmResponse = [...recent].reverse().find((e) => e.type === 'llm_response');
-            const tickId = finalLlmResponse?.tickId ?? '';
-            const view: ChatMessageView = {
-              tickId,
-              seq: finalLlmResponse?.seq ?? 0,
-              role: 'assistant',
-              content: assistantContent,
-              createdAt: finalLlmResponse?.timestamp ?? Date.now(),
-            };
-            sse.send({ type: 'done', message: view });
-          } catch (err) {
-            sse.send({ type: 'error', message: (err as Error).message });
-          } finally {
-            sse.close();
-            resolve();
-          }
-        };
-
-        deps.queue
-          .enqueue({ agentId, trigger: 'chat', run: runTask })
-          .then(({ position }) => {
-            if (position > 1) sse.send({ type: 'queued', position });
-          })
-          .catch((err) => {
-            sse.send({ type: 'error', message: (err as Error).message });
-            sse.close();
-            resolve();
+      const result = await deps.queue.enqueue({
+        agentId,
+        trigger: 'chat',
+        run: async () => {
+          const strategy = new ChatTickStrategy(deps.activityLog, body.content);
+          await deps.runner.run(agent, strategy, {
+            onToken: (text) => deps.activityLog.emitEphemeral(agentId, { type: 'token', text }),
           });
+        },
       });
+      res.status(202).json({ position: result.position });
     } catch (err) {
       next(err);
     }
