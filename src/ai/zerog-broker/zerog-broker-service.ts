@@ -53,6 +53,49 @@ export class ZeroGBrokerService {
   }
 
   /**
+   * Reads the main ledger's available balance (the part NOT locked into any
+   * sub-account, available to transfer or to be drawn down by SDK
+   * auto-funding). Returns 0n if no ledger exists yet.
+   */
+  async readLedgerAvailableBalanceWei(): Promise<bigint> {
+    try {
+      const ledger = await this.broker.ledger.getLedger();
+      return ledger.availableBalance;
+    } catch {
+      return 0n;
+    }
+  }
+
+  /**
+   * Ensure the main ledger has at least `minOG` available. If below, deposit
+   * `depositOG` (or addLedger if no ledger yet). Used to keep the SDK's
+   * background auto-funding from warning when the sub-account is fine but
+   * the main ledger is drained.
+   */
+  async ensureLedgerBalance(args: {
+    minOG: number;
+    depositOG: number;     // 3 OG minimum (for addLedger)
+  }): Promise<{ deposited: boolean; balanceBeforeWei: bigint; balanceAfterWei: bigint }> {
+    if (args.depositOG < 3) {
+      throw new Error('depositOG must be >= 3 (0G ledger minimum)');
+    }
+    const minWei = ethers.parseEther(String(args.minOG));
+    const balanceBeforeWei = await this.readLedgerAvailableBalanceWei();
+    if (balanceBeforeWei >= minWei) {
+      return { deposited: false, balanceBeforeWei, balanceAfterWei: balanceBeforeWei };
+    }
+    try {
+      await this.broker.ledger.depositFund(args.depositOG);
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      if (!/ledgerNotExists|LedgerNotExists/i.test(msg)) throw err;
+      await this.broker.ledger.addLedger(args.depositOG);
+    }
+    const balanceAfterWei = await this.readLedgerAvailableBalanceWei();
+    return { deposited: true, balanceBeforeWei, balanceAfterWei };
+  }
+
+  /**
    * Idempotent setup for a provider:
    *   1. Read current sub-account balance.
    *   2. If balance < `topUpThresholdOG` → top up the sub-account by

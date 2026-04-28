@@ -7,9 +7,10 @@ import { ZeroGBrokerService } from './zerog-broker-service';
 import { ZeroGBootstrapStore } from './zerog-bootstrap-store';
 import type { ZeroGBootstrapState } from './types';
 
-const DEFAULT_LEDGER_OG = 3;     // 0G ledger minimum
-const DEFAULT_TRANSFER_OG = 1;   // 0G per-provider minimum
-const MIN_BALANCE_OG = 0.3;      // skip top-up if sub-account >= this
+const DEFAULT_LEDGER_OG = 3;       // 0G ledger minimum (each deposit unit)
+const DEFAULT_TRANSFER_OG = 1;     // 0G per-provider minimum
+const MIN_SUBACCOUNT_OG = 3;       // skip sub-account top-up if >= this (covers SDK's 2×MIN_LOCKED_BALANCE buffer + unsettledFee)
+const MIN_LEDGER_OG = 3;           // keep this much in main ledger so SDK auto-funding can do several top-ups before draining
 
 function formatWeiAsOG(wei: bigint | undefined): string {
   if (wei === undefined) return '?';
@@ -73,26 +74,42 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const ledgerOG = Number(process.env.ZEROG_LEDGER_OG ?? DEFAULT_LEDGER_OG);
-  const transferOG = Number(process.env.ZEROG_TRANSFER_OG ?? DEFAULT_TRANSFER_OG);
+  const subBalanceWei = chosen.subAccountBalanceWei ?? 0n;
+  const subBalanceOG = Number(subBalanceWei) / 1e18;
+  const ledgerBalanceWei = await service.readLedgerAvailableBalanceWei();
+  const ledgerBalanceOG = Number(ledgerBalanceWei) / 1e18;
 
-  const balanceOG = Number(chosen.subAccountBalanceWei ?? 0n) / 1e18;
-  const willTopUp = balanceOG < MIN_BALANCE_OG;
+  const willTopUpSub = subBalanceOG < MIN_SUBACCOUNT_OG;
+  const willTopUpLedger = ledgerBalanceOG < MIN_LEDGER_OG;
+
+  // Transfer enough to cross the threshold, clamped to the SDK's 1 OG minimum.
+  const subDeficitOG = Math.max(0, MIN_SUBACCOUNT_OG - subBalanceOG);
+  const transferOG = willTopUpSub
+    ? Math.max(DEFAULT_TRANSFER_OG, Math.ceil(subDeficitOG))
+    : DEFAULT_TRANSFER_OG;
+  const ledgerOG = DEFAULT_LEDGER_OG;
 
   console.log(`[zerog-bootstrap] selected ${chosen.providerAddress} (${chosen.model})`);
-  console.log(`[zerog-bootstrap] sub-account balance: ${formatWeiAsOG(chosen.subAccountBalanceWei)} OG  (top-up threshold: ${MIN_BALANCE_OG} OG)`);
+  console.log(`[zerog-bootstrap] sub-account balance: ${formatWeiAsOG(subBalanceWei)} OG  (top-up threshold: ${MIN_SUBACCOUNT_OG} OG)`);
+  console.log(`[zerog-bootstrap] main ledger available: ${formatWeiAsOG(ledgerBalanceWei)} OG  (top-up threshold: ${MIN_LEDGER_OG} OG — SDK auto-funding draws from here)`);
 
-  if (willTopUp) {
-    console.log(`[zerog-bootstrap] plan: balance below threshold → top up by transferFund(${transferOG} OG) (auto-deposits ${ledgerOG} OG to the main ledger first if needed), then acknowledge + persist.`);
-  } else {
-    console.log(`[zerog-bootstrap] plan: balance is sufficient → SKIP top-up; just acknowledge + persist.`);
+  const planLines: string[] = [];
+  let costOG = 0;
+  if (willTopUpSub) {
+    planLines.push(`top up sub-account: transferFund(${transferOG} OG) from main ledger`);
+    costOG += transferOG;
   }
+  if (willTopUpLedger) {
+    planLines.push(`top up main ledger: ${ledgerBalanceWei === 0n ? 'addLedger' : 'depositFund'}(${ledgerOG} OG)`);
+    costOG += ledgerOG;
+  }
+  planLines.push(`acknowledge provider signer (idempotent)`);
+  planLines.push(`persist db/zerog-bootstrap.json`);
 
-  const ok = await confirm(
-    willTopUp
-      ? `Proceed? Cost: up to ${transferOG} OG (or ${ledgerOG} OG if main ledger is empty).`
-      : `Proceed? Cost: 0 OG (no funds will move).`,
-  );
+  console.log('[zerog-bootstrap] plan:');
+  for (const l of planLines) console.log(`  - ${l}`);
+
+  const ok = await confirm(`Proceed? Estimated cost: ${costOG} OG.`);
   if (!ok) {
     console.log('[zerog-bootstrap] cancelled.');
     return;
@@ -103,13 +120,23 @@ async function main(): Promise<void> {
     providerAddress: chosen.providerAddress,
     ledgerInitialOG: ledgerOG,
     transferOG,
-    topUpThresholdOG: MIN_BALANCE_OG,
+    topUpThresholdOG: MIN_SUBACCOUNT_OG,
   });
 
   if (result.toppedUp) {
-    console.log(`[zerog-bootstrap] topped up. balance: ${formatWeiAsOG(result.balanceBeforeWei)} OG → ${formatWeiAsOG(result.balanceAfterWei)} OG`);
+    console.log(`[zerog-bootstrap] sub-account topped up. balance: ${formatWeiAsOG(result.balanceBeforeWei)} OG → ${formatWeiAsOG(result.balanceAfterWei)} OG`);
   } else {
-    console.log(`[zerog-bootstrap] no top-up needed (balance ${formatWeiAsOG(result.balanceBeforeWei)} OG ≥ ${MIN_BALANCE_OG} OG).`);
+    console.log(`[zerog-bootstrap] sub-account: no top-up needed (balance ${formatWeiAsOG(result.balanceBeforeWei)} OG ≥ ${MIN_SUBACCOUNT_OG} OG).`);
+  }
+
+  const ledgerResult = await service.ensureLedgerBalance({
+    minOG: MIN_LEDGER_OG,
+    depositOG: ledgerOG,
+  });
+  if (ledgerResult.deposited) {
+    console.log(`[zerog-bootstrap] main ledger funded. available: ${formatWeiAsOG(ledgerResult.balanceBeforeWei)} OG → ${formatWeiAsOG(ledgerResult.balanceAfterWei)} OG`);
+  } else {
+    console.log(`[zerog-bootstrap] main ledger: no top-up needed (available ${formatWeiAsOG(ledgerResult.balanceBeforeWei)} OG ≥ ${MIN_LEDGER_OG} OG).`);
   }
 
   const now = Date.now();
@@ -120,7 +147,8 @@ async function main(): Promise<void> {
     model: result.model,
     acknowledgedAt: now,
     fundedAt: now,
-    fundAmountOG: result.toppedUp ? transferOG : 0,
+    fundAmountOG:
+      (result.toppedUp ? transferOG : 0) + (ledgerResult.deposited ? ledgerOG : 0),
   };
   await store.save(state);
 
