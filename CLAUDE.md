@@ -1,6 +1,6 @@
 # Project: AI Agent Loop
 
-TypeScript looper. Fires AI agents on schedule. Each agent runs Langchain prompt with onchain (Uniswap v4 / Unichain) + offchain tools. Persists configs, transactions, positions, memory, logs to filesystem.
+TypeScript looper. Fires AI agents on schedule. Each agent runs Langchain prompt with onchain (Uniswap v4 / Unichain) + offchain tools. Persists configs, transactions, positions, memory, and the activity log to Postgres (Prisma; Docker locally, Supabase in prod).
 
 Full design: [docs/superpowers/specs/2026-04-26-agent-loop-foundation-design.md](docs/superpowers/specs/2026-04-26-agent-loop-foundation-design.md)
 
@@ -53,7 +53,6 @@ Split by domain. Each module has one purpose, well-defined interface, testable i
 src/
   agent-looper/         tick scheduler, gate logic
   agent-runner/         single-tick execution (callable, worker-ready)
-  agent-activity-log/   per-agent JSON log of ticks, tool calls, LLM I/O, errors
   ai/
     zerog-broker/       0G bootstrap (provider, fund subaccount, secret)
     chat-model/         Langchain ChatOpenAI factory targeting 0G proxy
@@ -68,13 +67,20 @@ src/
     coinmarketcap/
     serper/
     firecrawl/
-  database/
-    interface/          Database interface
-    file-database/      FileDatabase implementation
-    repositories/       AgentRepo, TransactionRepo, PositionRepo, AgentMemoryRepo
+  database/             Database facade + repositories + AgentActivityLog
+    repositories/       interfaces (Agent, Transaction, Position, AgentMemory, ActivityLog)
+    prisma-database/    PrismaDatabase impl + mappers
+    agent-activity-log.ts  EventEmitter facade over ActivityLogRepository
+    types.ts            domain types (incl. AgentActivityLogEntry)
   constants/            chain config, token addresses, pool keys
   config/               env loader + zod validation
   index.ts              bootstrap → Looper.start()
+prisma/
+  schema.prisma         Postgres schema
+  migrations/           Prisma-generated SQL
+  seed.ts               installs seed UNI MA trader
+docker-compose.yml      local Postgres 16 service
+docker/postgres-init/   first-boot SQL (creates agent_loop_test DB)
 ```
 
 ### Single process, worker-ready
@@ -85,20 +91,22 @@ v1 = one Node process, sequential agent execution. `AgentRunner.run()` is a call
 
 Skip backlog. If N intervals missed (downtime), execute **once**, not N times. Update `lastTickAt = now` after run.
 
-### Database = storage-agnostic facade, FileDatabase now
+### Database = storage-agnostic facade, Prisma + Postgres
 
-`Database` is a composition of repositories (`AgentRepository`, `TransactionRepository`, `PositionRepository`, `AgentMemoryRepository`) — no file paths or storage primitives leak through the interface. Domain types (`AgentConfig`, etc.) carry no `*FilePath` fields. v1 backend = `FileDatabase` resolving paths internally from `DB_DIR + entity id`. Swap to SQLite/Postgres later = mechanical.
+`Database` is a composition of repositories (`AgentRepository`, `TransactionRepository`, `PositionRepository`, `AgentMemoryRepository`, `ActivityLogRepository`) — no SQL, paths, or storage primitives leak through the interface. Domain types stay storage-agnostic.
 
-We use files for v1 because they're easy to inspect by eye, not because the abstraction is file-shaped.
+v1 backend = `PrismaDatabase` against Postgres 16 (Docker locally; Supabase in production). Activity log lives in the same DB as structured state — the file-shaped justification for keeping it in its own module disappeared once both stores became SQL.
 
-FileDatabase layout (implementation detail, gitignored under `./db/`):
+Local dev:
+- `npm run db:up` / `db:down` / `db:nuke` — Docker Compose lifecycle
+- `npm run db:migrate` — apply Prisma migrations
+- `npm run db:seed` — install the seed UNI MA trader agent
+- `npm run db:reset` — wipe data, re-migrate, re-seed
+- `npm run db:studio` — open Prisma Studio
 
-- `database.json` — agent configs, transactions, positions
-- `memory/<agentId>.json` — per-agent memory
-- `activity-log/<agentId>.json` — per-agent event stream (owned by `agent-activity-log/`, separate module)
-- `zerog-bootstrap.json` — 0G runtime state (provider address, sub-account secret, serviceUrl, model). Kept in db (not env / not constants) because creating it costs 0G tokens — losing the file = paying again.
+`zerog-bootstrap.json` (0G provider state) stays in `./db/` as a file — it is a singleton paid asset (3 OG to recreate) that gets its own migration cycle in a future spec.
 
-Separation: `database/` = structured queryable state. `agent-activity-log/` = append-only event stream (own module, own storage abstraction `ActivityLogStore`).
+Schema in `prisma/schema.prisma`. Tests against a separate `agent_loop_test` database controlled by `TEST_DATABASE_URL`; live tests skip when the env var is missing so `npm test` is always safe to run.
 
 ### Wallet abstraction
 
@@ -191,6 +199,10 @@ FIRECRAWL_API_KEY=
 # Runtime
 DB_DIR=./db
 LOG_LEVEL=info
+
+# Postgres
+DATABASE_URL=
+TEST_DATABASE_URL=        # optional; live tests skip when absent
 ```
 
 Service URL, secret, model — discovered at bootstrap, persisted to `./db/zerog-bootstrap.json`. Looper tick interval lives in `constants/`, not env.
