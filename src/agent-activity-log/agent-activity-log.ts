@@ -15,7 +15,7 @@ export class AgentActivityLog {
   toolCall(
     agentId: string,
     tickId: string,
-    payload: { tool: string; input: unknown },
+    payload: { id: string; tool: string; input: unknown },
   ): Promise<void> {
     return this.write(agentId, tickId, 'tool_call', payload);
   }
@@ -23,7 +23,7 @@ export class AgentActivityLog {
   toolResult(
     agentId: string,
     tickId: string,
-    payload: { tool: string; output: unknown; durationMs: number },
+    payload: { id: string; tool: string; output: unknown; durationMs: number },
   ): Promise<void> {
     return this.write(agentId, tickId, 'tool_result', payload);
   }
@@ -44,7 +44,7 @@ export class AgentActivityLog {
       responseChars: number;
       tokenCount?: number;
       content: string;
-      toolCalls?: Array<{ name: string; argumentsJson: string }>;
+      toolCalls?: Array<{ id: string; name: string; argumentsJson: string }>;
     },
   ): Promise<void> {
     return this.write(agentId, tickId, 'llm_response', payload);

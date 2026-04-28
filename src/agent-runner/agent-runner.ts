@@ -73,6 +73,7 @@ export class AgentRunner {
           ...(turn.toolCalls && turn.toolCalls.length > 0
             ? {
                 toolCalls: turn.toolCalls.map((c) => ({
+                  id: c.id,
                   name: c.name,
                   argumentsJson: c.argumentsJson,
                 })),
@@ -148,7 +149,7 @@ export class AgentRunner {
     const tool = toolByName.get(call.name);
     if (!tool) {
       const errMsg = `unknown tool: ${call.name}`;
-      await this.activityLog.toolCall(agentId, tickId, { tool: call.name, input: call.argumentsJson });
+      await this.activityLog.toolCall(agentId, tickId, { id: call.id, tool: call.name, input: call.argumentsJson });
       await this.activityLog.error(agentId, tickId, { tool: call.name, message: errMsg });
       return { role: 'tool', toolCallId: call.id, content: `error: ${errMsg}` };
     }
@@ -158,18 +159,19 @@ export class AgentRunner {
       parsed = tool.inputSchema.parse(JSON.parse(call.argumentsJson));
     } catch (err) {
       const errMsg = `invalid tool input: ${(err as Error).message}`;
-      await this.activityLog.toolCall(agentId, tickId, { tool: call.name, input: call.argumentsJson });
+      await this.activityLog.toolCall(agentId, tickId, { id: call.id, tool: call.name, input: call.argumentsJson });
       await this.activityLog.error(agentId, tickId, { tool: call.name, message: errMsg });
       return { role: 'tool', toolCallId: call.id, content: `error: ${errMsg}` };
     }
 
-    await this.activityLog.toolCall(agentId, tickId, { tool: call.name, input: parsed });
+    await this.activityLog.toolCall(agentId, tickId, { id: call.id, tool: call.name, input: parsed });
     this.logStdout(agentId, `tool_call ${call.name} input=${truncate(JSON.stringify(parsed), 400)}`);
     const start = this.clock.now();
     try {
       const output = await tool.invoke(parsed, ctx);
       const durationMs = this.clock.now() - start;
       await this.activityLog.toolResult(agentId, tickId, {
+        id: call.id,
         tool: call.name,
         output,
         durationMs,
@@ -189,6 +191,7 @@ export class AgentRunner {
       const durationMs = this.clock.now() - start;
       await this.activityLog.error(agentId, tickId, { tool: call.name, message: errMsg });
       await this.activityLog.toolResult(agentId, tickId, {
+        id: call.id,
         tool: call.name,
         output: `error: ${errMsg}`,
         durationMs,
