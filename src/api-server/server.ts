@@ -10,6 +10,7 @@ import { errorHandler } from './middleware/error-handler';
 import { buildAgentsRouter } from './routes/agents';
 import { buildActivityRouter } from './routes/activity';
 import { buildMessagesRouter } from './routes/messages';
+import { buildStreamRouter } from './routes/stream';
 import {
   buildOpenApiRouter,
   buildOpenApiSpecRouter,
@@ -44,6 +45,7 @@ export class ApiServer {
     this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
     this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, runner: deps.runner, queue: deps.queue }));
+    this.app.use('/agents/:id/stream', buildStreamRouter({ db: deps.db, activityLog: deps.activityLog }));
 
     this.app.use(errorHandler);
 
