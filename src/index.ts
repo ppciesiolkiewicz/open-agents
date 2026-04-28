@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { loadEnv, type Env } from './config/env';
+import { ApiServer } from './api-server/server';
 import { LOOPER } from './constants';
 import { Looper } from './agent-looper/looper';
 import { AgentOrchestrator } from './agent-looper/agent-orchestrator';
@@ -96,9 +97,19 @@ async function main(): Promise<void> {
   looper.start();
   console.log(`[bootstrap] looper started, ticking every ${LOOPER.tickIntervalMs}ms`);
 
-  const shutdown = (signal: string) => {
-    console.log(`[bootstrap] received ${signal}, stopping looper`);
+  const api = new ApiServer({
+    db,
+    activityLog,
+    runner,
+    port: env.PORT,
+    ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
+  });
+  await api.start();
+
+  const shutdown = async (signal: string) => {
+    console.log(`[bootstrap] received ${signal}, stopping`);
     looper.stop();
+    await api.stop().catch(() => {});
     process.exit(0);
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
