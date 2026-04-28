@@ -102,14 +102,16 @@ export function buildMessagesRouter(deps: Deps): Router {
             sse!.send({ type: 'tool_result', id: result.id, name: result.name, durationMs: result.durationMs });
           },
         });
-        sse!.send({
-          type: 'done',
-          message: {
-            role: 'assistant',
-            content: assistantContent,
-            createdAt: Date.now(),
-          },
-        });
+        const recent = await deps.activityLog.list(agentId);
+        const finalLlmResponse = [...recent].reverse().find((e) => e.type === 'llm_response');
+        const tickId = finalLlmResponse?.tickId ?? '';
+        const view: ChatMessageView = {
+          tickId,
+          role: 'assistant',
+          content: assistantContent,
+          createdAt: finalLlmResponse?.timestamp ?? Date.now(),
+        };
+        sse!.send({ type: 'done', message: view });
       } catch (err) {
         sse!.send({ type: 'error', message: (err as Error).message });
       } finally {
