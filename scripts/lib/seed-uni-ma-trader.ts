@@ -36,7 +36,7 @@ export function buildSeedAgentConfig(opts: SeedAgentOptions = {}): AgentConfig {
   return {
     id: SEED_AGENT_ID,
     name: 'UNI Moving Average Trader',
-    running: true,
+    running: false,
     intervalMs: 60_000,
     prompt: PROMPT,
     walletAddress: '',
