@@ -3,7 +3,6 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileDatabase } from '../database/file-database/file-database';
-import { FileActivityLogRepository } from '../database/file-database/file-activity-log-repository';
 import { AgentActivityLog } from '../database/agent-activity-log';
 import { WalletFactory } from '../wallet/factory/wallet-factory';
 import { ToolRegistry } from '../ai-tools/tool-registry';
@@ -97,7 +96,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
   beforeEach(async () => {
     dbDir = await mkdtemp(join(tmpdir(), 'agent-loop-runner-'));
     db = new FileDatabase(dbDir);
-    activityLog = new AgentActivityLog(new FileActivityLogRepository(dbDir));
+    activityLog = new AgentActivityLog(db.activityLog);
     walletFactory = new WalletFactory(TEST_ENV, db.transactions);
     toolRegistry = new ToolRegistry({
       coingecko: new CoingeckoService({ apiKey: 'dummy' }),
