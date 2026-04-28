@@ -4,20 +4,20 @@ import type { AgentActivityLogEntry, AgentActivityLogEntryType } from './types';
 export class AgentActivityLog {
   constructor(private readonly store: ActivityLogStore) {}
 
-  userMessage(
-    agentId: string,
-    tickId: string,
-    payload: { content: string },
-  ): Promise<void> {
-    return this.write(agentId, tickId, 'user_message', payload);
-  }
-
   tickStart(agentId: string, tickId: string, payload: Record<string, unknown> = {}): Promise<void> {
     return this.write(agentId, tickId, 'tick_start', payload);
   }
 
   tickEnd(agentId: string, tickId: string, payload: Record<string, unknown> = {}): Promise<void> {
     return this.write(agentId, tickId, 'tick_end', payload);
+  }
+
+  userMessage(
+    agentId: string,
+    tickId: string,
+    payload: { content: string },
+  ): Promise<void> {
+    return this.write(agentId, tickId, 'user_message', payload);
   }
 
   toolCall(
