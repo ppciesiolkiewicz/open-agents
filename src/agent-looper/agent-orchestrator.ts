@@ -21,6 +21,7 @@ export class AgentOrchestrator {
       try {
         await this.runner.run(agent);
       } catch (err) {
+        // isolation: one agent failure must not abort the loop
         console.error(`[orchestrator] agent ${agent.id} threw:`, err);
       }
     }
