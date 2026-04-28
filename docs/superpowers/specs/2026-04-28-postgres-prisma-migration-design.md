@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-28
 **Status:** Brainstorming phase
-**Scope:** Replace `FileDatabase` and `FileActivityLogStore` with a single Prisma + Postgres implementation. Add Docker Compose for local Postgres. Add npm scripts for DB lifecycle (up, down, migrate, seed, reset, studio). Production target later: Supabase. The `Database` interface, repository interfaces, and domain types remain unchanged in shape (one new field added: `Database.activityLog`).
+**Scope:** Replace `FileDatabase` and `FileActivityLogStore` with a single Prisma + Postgres implementation. Add Docker Compose for local Postgres. Add npm scripts for DB lifecycle (up, down, migrate, seed, reset, studio). Production target later: Supabase. The `Database` interface and repository interfaces remain unchanged in shape (one new field added: `Database.activityLog`). Domain types change in one place: `AgentConfig.walletAddress` is removed (currently dead — written but never read; the active wallet address comes from `WALLET_PRIVATE_KEY`).
 
 ## Goal
 
@@ -63,7 +63,6 @@ model Agent {
   id                  String   @id
   name                String
   prompt              String
-  walletAddress       String
   dryRun              Boolean
   dryRunSeedBalances  Json?
   riskLimits          Json
@@ -194,7 +193,18 @@ Removed: `seed-agent`, `reset-db`.
 "prisma": { "seed": "tsx prisma/seed.ts" }
 ```
 
-### D9. Config
+### D9. Drop dead `AgentConfig.walletAddress`
+
+`AgentConfig.walletAddress` is removed during this migration. Today it is set (often to `''`) by every test fixture, the seed-agent factory, and the API server's create-agent route, but no consumer reads it — the wallet that signs and reports balances comes from `WALLET_PRIVATE_KEY` via `WalletFactory`. Removing it now keeps the new Prisma schema clean and avoids a follow-up migration.
+
+Affected surfaces:
+- `AgentConfig` interface (drop the field)
+- `prisma/schema.prisma` `Agent` model (no `walletAddress` column)
+- API server: `agentResponseSchema` + `createAgentRequestSchema` in `src/api-server/openapi/schemas.ts`; `agents.ts` route stops reading `body.walletAddress`
+- Test fixtures across `wallet/`, `agent-runner/`, `agent-looper/`, `ai-tools/` (drop the empty-string assignment)
+- `scripts/lib/seed-uni-ma-trader.ts` and `scripts/lib/swap-runner.ts` (drop the field from the produced `AgentConfig`)
+
+### D10. Config
 
 `config/` zod schema gains `DATABASE_URL` (required) and `TEST_DATABASE_URL` (optional; tests skip when absent). `.env.example` updated. No other env changes.
 
