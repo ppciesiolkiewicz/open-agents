@@ -18,6 +18,8 @@ const envSchema = z.object({
 
   DB_DIR: z.string().default('./db'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
+  API_CORS_ORIGINS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
