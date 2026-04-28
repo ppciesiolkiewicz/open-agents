@@ -1,9 +1,1 @@
-import type { AgentActivityLogEntry, AgentActivityLogEntryInput } from './types';
-
-export interface ActivityLogStore {
-  append(entry: AgentActivityLogEntryInput): Promise<AgentActivityLogEntry>;
-  listByAgent(
-    agentId: string,
-    opts?: { limit?: number; sinceTickId?: string },
-  ): Promise<AgentActivityLogEntry[]>;
-}
+export type { ActivityLogRepository as ActivityLogStore } from '../database/repositories/activity-log-repository';
