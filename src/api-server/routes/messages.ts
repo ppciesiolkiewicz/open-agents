@@ -93,12 +93,6 @@ export function buildMessagesRouter(deps: Deps): Router {
                 assistantContent += text;
                 sse.send({ type: 'token', text });
               },
-              onToolCall: (call) => {
-                sse.send({ type: 'tool_call', id: call.id, name: call.name });
-              },
-              onToolResult: (result) => {
-                sse.send({ type: 'tool_result', id: result.id, name: result.name, durationMs: result.durationMs });
-              },
             });
             const recent = await deps.activityLog.list(agentId);
             const finalLlmResponse = [...recent].reverse().find((e) => e.type === 'llm_response');

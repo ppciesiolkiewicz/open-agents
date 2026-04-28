@@ -45,8 +45,6 @@ export interface LLMTurnResult {
 
 export interface InvokeOptions {
   onToken?: (text: string) => void;
-  onToolCall?: (call: { id: string; name: string; argumentsJson: string }) => void;
-  onToolResult?: (result: { id: string; name: string; durationMs: number }) => void;
 }
 
 export interface LLMClient {

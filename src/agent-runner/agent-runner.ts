@@ -167,7 +167,6 @@ export class AgentRunner {
     }
 
     await this.activityLog.toolCall(agentId, tickId, { id: call.id, tool: call.name, input: parsed });
-    options.onToolCall?.({ id: call.id, name: call.name, argumentsJson: call.argumentsJson });
     this.logStdout(agentId, `tool_call ${call.name} input=${truncate(JSON.stringify(parsed), 400)}`);
     const start = this.clock.now();
     try {
@@ -179,7 +178,6 @@ export class AgentRunner {
         output,
         durationMs,
       });
-      options.onToolResult?.({ id: call.id, name: call.name, durationMs });
       this.logStdout(
         agentId,
         `tool_result ${call.name} (${durationMs}ms) output=${truncate(JSON.stringify(output), 400)}`,
@@ -200,7 +198,6 @@ export class AgentRunner {
         output: `error: ${errMsg}`,
         durationMs,
       });
-      options.onToolResult?.({ id: call.id, name: call.name, durationMs });
       this.logStdout(agentId, `tool_error ${call.name} (${durationMs}ms) ${errMsg}`);
       return { role: 'tool', toolCallId: call.id, content: `error: ${errMsg}` };
     }
