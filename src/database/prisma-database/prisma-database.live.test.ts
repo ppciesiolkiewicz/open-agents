@@ -1,10 +1,13 @@
 import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { describeIfPostgres, getTestPrisma, truncateAll } from './test-helpers';
 import { PrismaAgentRepository } from './prisma-agent-repository';
 import { PrismaTransactionRepository } from './prisma-transaction-repository';
 import { PrismaPositionRepository } from './prisma-position-repository';
 import { PrismaAgentMemoryRepository } from './prisma-agent-memory-repository';
-import type { AgentConfig, Transaction, TokenAmount, Position, AgentMemory } from '../types';
+import { PrismaUserRepository } from './prisma-user-repository';
+import { PrismaUserWalletRepository } from './prisma-user-wallet-repository';
+import type { AgentConfig, Transaction, TokenAmount, Position, AgentMemory, User, UserWallet } from '../types';
 
 describeIfPostgres('PrismaAgentRepository', () => {
   const prisma = getTestPrisma()!;
@@ -257,5 +260,112 @@ describeIfPostgres('PrismaAgentMemoryRepository', () => {
 
   it('get returns null for unknown agent', async () => {
     expect(await memory.get('nope')).toBeNull();
+  });
+});
+
+describeIfPostgres('PrismaUserRepository', () => {
+  const prisma = getTestPrisma()!;
+  const users = new PrismaUserRepository(prisma);
+
+  beforeAll(async () => { await prisma.$connect(); });
+  afterAll(async () => { await prisma.$disconnect(); });
+  beforeEach(async () => { await truncateAll(prisma); });
+
+  it('findOrCreateByPrivyDid creates a row on first call', async () => {
+    const u = await users.findOrCreateByPrivyDid('did:privy:abc', { email: 'a@b.c' });
+    expect(u.privyDid).toBe('did:privy:abc');
+    expect(u.email).toBe('a@b.c');
+    expect(u.id).toBeTruthy();
+    console.log('user.findOrCreateByPrivyDid →', u);
+  });
+
+  it('findOrCreateByPrivyDid is idempotent', async () => {
+    const a = await users.findOrCreateByPrivyDid('did:privy:abc', { email: 'a@b.c' });
+    const b = await users.findOrCreateByPrivyDid('did:privy:abc', { email: 'a@b.c' });
+    expect(b.id).toBe(a.id);
+  });
+
+  it('findOrCreateByPrivyDid updates email on second call when changed', async () => {
+    await users.findOrCreateByPrivyDid('did:privy:abc', { email: 'old@x.com' });
+    const updated = await users.findOrCreateByPrivyDid('did:privy:abc', { email: 'new@x.com' });
+    expect(updated.email).toBe('new@x.com');
+  });
+
+  it('findByPrivyDid returns null for unknown DID', async () => {
+    expect(await users.findByPrivyDid('did:privy:nope')).toBeNull();
+  });
+
+  it('findById returns null for unknown id', async () => {
+    expect(await users.findById('not-a-real-id')).toBeNull();
+  });
+});
+
+describeIfPostgres('PrismaUserWalletRepository', () => {
+  const prisma = getTestPrisma()!;
+  const users = new PrismaUserRepository(prisma);
+  const wallets = new PrismaUserWalletRepository(prisma);
+
+  beforeAll(async () => { await prisma.$connect(); });
+  afterAll(async () => { await prisma.$disconnect(); });
+  beforeEach(async () => { await truncateAll(prisma); });
+
+  function makeWallet(opts: { userId: string; privyWalletId?: string; isPrimary?: boolean }): UserWallet {
+    return {
+      id: randomUUID(),
+      userId: opts.userId,
+      privyWalletId: opts.privyWalletId ?? randomUUID(),
+      walletAddress: '0xabc',
+      isPrimary: opts.isPrimary ?? true,
+      createdAt: Date.now(),
+    };
+  }
+
+  it('insert + findById round-trip', async () => {
+    const u = await users.findOrCreateByPrivyDid('did:privy:1', {});
+    const w = makeWallet({ userId: u.id });
+    await wallets.insert(w);
+    const got = await wallets.findById(w.id);
+    expect(got?.privyWalletId).toBe(w.privyWalletId);
+    expect(got?.isPrimary).toBe(true);
+    console.log('userWallet.findById →', got);
+  });
+
+  it('findPrimaryByUser returns the primary wallet, ignores non-primary', async () => {
+    const u = await users.findOrCreateByPrivyDid('did:privy:1', {});
+    await wallets.insert(makeWallet({ userId: u.id, isPrimary: false }));
+    const primary = makeWallet({ userId: u.id, isPrimary: true });
+    await wallets.insert(primary);
+    const got = await wallets.findPrimaryByUser(u.id);
+    expect(got?.id).toBe(primary.id);
+  });
+
+  it('findPrimaryByUser returns null when user has no wallets', async () => {
+    const u = await users.findOrCreateByPrivyDid('did:privy:1', {});
+    expect(await wallets.findPrimaryByUser(u.id)).toBeNull();
+  });
+
+  it('listByUser returns all wallets for the user', async () => {
+    const u = await users.findOrCreateByPrivyDid('did:privy:1', {});
+    await wallets.insert(makeWallet({ userId: u.id, isPrimary: true }));
+    await wallets.insert(makeWallet({ userId: u.id, isPrimary: false }));
+    const all = await wallets.listByUser(u.id);
+    expect(all).toHaveLength(2);
+  });
+
+  it('privyWalletId uniqueness is enforced', async () => {
+    const u = await users.findOrCreateByPrivyDid('did:privy:1', {});
+    const shared = 'privy-wallet-shared';
+    await wallets.insert(makeWallet({ userId: u.id, privyWalletId: shared }));
+    await expect(
+      wallets.insert(makeWallet({ userId: u.id, privyWalletId: shared })),
+    ).rejects.toThrow();
+  });
+
+  it('findByPrivyWalletId returns the row', async () => {
+    const u = await users.findOrCreateByPrivyDid('did:privy:1', {});
+    const w = makeWallet({ userId: u.id, privyWalletId: 'pw-1' });
+    await wallets.insert(w);
+    const got = await wallets.findByPrivyWalletId('pw-1');
+    expect(got?.id).toBe(w.id);
   });
 });

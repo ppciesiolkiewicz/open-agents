@@ -5,6 +5,8 @@ import type {
   AgentMemory as PrismaAgentMemory,
   MemoryEntry as PrismaMemoryEntry,
   ActivityEvent as PrismaActivityEvent,
+  User as PrismaUser,
+  UserWallet as PrismaUserWallet,
 } from '@prisma/client';
 import type {
   AgentConfig,
@@ -14,6 +16,8 @@ import type {
   MemoryEntry,
   TokenAmount,
   AgentActivityLogEntry,
+  User,
+  UserWallet,
 } from '../types';
 
 const num = (v: bigint | null | undefined): number | null =>
@@ -24,6 +28,7 @@ const numReq = (v: bigint): number => Number(v);
 export function agentRowToDomain(row: PrismaAgent): AgentConfig {
   return {
     id: row.id,
+    userId: row.userId,
     name: row.name,
     prompt: row.prompt,
     dryRun: row.dryRun,
@@ -135,5 +140,25 @@ export function activityEventRowToDomain(row: PrismaActivityEvent): AgentActivit
     type: row.type as AgentActivityLogEntry['type'],
     payload: row.payload as Record<string, unknown>,
     seq: numReq(row.seq),
+  };
+}
+
+export function userRowToDomain(row: PrismaUser): User {
+  return {
+    id: row.id,
+    privyDid: row.privyDid,
+    email: row.email,
+    createdAt: numReq(row.createdAt),
+  };
+}
+
+export function userWalletRowToDomain(row: PrismaUserWallet): UserWallet {
+  return {
+    id: row.id,
+    userId: row.userId,
+    privyWalletId: row.privyWalletId,
+    walletAddress: row.walletAddress,
+    isPrimary: row.isPrimary,
+    createdAt: numReq(row.createdAt),
   };
 }

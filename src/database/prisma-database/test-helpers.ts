@@ -20,7 +20,9 @@ export async function truncateAll(prisma: PrismaClient): Promise<void> {
       "AgentMemory",
       "Position",
       "Transaction",
-      "Agent"
+      "Agent",
+      "UserWallet",
+      "User"
     RESTART IDENTITY CASCADE
   `);
 }

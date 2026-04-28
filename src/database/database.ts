@@ -3,6 +3,8 @@ import type { TransactionRepository } from './repositories/transaction-repositor
 import type { PositionRepository } from './repositories/position-repository';
 import type { AgentMemoryRepository } from './repositories/agent-memory-repository';
 import type { ActivityLogRepository } from './repositories/activity-log-repository';
+import type { UserRepository } from './repositories/user-repository';
+import type { UserWalletRepository } from './repositories/user-wallet-repository';
 
 export interface Database {
   readonly agents: AgentRepository;
@@ -10,4 +12,6 @@ export interface Database {
   readonly positions: PositionRepository;
   readonly agentMemory: AgentMemoryRepository;
   readonly activityLog: ActivityLogRepository;
+  readonly users: UserRepository;
+  readonly userWallets: UserWalletRepository;
 }
