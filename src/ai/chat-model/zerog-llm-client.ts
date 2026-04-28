@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import type { ChatCompletionTool, ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import type { LLMClient, LLMResponse, ChatMessage, LLMTurnResult, ToolCall, ToolDefinition } from '../../agent-runner/llm-client';
+import type { LLMClient, LLMResponse, ChatMessage, LLMTurnResult, ToolCall, ToolDefinition, InvokeOptions } from '../../agent-runner/llm-client';
 import type { ZeroGBroker } from '../zerog-broker/zerog-broker-factory';
 
 const DEFAULT_RETRIES = 1;
@@ -117,11 +117,13 @@ export class ZeroGLLMClient implements LLMClient {
     };
   }
 
-  async invokeWithTools(messages: ChatMessage[], tools: ToolDefinition[]): Promise<LLMTurnResult> {
+  async invokeWithTools(messages: ChatMessage[], tools: ToolDefinition[], options?: InvokeOptions): Promise<LLMTurnResult> {
     let lastErr: unknown;
     for (let attempt = 0; attempt <= this.retries; attempt++) {
       try {
-        return await this.invokeWithToolsOnce(messages, tools);
+        return options?.onToken
+          ? await this.invokeWithToolsStreaming(messages, tools, options.onToken)
+          : await this.invokeWithToolsOnce(messages, tools);
       } catch (err) {
         lastErr = err;
         if (attempt < this.retries) {
@@ -130,6 +132,72 @@ export class ZeroGLLMClient implements LLMClient {
       }
     }
     throw lastErr;
+  }
+
+  private async invokeWithToolsStreaming(
+    messages: ChatMessage[],
+    tools: ToolDefinition[],
+    onToken: (text: string) => void,
+  ): Promise<LLMTurnResult> {
+    const headers = (await this.broker.inference.getRequestHeaders(this.providerAddress)) as unknown as Record<string, string>;
+    const stream = await this.openai.chat.completions.create(
+      {
+        model: this.model,
+        messages: messages.map(toOpenAIMessage),
+        ...(tools.length > 0 ? { tools: tools.map(toOpenAITool) } : {}),
+        stream: true,
+      },
+      { headers },
+    );
+
+    let content = '';
+    let completionId = '';
+    const toolCallAccumulator = new Map<number, { id: string; name: string; argumentsJson: string }>();
+
+    for await (const chunk of stream) {
+      completionId = completionId || chunk.id;
+      const delta = chunk.choices[0]?.delta;
+      if (!delta) continue;
+      if (delta.content) {
+        content += delta.content;
+        onToken(delta.content);
+      }
+      if (delta.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          const idx = tc.index;
+          const acc = toolCallAccumulator.get(idx) ?? { id: '', name: '', argumentsJson: '' };
+          if (tc.id) acc.id = tc.id;
+          if (tc.function?.name) acc.name += tc.function.name;
+          if (tc.function?.arguments) acc.argumentsJson += tc.function.arguments;
+          toolCallAccumulator.set(idx, acc);
+        }
+      }
+    }
+
+    const toolCalls: ToolCall[] = [...toolCallAccumulator.values()].filter((c) => c.id);
+
+    // Best-effort settlement validation; mirrors the non-streaming path. Failure here
+    // does not affect the returned content.
+    try {
+      const isValid = await this.broker.inference.processResponse(this.providerAddress, completionId, content);
+      if (isValid !== true) {
+        console.warn(`[zerog-llm] processResponse returned ${isValid}; provider settlement may have rejected or could not verify this call`);
+      }
+    } catch (err) {
+      console.warn('[zerog-llm] processResponse threw:', (err as Error).message);
+    }
+
+    const assistantMessage: ChatMessage = {
+      role: 'assistant',
+      content,
+      ...(toolCalls.length > 0 ? { toolCalls } : {}),
+    };
+
+    return {
+      ...(content.length > 0 ? { content } : {}),
+      ...(toolCalls.length > 0 ? { toolCalls } : {}),
+      assistantMessage,
+    };
   }
 
   private async invokeWithToolsOnce(messages: ChatMessage[], tools: ToolDefinition[]): Promise<LLMTurnResult> {

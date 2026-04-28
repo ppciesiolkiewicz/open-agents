@@ -43,6 +43,10 @@ export interface LLMTurnResult {
   assistantMessage: ChatMessage;
 }
 
+export interface InvokeOptions {
+  onToken?: (text: string) => void;
+}
+
 export interface LLMClient {
   modelName(): string;
 
@@ -51,5 +55,9 @@ export interface LLMClient {
 
   // One round of a tool-calling loop. ONE HTTP call. Returns either content (done)
   // or tool_calls (more work needed). AgentRunner owns the loop.
-  invokeWithTools(messages: ChatMessage[], tools: ToolDefinition[]): Promise<LLMTurnResult>;
+  invokeWithTools(
+    messages: ChatMessage[],
+    tools: ToolDefinition[],
+    options?: InvokeOptions,
+  ): Promise<LLMTurnResult>;
 }

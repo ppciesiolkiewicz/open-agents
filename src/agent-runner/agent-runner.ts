@@ -54,7 +54,7 @@ export class AgentRunner {
       const toolDefs = tools.map(toToolDefinition);
       const ctx: AgentToolContext = { agent, wallet, tickId };
 
-      await this.runToolLoop(agent, tickId, initialMessages, toolDefs, toolByName, ctx);
+      await this.runToolLoop(agent, tickId, initialMessages, toolDefs, toolByName, ctx, options);
     } catch (err) {
       const e = err as Error;
       this.logStdout(agent.id, `ERROR ${e.message}`);
@@ -75,6 +75,7 @@ export class AgentRunner {
     toolDefs: ToolDefinition[],
     toolByName: Map<string, AgentTool>,
     ctx: AgentToolContext,
+    options: { onToken?: (text: string) => void } = {},
   ): Promise<void> {
     let rounds = 0;
     while (rounds < AGENT_RUNNER.maxToolRoundsPerTick) {
@@ -89,7 +90,11 @@ export class AgentRunner {
       await this.activityLog.llmCall(agent.id, tickId, { model: this.llm.modelName(), promptChars });
       this.logStdout(agent.id, `llm_call round=${rounds} model=${this.llm.modelName()} promptChars=${promptChars}`);
 
-      const turn = await this.llm.invokeWithTools(messages, toolDefs);
+      const turn = await this.llm.invokeWithTools(
+        messages,
+        toolDefs,
+        options.onToken ? { onToken: options.onToken } : undefined,
+      );
 
       await this.activityLog.llmResponse(agent.id, tickId, {
         model: this.llm.modelName(),

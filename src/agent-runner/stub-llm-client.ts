@@ -1,5 +1,6 @@
 import type {
   ChatMessage,
+  InvokeOptions,
   LLMClient,
   LLMResponse,
   LLMTurnResult,
@@ -19,7 +20,7 @@ export class StubLLMClient implements LLMClient {
     };
   }
 
-  async invokeWithTools(messages: ChatMessage[], _tools: ToolDefinition[]): Promise<LLMTurnResult> {
+  async invokeWithTools(messages: ChatMessage[], _tools: ToolDefinition[], options?: InvokeOptions): Promise<LLMTurnResult> {
     // Stub doesn't actually call tools — flatten the message history into a
     // single prompt and return canned text. Loop in AgentRunner terminates
     // immediately because no toolCalls are returned.
@@ -31,6 +32,9 @@ export class StubLLMClient implements LLMClient {
       })
       .join('\n');
     const single = await this.invoke(flat);
+    if (options?.onToken) {
+      options.onToken(single.content);
+    }
     return {
       content: single.content,
       assistantMessage: { role: 'assistant', content: single.content },
