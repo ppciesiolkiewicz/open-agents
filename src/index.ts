@@ -4,7 +4,8 @@ import { ApiServer } from './api-server/server';
 import { LOOPER } from './constants';
 import { Looper } from './agent-looper/looper';
 import { AgentOrchestrator } from './agent-looper/agent-orchestrator';
-import { FileDatabase } from './database/file-database/file-database';
+import { PrismaClient } from '@prisma/client';
+import { PrismaDatabase } from './database/prisma-database/prisma-database';
 import { AgentActivityLog } from './database/agent-activity-log';
 import { WalletFactory } from './wallet/factory/wallet-factory';
 import { AgentRunner } from './agent-runner/agent-runner';
@@ -59,7 +60,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const db = new FileDatabase(env.DB_DIR);
+  const prisma = new PrismaClient({ datasources: { db: { url: env.DATABASE_URL } } });
+  const db = new PrismaDatabase(prisma);
   const activityLog = new AgentActivityLog(db.activityLog);
   const walletFactory = new WalletFactory(env, db.transactions);
   const uniswap = new UniswapService(env, db);
@@ -77,7 +79,7 @@ async function main(): Promise<void> {
   console.log(
     `[bootstrap] env loaded — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}, MODE=${env.MODE}`,
   );
-  console.log(`[bootstrap] database + activity log initialized at ${env.DB_DIR}`);
+  console.log(`[bootstrap] database + activity log initialized (Postgres at ${env.DATABASE_URL.replace(/:[^:@]+@/, ':***@')})`);
   console.log(`[bootstrap] wallet factory initialized`);
   console.log(`[bootstrap] tool registry initialized (${toolRegistry.build().length} tools)`);
   console.log(`[bootstrap] agent runner initialized (LLM: ${llm.modelName()})`);
@@ -123,6 +125,7 @@ async function main(): Promise<void> {
     console.log(`[bootstrap] received ${signal}, stopping`);
     if (looper) looper.stop();
     if (api) await api.stop().catch(() => {});
+    await db.disconnect().catch(() => {});
     process.exit(0);
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
