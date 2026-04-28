@@ -5,28 +5,23 @@ export interface TokenAmount {
   decimals: number;
 }
 
-export type AgentType = 'scheduled' | 'chat';
-
 export interface AgentConfig {
   id: string;
   name: string;
-  type: AgentType;
   prompt: string;
   walletAddress: string;
   dryRun: boolean;
   dryRunSeedBalances?: Record<string, string>;  // tokenAddr (or "native") → raw bigint string
   riskLimits: {
-    maxTradeUSD: number;       // existing
-    maxSlippageBps: number;    // new — agent's ceiling on slippage tolerance (50 = 0.5%, 100 = 1%)
+    maxTradeUSD: number;
+    maxSlippageBps: number;
     [k: string]: unknown;
   };
   createdAt: number;
-  // scheduled-only (optional on the union)
-  enabled?: boolean;
+  // optional schedule
+  running?: boolean;
   intervalMs?: number;
   lastTickAt?: number | null;
-  // chat-only
-  lastMessageAt?: number | null;
 }
 
 export interface Transaction {

@@ -10,14 +10,12 @@ import {
   PageOfMessagesSchema,
   ErrorResponseSchema,
   PaginationQuerySchema,
-  AgentTypeSchema,
 } from './schemas';
 
 function registerPaths(): void {
   registry.registerPath({
     method: 'get',
     path: '/agents',
-    request: { query: z.object({ type: AgentTypeSchema.optional() }) },
     responses: {
       200: { description: 'list of agents', content: { 'application/json': { schema: z.array(AgentConfigSchema) } } },
     },
@@ -65,16 +63,17 @@ function registerPaths(): void {
   registry.registerPath({
     method: 'post',
     path: '/agents/{id}/start',
+    description: 'Set running = true. Triggers scheduled ticks if intervalMs is set.',
     request: { params: z.object({ id: z.string() }) },
     responses: {
       200: { description: 'started', content: { 'application/json': { schema: AgentConfigSchema } } },
-      400: { description: 'wrong type', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });
 
   registry.registerPath({
     method: 'post',
     path: '/agents/{id}/stop',
+    description: 'Set running = false. Stops scheduled ticks.',
     request: { params: z.object({ id: z.string() }) },
     responses: {
       200: { description: 'stopped', content: { 'application/json': { schema: AgentConfigSchema } } },
@@ -109,13 +108,14 @@ function registerPaths(): void {
     method: 'post',
     path: '/agents/{id}/messages',
     description:
-      'Streams an SSE response. Each `data:` line is a JSON object with one of types: token, tool_call, tool_result, error, done.',
+      'Streams an SSE response. Each `data:` line is a JSON object with one of types: token, tool_call, tool_result, error, done. Returns 409 if another tick is already running.',
     request: {
       params: z.object({ id: z.string() }),
       body: { content: { 'application/json': { schema: PostMessageBodySchema } } },
     },
     responses: {
       200: { description: 'SSE stream', content: { 'text/event-stream': { schema: z.string() } } },
+      409: { description: 'tick already in progress', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });
 }

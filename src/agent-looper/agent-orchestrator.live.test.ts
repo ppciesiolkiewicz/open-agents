@@ -20,12 +20,11 @@ import type { LLMClient } from '../agent-runner/llm-client';
 const TEST_KEY = '0x' + '11'.repeat(32);
 const TEST_ENV = { WALLET_PRIVATE_KEY: TEST_KEY, ALCHEMY_API_KEY: 'unused' };
 
-function makeAgent(id: string, opts: { enabled?: boolean; intervalMs?: number; lastTickAt?: number | null } = {}): AgentConfig {
+function makeAgent(id: string, opts: { running?: boolean; intervalMs?: number; lastTickAt?: number | null } = {}): AgentConfig {
   return {
     id,
     name: id,
-    type: 'scheduled',
-    enabled: opts.enabled ?? true,
+    running: opts.running ?? true,
     intervalMs: opts.intervalMs ?? 1_000,
     prompt: `agent ${id}`,
     walletAddress: '',
@@ -96,7 +95,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
   });
 
   it('skips disabled agents', async () => {
-    await db.agents.upsert(makeAgent('off', { enabled: false, lastTickAt: null }));
+    await db.agents.upsert(makeAgent('off', { running: false, lastTickAt: null }));
 
     await orchestrator.tick();
 

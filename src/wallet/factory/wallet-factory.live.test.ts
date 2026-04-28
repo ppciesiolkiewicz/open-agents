@@ -18,8 +18,7 @@ function makeAgent(id: string, dryRun: boolean): AgentConfig {
   return {
     id,
     name: id,
-    type: 'scheduled',
-    enabled: true,
+    running: true,
     intervalMs: 60_000,
     prompt: 'test',
     walletAddress: '',

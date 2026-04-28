@@ -65,12 +65,7 @@ export class AgentRunner {
     } finally {
       const fresh = await this.db.agents.findById(agent.id);
       if (fresh) {
-        const now = this.clock.now();
-        const updated =
-          agent.type === 'scheduled'
-            ? { ...fresh, lastTickAt: now }
-            : { ...fresh, lastMessageAt: now };
-        await this.db.agents.upsert(updated);
+        await this.db.agents.upsert({ ...fresh, lastTickAt: this.clock.now() });
       }
     }
   }

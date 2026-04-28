@@ -5,8 +5,6 @@ extendZodWithOpenApi(z);
 
 export const registry = new OpenAPIRegistry();
 
-export const AgentTypeSchema = z.enum(['scheduled', 'chat']).openapi({ description: 'Agent execution mode' });
-
 export const RiskLimitsSchema = z.object({
   maxTradeUSD: z.number().nonnegative(),
   maxSlippageBps: z.number().int().nonnegative(),
@@ -15,50 +13,32 @@ export const RiskLimitsSchema = z.object({
 export const AgentConfigSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: AgentTypeSchema,
   prompt: z.string(),
   walletAddress: z.string(),
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
   riskLimits: RiskLimitsSchema,
   createdAt: z.number(),
-  enabled: z.boolean().optional(),
+  running: z.boolean().optional(),
   intervalMs: z.number().int().nonnegative().optional(),
   lastTickAt: z.number().nullable().optional(),
-  lastMessageAt: z.number().nullable().optional(),
 }).openapi('AgentConfig');
 
-export const CreateScheduledAgentBodySchema = z.object({
+export const CreateAgentBodySchema = z.object({
   name: z.string().min(1),
-  type: z.literal('scheduled'),
   prompt: z.string().min(1),
   walletAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
   riskLimits: RiskLimitsSchema,
-  intervalMs: z.number().int().min(1000),
-}).openapi('CreateScheduledAgentBody');
-
-export const CreateChatAgentBodySchema = z.object({
-  name: z.string().min(1),
-  type: z.literal('chat'),
-  prompt: z.string().min(1),
-  walletAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-  dryRun: z.boolean(),
-  dryRunSeedBalances: z.record(z.string()).optional(),
-  riskLimits: RiskLimitsSchema,
-}).openapi('CreateChatAgentBody');
-
-export const CreateAgentBodySchema = z.discriminatedUnion('type', [
-  CreateScheduledAgentBodySchema,
-  CreateChatAgentBodySchema,
-]);
+  intervalMs: z.number().int().min(1000).optional(),
+}).openapi('CreateAgentBody');
 
 export const UpdateAgentBodySchema = z.object({
   name: z.string().min(1).optional(),
   prompt: z.string().min(1).optional(),
   riskLimits: RiskLimitsSchema.optional(),
-  intervalMs: z.number().int().nonnegative().optional(),
+  intervalMs: z.number().int().min(1000).optional(),
 }).openapi('UpdateAgentBody');
 
 export const PostMessageBodySchema = z.object({

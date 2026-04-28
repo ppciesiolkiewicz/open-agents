@@ -3,9 +3,8 @@ import { randomUUID } from 'node:crypto';
 import type { Database } from '../../database/database';
 import type { AgentConfig } from '../../database/types';
 import { assertAgentOwnedBy } from '../middleware/auth';
-import { BadRequestError, NotFoundError } from '../middleware/error-handler';
+import { NotFoundError } from '../middleware/error-handler';
 import {
-  AgentTypeSchema,
   CreateAgentBodySchema,
   UpdateAgentBodySchema,
 } from '../openapi/schemas';
@@ -21,11 +20,7 @@ export function buildAgentsRouter(deps: Deps): Router {
 
   r.get('/', async (req, res, next) => {
     try {
-      const typeFilter = req.query.type
-        ? AgentTypeSchema.parse(req.query.type)
-        : undefined;
-      let agents = await deps.db.agents.list();
-      if (typeFilter) agents = agents.filter((a) => a.type === typeFilter);
+      const agents = await deps.db.agents.list();
       res.json(agents);
     } catch (err) {
       next(err);
@@ -35,21 +30,19 @@ export function buildAgentsRouter(deps: Deps): Router {
   r.post('/', async (req, res, next) => {
     try {
       const body = CreateAgentBodySchema.parse(req.body);
-      const base: AgentConfig = {
+      const agent: AgentConfig = {
         id: randomUUID(),
         name: body.name,
-        type: body.type,
         prompt: body.prompt,
         walletAddress: body.walletAddress,
         dryRun: body.dryRun,
         ...(body.dryRunSeedBalances ? { dryRunSeedBalances: body.dryRunSeedBalances } : {}),
         riskLimits: body.riskLimits,
         createdAt: now(),
+        running: false,
+        lastTickAt: null,
+        ...(body.intervalMs !== undefined ? { intervalMs: body.intervalMs } : {}),
       };
-      const agent: AgentConfig =
-        body.type === 'scheduled'
-          ? { ...base, enabled: false, intervalMs: body.intervalMs, lastTickAt: null }
-          : { ...base, lastMessageAt: null };
       await deps.db.agents.upsert(agent);
       res.status(201).json(agent);
     } catch (err) {
@@ -74,10 +67,6 @@ export function buildAgentsRouter(deps: Deps): Router {
       const agent = await deps.db.agents.findById(req.params.id);
       if (!agent) throw new NotFoundError();
       assertAgentOwnedBy(agent, req.user!);
-
-      if (body.intervalMs !== undefined && agent.type !== 'scheduled') {
-        throw new BadRequestError('unsupported_for_agent_type', 'intervalMs is scheduled-only');
-      }
 
       const updated: AgentConfig = {
         ...agent,
@@ -110,10 +99,7 @@ export function buildAgentsRouter(deps: Deps): Router {
       const agent = await deps.db.agents.findById(req.params.id);
       if (!agent) throw new NotFoundError();
       assertAgentOwnedBy(agent, req.user!);
-      if (agent.type !== 'scheduled') {
-        throw new BadRequestError('unsupported_for_agent_type', 'start is scheduled-only');
-      }
-      const updated: AgentConfig = { ...agent, enabled: true };
+      const updated: AgentConfig = { ...agent, running: true };
       await deps.db.agents.upsert(updated);
       res.json(updated);
     } catch (err) {
@@ -126,10 +112,7 @@ export function buildAgentsRouter(deps: Deps): Router {
       const agent = await deps.db.agents.findById(req.params.id);
       if (!agent) throw new NotFoundError();
       assertAgentOwnedBy(agent, req.user!);
-      if (agent.type !== 'scheduled') {
-        throw new BadRequestError('unsupported_for_agent_type', 'stop is scheduled-only');
-      }
-      const updated: AgentConfig = { ...agent, enabled: false };
+      const updated: AgentConfig = { ...agent, running: false };
       await deps.db.agents.upsert(updated);
       res.json(updated);
     } catch (err) {

@@ -28,8 +28,7 @@ function makeAgent(id: string): AgentConfig {
   return {
     id,
     name: `agent-${id}`,
-    type: 'scheduled',
-    enabled: true,
+    running: true,
     intervalMs: 60_000,
     prompt: `You are ${id}. Respond briefly.`,
     walletAddress: '',

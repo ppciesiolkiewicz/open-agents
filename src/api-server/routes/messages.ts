@@ -28,10 +28,6 @@ export function buildMessagesRouter(deps: Deps): Router {
       const agent = await deps.db.agents.findById(agentId);
       if (!agent) throw new NotFoundError();
       assertAgentOwnedBy(agent, req.user!);
-      if (agent.type !== 'chat') {
-        throw new BadRequestError('unsupported_for_agent_type', 'messages are chat-only');
-      }
-
       const q = PaginationQuerySchema.parse(req.query);
       const entries = await deps.activityLog.list(agentId);
       let views: ChatMessageView[] = projectChatMessages(entries);
@@ -81,10 +77,6 @@ export function buildMessagesRouter(deps: Deps): Router {
       const agent = await deps.db.agents.findById(agentId);
       if (!agent) throw new NotFoundError();
       assertAgentOwnedBy(agent, req.user!);
-      if (agent.type !== 'chat') {
-        throw new BadRequestError('unsupported_for_agent_type', 'messages are chat-only');
-      }
-
       sse = new SseWriter(res);
 
       const strategy = new ChatTickStrategy(deps.activityLog, body.content);
