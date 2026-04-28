@@ -68,7 +68,8 @@ Set `DOCS_PORT` to mount Swagger UI on its own port (e.g. `PORT=3000 DOCS_PORT=8
 - `POST /agents/:id/start`, `POST /agents/:id/stop` — set `running = true/false` on any agent
 - `GET /agents/:id/activity?cursor=&limit=&order=desc|asc` — paginated activity log
 - `GET /agents/:id/messages?cursor=&limit=&order=desc|asc` — paginated chat history
-- `POST /agents/:id/messages` — send a chat message; response is `text/event-stream`. Events: `queued` (if a task is ahead), `started`, `token`, `tool_call`, `tool_result`, `done`, `error`.
+- `POST /agents/:id/messages` — enqueue a chat task; returns `202 { position }` immediately. No SSE on this endpoint.
+- `GET /agents/:id/stream` — SSE stream of all activity-log events for the agent. Each `data:` line is `{ type: "append", entry }` or `{ type: "ephemeral", payload }`. Subscribe before (or after) posting a message to observe the tick run. Multiple clients can subscribe simultaneously.
 
 Auth is a stub in v1 (every request gets `user.id = 'local-dev'`). JWT decoding lands in the same middleware later; endpoint signatures stay the same.
 
@@ -86,7 +87,7 @@ The two trigger types (scheduled tick vs. chat message) describe how the LLM pro
 A single in-process `TickQueue` serializes all tick execution (scheduled + chat) across the whole process. One worker drains the queue:
 
 - **Scheduled ticks** — orchestrator enqueues a task per due agent and bumps `lastTickAt` optimistically so subsequent looper iterations don't pile up duplicates.
-- **Chat POSTs** — `POST /agents/:id/messages` always succeeds. Clients see SSE events `queued` (when not first), then `started`, then `token` / `tool_call` / `tool_result` / `done` / `error` as the task runs.
+- **Chat POSTs** — `POST /agents/:id/messages` always succeeds (returns `202 { position }`). Clients subscribe to `GET /agents/:id/stream` to observe progress. Ephemeral events `task_queued`, `task_started`, `token` (one per LLM token), and `task_finished` appear in the stream alongside persisted `append` events for `tick_start`, `llm_call`, `tool_call`, `tool_result`, `llm_response`, `tick_end`.
 
 The current implementation is `InMemoryTickQueue` — single-process only, lost on restart. The `TickQueue` interface is shaped for swap-in alternatives (file-based, Redis-backed) without changing consumer code. Run `MODE=both` so the looper and server share the same queue instance.
 
@@ -109,7 +110,7 @@ curl -o openapi.json http://localhost:3000/openapi.json
 npx openapi-typescript openapi.json -o src/api-types.ts
 ```
 
-Use `openapi-fetch<paths>` for typed requests. Chat SSE is hand-written (`fetch` + `ReadableStream` reader; the chat endpoint is `POST` so `EventSource` doesn't apply directly).
+Use `openapi-fetch<paths>` for typed requests. `/stream` is a standard SSE endpoint (`GET`), so `EventSource` applies directly: `new EventSource('/agents/<id>/stream')`. Parse each `event.data` as JSON to get `{ type, entry | payload }`.
 
 ## Layout
 
