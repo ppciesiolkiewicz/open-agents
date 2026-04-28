@@ -39,7 +39,13 @@ export class AgentActivityLog {
   llmResponse(
     agentId: string,
     tickId: string,
-    payload: { model: string; responseChars: number; tokenCount?: number },
+    payload: {
+      model: string;
+      responseChars: number;
+      tokenCount?: number;
+      content: string;
+      toolCalls?: Array<{ name: string; argumentsJson: string }>;
+    },
   ): Promise<void> {
     return this.write(agentId, tickId, 'llm_response', payload);
   }
@@ -47,7 +53,13 @@ export class AgentActivityLog {
   memoryUpdate(
     agentId: string,
     tickId: string,
-    payload: { keysChanged: string[] },
+    payload: {
+      tool: 'updateMemory' | 'saveMemoryEntry';
+      keysChanged: string[];
+      state?: Record<string, unknown>;
+      appendNote?: string;
+      entry?: { type: string; content: string; parentEntryIds?: string[] };
+    },
   ): Promise<void> {
     return this.write(agentId, tickId, 'memory_update', payload);
   }
