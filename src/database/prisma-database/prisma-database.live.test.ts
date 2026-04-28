@@ -1,7 +1,10 @@
 import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { describeIfPostgres, getTestPrisma, truncateAll } from './test-helpers';
 import { PrismaAgentRepository } from './prisma-agent-repository';
-import type { AgentConfig } from '../types';
+import { PrismaTransactionRepository } from './prisma-transaction-repository';
+import { PrismaPositionRepository } from './prisma-position-repository';
+import { PrismaAgentMemoryRepository } from './prisma-agent-memory-repository';
+import type { AgentConfig, Transaction, TokenAmount, Position, AgentMemory } from '../types';
 
 describeIfPostgres('PrismaAgentRepository', () => {
   const prisma = getTestPrisma()!;
@@ -68,5 +71,191 @@ describeIfPostgres('PrismaAgentRepository', () => {
 
   it('findById returns null for missing agent', async () => {
     expect(await repo.findById('nope')).toBeNull();
+  });
+});
+
+describeIfPostgres('PrismaTransactionRepository', () => {
+  const prisma = getTestPrisma()!;
+  const agents = new PrismaAgentRepository(prisma);
+  const txs = new PrismaTransactionRepository(prisma);
+
+  beforeAll(async () => { await prisma.$connect(); });
+  afterAll(async () => { await prisma.$disconnect(); });
+  beforeEach(async () => {
+    await truncateAll(prisma);
+    await agents.upsert({
+      id: 'a1', name: 'a1', prompt: '', dryRun: true,
+      riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
+    });
+  });
+
+  const usdc: TokenAmount = {
+    tokenAddress: '0xUSDC',
+    symbol: 'USDC',
+    amountRaw: '1000000000',
+    decimals: 6,
+  };
+
+  function makeTx(id: string, agentId = 'a1'): Transaction {
+    return {
+      id,
+      agentId,
+      hash: `0x${'0'.repeat(60)}${id.padStart(4, '0')}`,
+      chainId: 130,
+      from: '0xabc',
+      to: '0xdef',
+      tokenIn: usdc,
+      tokenOut: undefined,
+      gasUsed: '21000',
+      gasPriceWei: '1000000000',
+      gasCostWei: '21000000000000',
+      status: 'success',
+      blockNumber: 12345,
+      timestamp: Date.now(),
+    };
+  }
+
+  it('insert + findById', async () => {
+    await txs.insert(makeTx('t1'));
+    const got = await txs.findById('t1');
+    expect(got?.id).toBe('t1');
+    expect(got?.tokenIn?.symbol).toBe('USDC');
+    expect(got?.gasUsed).toBe('21000');
+    console.log('tx.findById →', got);
+  });
+
+  it('listByAgent with limit returns last N in chronological order', async () => {
+    for (let i = 1; i <= 5; i++) {
+      await txs.insert({ ...makeTx(`t${i}`), timestamp: i });
+    }
+    const last3 = await txs.listByAgent('a1', { limit: 3 });
+    expect(last3).toHaveLength(3);
+    expect(last3.map((t) => t.id)).toEqual(['t3', 't4', 't5']);
+  });
+
+  it('updateStatus mutates only allowed fields', async () => {
+    await txs.insert({ ...makeTx('t1'), status: 'pending', blockNumber: null, hash: '0xpending' });
+    await txs.updateStatus('t1', { status: 'success', blockNumber: 999, hash: '0xfinal' });
+    const got = await txs.findById('t1');
+    expect(got?.status).toBe('success');
+    expect(got?.blockNumber).toBe(999);
+    expect(got?.hash).toBe('0xfinal');
+  });
+});
+
+describeIfPostgres('PrismaPositionRepository', () => {
+  const prisma = getTestPrisma()!;
+  const agents = new PrismaAgentRepository(prisma);
+  const positions = new PrismaPositionRepository(prisma);
+
+  beforeAll(async () => { await prisma.$connect(); });
+  afterAll(async () => { await prisma.$disconnect(); });
+  beforeEach(async () => {
+    await truncateAll(prisma);
+    await agents.upsert({
+      id: 'a1', name: 'a1', prompt: '', dryRun: true,
+      riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
+    });
+  });
+
+  function makePos(id: string, opts: { closed?: boolean; tokenAddress?: string } = {}): Position {
+    return {
+      id,
+      agentId: 'a1',
+      amount: {
+        tokenAddress: opts.tokenAddress ?? '0xUNI',
+        symbol: 'UNI',
+        amountRaw: '500000000000000000',
+        decimals: 18,
+      },
+      costBasisUSD: 5,
+      openedByTransactionId: 'tx-open',
+      closedByTransactionId: opts.closed ? 'tx-close' : undefined,
+      openedAt: Date.now(),
+      closedAt: opts.closed ? Date.now() : null,
+      realizedPnlUSD: opts.closed ? 1.5 : null,
+    };
+  }
+
+  it('insert + listByAgent', async () => {
+    await positions.insert(makePos('p1'));
+    await positions.insert(makePos('p2', { closed: true }));
+    const all = await positions.listByAgent('a1');
+    expect(all).toHaveLength(2);
+    console.log('positions.listByAgent →', all.map((p) => ({ id: p.id, closed: p.closedAt !== null })));
+  });
+
+  it('findOpen returns the open position for the token', async () => {
+    await positions.insert(makePos('p1'));
+    await positions.insert(makePos('p2', { closed: true, tokenAddress: '0xOTHER' }));
+    const open = await positions.findOpen('a1', '0xUNI');
+    expect(open?.id).toBe('p1');
+  });
+
+  it('findOpen returns null when only closed positions exist', async () => {
+    await positions.insert(makePos('p1', { closed: true }));
+    const open = await positions.findOpen('a1', '0xUNI');
+    expect(open).toBeNull();
+  });
+
+  it('update mutates the row', async () => {
+    await positions.insert(makePos('p1'));
+    const updated = makePos('p1', { closed: true });
+    await positions.update(updated);
+    const got = (await positions.listByAgent('a1'))[0];
+    expect(got?.closedAt).not.toBeNull();
+    expect(got?.realizedPnlUSD).toBe(1.5);
+  });
+});
+
+describeIfPostgres('PrismaAgentMemoryRepository', () => {
+  const prisma = getTestPrisma()!;
+  const agents = new PrismaAgentRepository(prisma);
+  const memory = new PrismaAgentMemoryRepository(prisma);
+
+  beforeAll(async () => { await prisma.$connect(); });
+  afterAll(async () => { await prisma.$disconnect(); });
+  beforeEach(async () => {
+    await truncateAll(prisma);
+    await agents.upsert({
+      id: 'a1', name: 'a1', prompt: '', dryRun: true,
+      riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
+    });
+  });
+
+  function makeMemory(): AgentMemory {
+    return {
+      agentId: 'a1',
+      notes: 'hello',
+      state: { lastPriceUSD: 5.5, mode: 'observe' },
+      updatedAt: Date.now(),
+      entries: [
+        { id: 'e1', tickId: 't1', type: 'observation', content: 'noted price', createdAt: Date.now() },
+        { id: 'e2', tickId: 't2', type: 'snapshot', content: 'snap', parentEntryIds: ['e1'], createdAt: Date.now() + 1 },
+      ],
+    };
+  }
+
+  it('upsert + get round-trip with entries', async () => {
+    await memory.upsert(makeMemory());
+    const got = await memory.get('a1');
+    expect(got?.notes).toBe('hello');
+    expect(got?.state).toEqual({ lastPriceUSD: 5.5, mode: 'observe' });
+    expect(got?.entries).toHaveLength(2);
+    expect(got?.entries[1]?.parentEntryIds).toEqual(['e1']);
+    console.log('memory.get →', got);
+  });
+
+  it('upsert overwrites entries (full replace semantics matches file impl)', async () => {
+    const m = makeMemory();
+    await memory.upsert(m);
+    await memory.upsert({ ...m, entries: [{ id: 'e3', tickId: 't3', type: 'note', content: 'new', createdAt: Date.now() }] });
+    const got = await memory.get('a1');
+    expect(got?.entries).toHaveLength(1);
+    expect(got?.entries[0]?.id).toBe('e3');
+  });
+
+  it('get returns null for unknown agent', async () => {
+    expect(await memory.get('nope')).toBeNull();
   });
 });
