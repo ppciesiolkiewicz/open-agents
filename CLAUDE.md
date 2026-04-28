@@ -166,7 +166,7 @@ Real or dry-run. Token in/out, gas (estimated for dry-run), status, block. Never
 ## Slice Order (impl)
 
 1. **Bootstrap** — project setup (package.json, tsconfig, vitest), `.gitignore`, `config/` env loader, `constants/`, all `providers/` with live UNI/USDC tests, empty `agent-looper/` that ticks but loads no agents
-2. **Database + activity log** — `database/` (interface + FileDatabase + repositories) + `agent-activity-log/`
+2. **Database + activity log** — `database/` (Database facade + repositories + PrismaDatabase + AgentActivityLog)
 3. **Wallet** — real + dry-run + factory with tests
 4. **Looper + AgentRunner skeleton** (mocked LLM, wires DB + wallet + log)
 5. **AI integration** — 0G bootstrap, chat-model, real LLM in runner

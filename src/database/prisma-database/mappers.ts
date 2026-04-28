@@ -38,27 +38,6 @@ export function agentRowToDomain(row: PrismaAgent): AgentConfig {
   };
 }
 
-export function agentDomainToRow(a: AgentConfig): {
-  create: Omit<PrismaAgent, never>;
-  update: Omit<PrismaAgent, 'id'>;
-} {
-  const base: Omit<PrismaAgent, 'id'> = {
-    name: a.name,
-    prompt: a.prompt,
-    dryRun: a.dryRun,
-    dryRunSeedBalances: (a.dryRunSeedBalances ?? null) as PrismaAgent['dryRunSeedBalances'],
-    riskLimits: a.riskLimits as PrismaAgent['riskLimits'],
-    createdAt: BigInt(a.createdAt),
-    running: a.running ?? null,
-    intervalMs: a.intervalMs ?? null,
-    lastTickAt: a.lastTickAt === null || a.lastTickAt === undefined ? null : BigInt(a.lastTickAt),
-  };
-  return {
-    create: { id: a.id, ...base },
-    update: base,
-  };
-}
-
 export function txRowToDomain(row: PrismaTransaction): Transaction {
   return {
     id: row.id,
