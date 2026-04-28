@@ -14,7 +14,7 @@ export class AgentOrchestrator {
     const now = this.clock.now();
     const all = await this.db.agents.list();
     const due = all.filter(
-      (a) => a.enabled && now - (a.lastTickAt ?? 0) >= a.intervalMs,
+      (a) => a.type === 'scheduled' && a.enabled && now - (a.lastTickAt ?? 0) >= a.intervalMs,
     );
 
     for (const agent of due) {
