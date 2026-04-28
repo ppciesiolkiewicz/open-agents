@@ -18,11 +18,15 @@ model Agent {
   running             Boolean?
   intervalMs          Int?
   lastTickAt          BigInt?
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   transactions        Transaction[]
   positions           Position[]
   memory              AgentMemory?
   events              ActivityEvent[]
+
+  @@index([userId])
 }
 
 model Transaction {
@@ -97,4 +101,27 @@ model ActivityEvent {
   @@index([agentId, timestamp])
   @@index([agentId, tickId])
   @@index([agentId, seq])
+}
+
+model User {
+  id          String   @id
+  privyDid    String   @unique
+  email       String?
+  createdAt   BigInt
+
+  wallets     UserWallet[]
+  agents      Agent[]
+}
+
+model UserWallet {
+  id              String   @id
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  privyWalletId   String   @unique
+  walletAddress   String
+  isPrimary       Boolean  @default(false)
+  createdAt       BigInt
+
+  @@index([userId])
+  @@index([userId, isPrimary])
 }
