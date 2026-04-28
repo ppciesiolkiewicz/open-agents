@@ -68,7 +68,7 @@ Set `DOCS_PORT` to mount Swagger UI on its own port (e.g. `PORT=3000 DOCS_PORT=8
 - `POST /agents/:id/start`, `POST /agents/:id/stop` — set `running = true/false` on any agent
 - `GET /agents/:id/activity?cursor=&limit=&order=desc|asc` — paginated activity log
 - `GET /agents/:id/messages?cursor=&limit=&order=desc|asc` — paginated chat history
-- `POST /agents/:id/messages` — send a chat message; response is `text/event-stream` with `token`, `tool_call`, `tool_result`, `error`, `done` events. Returns **409** if another tick is already running.
+- `POST /agents/:id/messages` — send a chat message; response is `text/event-stream`. Events: `queued` (if a task is ahead), `started`, `token`, `tool_call`, `tool_result`, `done`, `error`.
 
 Auth is a stub in v1 (every request gets `user.id = 'local-dev'`). JWT decoding lands in the same middleware later; endpoint signatures stay the same.
 
@@ -81,14 +81,14 @@ There is no agent type discriminator. Every agent can:
 
 The two trigger types (scheduled tick vs. chat message) describe how the LLM prompt is assembled, not what kind of agent it is. The same agent can do both.
 
-### TickGuard — global tick serialization
+### TickQueue — single-worker FIFO
 
-A single in-process `TickGuard` mutex ensures only one tick runs at a time across all agents and both trigger types:
+A single in-process `TickQueue` serializes all tick execution (scheduled + chat) across the whole process. One worker drains the queue:
 
-- Scheduled ticks: if the guard is busy, the orchestrator skips the agent on this loop iteration (same skip-backlog semantics as before — it will catch up on the next iteration when the guard is free).
-- Chat POSTs: if the guard is busy, `POST /agents/:id/messages` returns `409 { "error": "busy" }` immediately. The client should retry.
+- **Scheduled ticks** — orchestrator enqueues a task per due agent and bumps `lastTickAt` optimistically so subsequent looper iterations don't pile up duplicates.
+- **Chat POSTs** — `POST /agents/:id/messages` always succeeds. Clients see SSE events `queued` (when not first), then `started`, then `token` / `tool_call` / `tool_result` / `done` / `error` as the task runs.
 
-The guard is in-memory. Running `MODE=both` (one process, both looper and server) is the recommended topology. Cross-process coordination is out of scope for v1.
+The current implementation is `InMemoryTickQueue` — single-process only, lost on restart. The `TickQueue` interface is shaped for swap-in alternatives (file-based, Redis-backed) without changing consumer code. Run `MODE=both` so the looper and server share the same queue instance.
 
 ### Migrating an existing DB
 

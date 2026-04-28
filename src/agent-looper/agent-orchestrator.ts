@@ -1,6 +1,6 @@
 import type { Database } from '../database/database';
 import type { AgentRunner, Clock } from '../agent-runner/agent-runner';
-import { TickGuard } from '../agent-runner/tick-guard';
+import type { TickQueue } from '../agent-runner/tick-queue';
 
 const SYSTEM_CLOCK: Clock = { now: () => Date.now() };
 
@@ -8,7 +8,7 @@ export class AgentOrchestrator {
   constructor(
     private readonly db: Database,
     private readonly runner: AgentRunner,
-    private readonly tickGuard: TickGuard,
+    private readonly queue: TickQueue,
     private readonly clock: Clock = SYSTEM_CLOCK,
   ) {}
 
@@ -20,15 +20,15 @@ export class AgentOrchestrator {
     );
 
     for (const agent of due) {
-      if (!this.tickGuard.tryAcquire(agent.id, 'scheduled')) continue;
-      try {
-        await this.runner.run(agent);
-      } catch (err) {
-        // isolation: one agent failure must not abort the loop
-        console.error(`[orchestrator] agent ${agent.id} threw:`, err);
-      } finally {
-        this.tickGuard.release();
-      }
+      if (this.queue.hasScheduledFor(agent.id)) continue;
+      // optimistic lastTickAt bump prevents the next looper iteration from
+      // re-enqueuing the same agent while this scheduled tick is still pending.
+      await this.db.agents.upsert({ ...agent, lastTickAt: now });
+      await this.queue.enqueue({
+        agentId: agent.id,
+        trigger: 'scheduled',
+        run: () => this.runner.run(agent),
+      });
     }
   }
 }

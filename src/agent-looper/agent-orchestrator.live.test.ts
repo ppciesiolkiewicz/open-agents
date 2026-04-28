@@ -9,7 +9,7 @@ import { WalletFactory } from '../wallet/factory/wallet-factory';
 import { AgentRunner, type Clock } from '../agent-runner/agent-runner';
 import { StubLLMClient } from '../agent-runner/stub-llm-client';
 import { AgentOrchestrator } from './agent-orchestrator';
-import { TickGuard } from '../agent-runner/tick-guard';
+import { InMemoryTickQueue } from '../agent-runner/tick-queue';
 import { ToolRegistry } from '../ai-tools/tool-registry';
 import { CoingeckoService } from '../providers/coingecko/coingecko-service';
 import { CoinMarketCapService } from '../providers/coinmarketcap/coinmarketcap-service';
@@ -50,6 +50,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
   let walletFactory: WalletFactory;
   let clock: MutableClock;
   let runner: AgentRunner;
+  let queue: InMemoryTickQueue;
   let orchestrator: AgentOrchestrator;
 
   let toolRegistry: ToolRegistry;
@@ -69,7 +70,8 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     });
     clock = new MutableClock(10_000);
     runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), toolRegistry, clock);
-    orchestrator = new AgentOrchestrator(db, runner, new TickGuard(), clock);
+    queue = new InMemoryTickQueue(() => clock.now());
+    orchestrator = new AgentOrchestrator(db, runner, queue, clock);
   });
 
   afterEach(async () => {
@@ -80,6 +82,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     await db.agents.upsert(makeAgent('a1', { intervalMs: 1_000, lastTickAt: null }));
 
     await orchestrator.tick();
+    await queue.drain();
 
     const entries = await activityLog.list('a1');
     console.log('[orch] a1 first tick entries:', entries.map((e) => e.type));
@@ -91,6 +94,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     // clock is at 10_000; 10_000 - 9_000 = 1_000 < 5_000 → not due
 
     await orchestrator.tick();
+    await queue.drain();
 
     expect(await activityLog.list('not-due')).toEqual([]);
   });
@@ -99,6 +103,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     await db.agents.upsert(makeAgent('off', { running: false, lastTickAt: null }));
 
     await orchestrator.tick();
+    await queue.drain();
 
     expect(await activityLog.list('off')).toEqual([]);
   });
@@ -108,6 +113,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     await db.agents.upsert(makeAgent('catch-up', { intervalMs: 1_000, lastTickAt: 0 }));
 
     await orchestrator.tick();
+    await queue.drain();
 
     const entries = await activityLog.list('catch-up');
     const tickStarts = entries.filter((e) => e.type === 'tick_start');
@@ -116,6 +122,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
 
     // Subsequent orchestrator.tick at the same clock time runs zero (lastTickAt now = 10_000).
     await orchestrator.tick();
+    await queue.drain();
     const after = await activityLog.list('catch-up');
     expect(after.filter((e) => e.type === 'tick_start')).toHaveLength(1);
   });
@@ -123,9 +130,11 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
   it('runs again after the interval elapses on a future orchestrator.tick', async () => {
     await db.agents.upsert(makeAgent('a1', { intervalMs: 1_000, lastTickAt: null }));
 
-    await orchestrator.tick();              // first tick at clock=10_000
+    await orchestrator.tick();
+    await queue.drain();              // first tick at clock=10_000
     clock.advance(1_500);                    // clock=11_500, > lastTickAt + 1_000
-    await orchestrator.tick();              // second tick
+    await orchestrator.tick();
+    await queue.drain();              // second tick
 
     const tickStarts = (await activityLog.list('a1')).filter((e) => e.type === 'tick_start');
     expect(tickStarts).toHaveLength(2);
@@ -152,9 +161,11 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     }
 
     const failingRunner = new AgentRunner(db, activityLog, walletFactory, new SelectiveLLM(), toolRegistry, clock);
-    const failingOrch = new AgentOrchestrator(db, failingRunner, new TickGuard(), clock);
+    const failingQueue = new InMemoryTickQueue(() => clock.now());
+    const failingOrch = new AgentOrchestrator(db, failingRunner, failingQueue, clock);
 
     await failingOrch.tick();
+    await failingQueue.drain();
 
     const failsEntries = (await activityLog.list('fails')).map((e) => e.type);
     const okEntries = (await activityLog.list('ok')).map((e) => e.type);
@@ -170,6 +181,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     await db.agents.upsert(makeAgent('second', { intervalMs: 1_000, lastTickAt: null }));
 
     await orchestrator.tick();
+    await queue.drain();
 
     const firstEntries = await activityLog.list('first');
     const secondEntries = await activityLog.list('second');

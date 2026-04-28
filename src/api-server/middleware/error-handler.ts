@@ -16,13 +16,6 @@ export class BadRequestError extends Error {
   }
 }
 
-export class ConflictError extends Error {
-  constructor(public readonly errorCode: string, message?: string) {
-    super(message ?? errorCode);
-    this.name = 'ConflictError';
-  }
-}
-
 export function errorHandler(
   err: unknown,
   _req: Request,
@@ -43,10 +36,6 @@ export function errorHandler(
   }
   if (err instanceof BadRequestError) {
     res.status(400).json({ error: err.errorCode, message: err.message });
-    return;
-  }
-  if (err instanceof ConflictError) {
-    res.status(409).json({ error: err.errorCode, message: err.message });
     return;
   }
   const e = err as Error;

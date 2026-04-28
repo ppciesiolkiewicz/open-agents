@@ -2,7 +2,7 @@ import express, { type Express } from 'express';
 import type { Server } from 'node:http';
 import type { AgentActivityLog } from '../agent-activity-log/agent-activity-log';
 import type { AgentRunner } from '../agent-runner/agent-runner';
-import type { TickGuard } from '../agent-runner/tick-guard';
+import type { TickQueue } from '../agent-runner/tick-queue';
 import type { Database } from '../database/database';
 import { authMiddleware } from './middleware/auth';
 import { buildCorsMiddleware } from './middleware/cors';
@@ -20,7 +20,7 @@ export interface ApiServerDeps {
   db: Database;
   activityLog: AgentActivityLog;
   runner: AgentRunner;
-  tickGuard: TickGuard;
+  queue: TickQueue;
   port: number;
   docsPort?: number;
   corsOrigins?: string;
@@ -43,7 +43,7 @@ export class ApiServer {
     this.app.use('/', docsOnSeparatePort ? buildOpenApiSpecRouter() : buildOpenApiRouter());
     this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
-    this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, runner: deps.runner, tickGuard: deps.tickGuard }));
+    this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, runner: deps.runner, queue: deps.queue }));
 
     this.app.use(errorHandler);
 
