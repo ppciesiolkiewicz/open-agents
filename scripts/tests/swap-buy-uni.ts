@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { TOKENS } from '../src/constants';
-import { runSwap } from './lib/swap-runner';
+import { TOKENS } from '../../src/constants';
+import { runSwap } from '../lib/swap-runner';
 
 const AMOUNT_USDC = 500_000n;          // 0.5 USDC (6 decimals)
 const INPUT_USD = 0.5;

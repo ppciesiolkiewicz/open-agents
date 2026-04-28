@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { TOKENS } from '../src/constants';
-import { runSwap } from './lib/swap-runner';
+import { TOKENS } from '../../src/constants';
+import { runSwap } from '../lib/swap-runner';
 
 const AMOUNT_UNI = 100_000_000_000_000_000n;   // 0.1 UNI (18 decimals)
 const INPUT_USD = 0.5;                          // approx — agent risk gate uses live Coingecko anyway

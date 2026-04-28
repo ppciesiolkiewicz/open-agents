@@ -1,10 +1,10 @@
 import 'dotenv/config';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { confirmContinue } from '../src/test-lib/interactive-prompt';
-import { ZeroGBootstrapStore } from '../src/ai/zerog-broker/zerog-bootstrap-store';
-import { buildZeroGBroker } from '../src/ai/zerog-broker/zerog-broker-factory';
-import { ZeroGLLMClient } from '../src/ai/chat-model/zerog-llm-client';
+import { confirmContinue } from '../../src/test-lib/interactive-prompt';
+import { ZeroGBootstrapStore } from '../../src/ai/zerog-broker/zerog-bootstrap-store';
+import { buildZeroGBroker } from '../../src/ai/zerog-broker/zerog-broker-factory';
+import { ZeroGLLMClient } from '../../src/ai/chat-model/zerog-llm-client';
 
 const dbDir = process.env.DB_DIR ?? './db';
 
