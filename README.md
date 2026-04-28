@@ -60,6 +60,8 @@ The two modes share the file-backed DB at `DB_DIR`. v1 has no file lock, so don'
 
 CORS allow-list via `API_CORS_ORIGINS` (CSV; omit for `*`).
 
+Set `DOCS_PORT` to mount Swagger UI on its own port (e.g. `PORT=3000 DOCS_PORT=8000 npm run start:server` puts the API on `:3000` and Swagger UI on `:8000/docs`). When unset, `/docs` lives on the main port.
+
 - `GET /docs` — Swagger UI
 - `GET /openapi.json` — OpenAPI 3.1 spec (consume from FE to generate SDK)
 - `GET /agents` (filter `?type=scheduled|chat`), `POST /agents`, `GET /agents/:id`, `PATCH /agents/:id`, `DELETE /agents/:id`

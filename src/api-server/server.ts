@@ -9,19 +9,26 @@ import { errorHandler } from './middleware/error-handler';
 import { buildAgentsRouter } from './routes/agents';
 import { buildActivityRouter } from './routes/activity';
 import { buildMessagesRouter } from './routes/messages';
-import { buildOpenApiRouter } from './routes/openapi';
+import {
+  buildOpenApiRouter,
+  buildOpenApiSpecRouter,
+  buildSwaggerUiRouter,
+} from './routes/openapi';
 
 export interface ApiServerDeps {
   db: Database;
   activityLog: AgentActivityLog;
   runner: AgentRunner;
   port: number;
+  docsPort?: number;
   corsOrigins?: string;
 }
 
 export class ApiServer {
   private readonly app: Express;
+  private readonly docsApp: Express | null;
   private server: Server | null = null;
+  private docsServer: Server | null = null;
 
   constructor(private readonly deps: ApiServerDeps) {
     this.app = express();
@@ -29,28 +36,51 @@ export class ApiServer {
     this.app.use(express.json({ limit: '1mb' }));
     this.app.use(authMiddleware);
 
-    this.app.use('/', buildOpenApiRouter());
+    const docsOnSeparatePort = deps.docsPort && deps.docsPort !== deps.port;
+
+    this.app.use('/', docsOnSeparatePort ? buildOpenApiSpecRouter() : buildOpenApiRouter());
     this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
     this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, runner: deps.runner }));
 
     this.app.use(errorHandler);
+
+    if (docsOnSeparatePort) {
+      this.docsApp = express();
+      this.docsApp.use(buildCorsMiddleware(deps.corsOrigins));
+      this.docsApp.use(buildSwaggerUiRouter());
+    } else {
+      this.docsApp = null;
+    }
   }
 
-  start(): Promise<void> {
-    return new Promise((resolve) => {
+  async start(): Promise<void> {
+    await new Promise<void>((resolve) => {
       this.server = this.app.listen(this.deps.port, () => {
-        console.log(`[api-server] listening on http://localhost:${this.deps.port} (docs: /docs)`);
+        const docsHint = this.docsApp ? '' : ' (docs: /docs)';
+        console.log(`[api-server] listening on http://localhost:${this.deps.port}${docsHint}`);
         resolve();
       });
     });
+
+    if (this.docsApp && this.deps.docsPort) {
+      const port = this.deps.docsPort;
+      await new Promise<void>((resolve) => {
+        this.docsServer = this.docsApp!.listen(port, () => {
+          console.log(`[api-server] swagger UI on http://localhost:${port}/docs`);
+          resolve();
+        });
+      });
+    }
   }
 
-  stop(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.server) return resolve();
-      this.server.close((err) => (err ? reject(err) : resolve()));
-    });
+  async stop(): Promise<void> {
+    const closeOne = (s: Server | null) =>
+      new Promise<void>((resolve, reject) => {
+        if (!s) return resolve();
+        s.close((err) => (err ? reject(err) : resolve()));
+      });
+    await Promise.all([closeOne(this.server), closeOne(this.docsServer)]);
   }
 
   getApp(): Express {
