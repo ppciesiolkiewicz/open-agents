@@ -15,6 +15,7 @@ const TEST_ENV = {
 function makeAgent(id: string, dryRun: boolean): AgentConfig {
   return {
     id,
+    userId: 'user-test',
     name: id,
     running: true,
     intervalMs: 60_000,

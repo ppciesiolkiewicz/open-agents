@@ -59,6 +59,7 @@ export async function runSwap(args: RunSwapArgs): Promise<void> {
   );
   const agent: AgentConfig = {
     id: args.scenarioName,
+    userId: 'script-user',
     name: args.scenarioName,
     running: false,
     intervalMs: 1_000,

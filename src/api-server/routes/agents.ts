@@ -21,7 +21,7 @@ export function buildAgentsRouter(deps: Deps): Router {
   r.get('/', async (req, res, next) => {
     try {
       const agents = await deps.db.agents.list();
-      res.json(agents);
+      res.json(agents.filter((a) => a.userId === req.user!.id));
     } catch (err) {
       next(err);
     }
@@ -32,6 +32,7 @@ export function buildAgentsRouter(deps: Deps): Router {
       const body = CreateAgentBodySchema.parse(req.body);
       const agent: AgentConfig = {
         id: randomUUID(),
+        userId: req.user!.id,
         name: body.name,
         prompt: body.prompt,
         dryRun: body.dryRun,

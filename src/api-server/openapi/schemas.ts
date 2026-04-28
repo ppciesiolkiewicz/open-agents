@@ -12,6 +12,7 @@ export const RiskLimitsSchema = z.object({
 
 export const AgentConfigSchema = z.object({
   id: z.string(),
+  userId: z.string(),
   name: z.string(),
   prompt: z.string(),
   dryRun: z.boolean(),

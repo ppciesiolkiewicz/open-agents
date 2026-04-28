@@ -7,6 +7,8 @@ import type { TransactionRepository } from '../database/repositories/transaction
 import type { PositionRepository } from '../database/repositories/position-repository';
 import type { AgentMemoryRepository } from '../database/repositories/agent-memory-repository';
 import type { ActivityLogRepository } from '../database/repositories/activity-log-repository';
+import type { UserRepository } from '../database/repositories/user-repository';
+import type { UserWalletRepository } from '../database/repositories/user-wallet-repository';
 import type { Position, TokenAmount } from '../database/types';
 
 class InMemoryPositionRepo implements PositionRepository {
@@ -35,6 +37,8 @@ function makeDb(positions: InMemoryPositionRepo): Database {
     positions,
     agentMemory: {} as AgentMemoryRepository,
     activityLog: {} as ActivityLogRepository,
+    users: {} as UserRepository,
+    userWallets: {} as UserWalletRepository,
   };
 }
 

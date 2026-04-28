@@ -21,9 +21,10 @@ import type { AgentConfig } from '../database/types';
 const TEST_KEY = '0x' + '11'.repeat(32);
 const TEST_ENV = { WALLET_PRIVATE_KEY: TEST_KEY, ALCHEMY_API_KEY: 'unused' };
 
-function makeAgent(id: string): AgentConfig {
+function makeAgent(id: string, userId = 'user-placeholder'): AgentConfig {
   return {
     id,
+    userId,
     name: `agent-${id}`,
     running: true,
     intervalMs: 60_000,
@@ -90,6 +91,7 @@ describeIfPostgres('AgentRunner (live, real db + activity log + ToolRegistry)', 
   let activityLog: AgentActivityLog;
   let walletFactory: WalletFactory;
   let toolRegistry: ToolRegistry;
+  let TEST_USER_ID: string;
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -101,6 +103,8 @@ describeIfPostgres('AgentRunner (live, real db + activity log + ToolRegistry)', 
   beforeEach(async () => {
     await truncateAll(prisma);
     db = new PrismaDatabase(prisma);
+    const u = await db.users.findOrCreateByPrivyDid('did:privy:test', {});
+    TEST_USER_ID = u.id;
     activityLog = new AgentActivityLog(db.activityLog);
     walletFactory = new WalletFactory(TEST_ENV, db.transactions);
     toolRegistry = new ToolRegistry({
@@ -114,7 +118,7 @@ describeIfPostgres('AgentRunner (live, real db + activity log + ToolRegistry)', 
   });
 
   it('writes tick_start, llm_call, llm_response, tick_end and updates lastTickAt (no tool calls)', async () => {
-    const agent = makeAgent('a1');
+    const agent = makeAgent('a1', TEST_USER_ID);
     await db.agents.upsert(agent);
     const fixedClock: Clock = { now: () => 5_000 };
     const llm = new ScriptedLLMClient([{ kind: 'text', content: 'hello there' }]);
@@ -135,7 +139,7 @@ describeIfPostgres('AgentRunner (live, real db + activity log + ToolRegistry)', 
   });
 
   it('captures tool_call + tool_result entries when the model emits a tool call', async () => {
-    const agent = makeAgent('a-tools');
+    const agent = makeAgent('a-tools', TEST_USER_ID);
     await db.agents.upsert(agent);
 
     const llm = new ScriptedLLMClient([
@@ -157,7 +161,7 @@ describeIfPostgres('AgentRunner (live, real db + activity log + ToolRegistry)', 
   });
 
   it('rethrows when the LLM throws, and still updates lastTickAt + writes error entry', async () => {
-    const agent = makeAgent('boom');
+    const agent = makeAgent('boom', TEST_USER_ID);
     await db.agents.upsert(agent);
     const fixedClock: Clock = { now: () => 9_000 };
 
@@ -175,7 +179,7 @@ describeIfPostgres('AgentRunner (live, real db + activity log + ToolRegistry)', 
   });
 
   it('returns a tool-error message (not a thrown rejection) when a tool throws', async () => {
-    const agent = makeAgent('tool-bad');
+    const agent = makeAgent('tool-bad', TEST_USER_ID);
     await db.agents.upsert(agent);
 
     // Bad tokenAddress triggers the wallet-balance tool to throw.
@@ -199,7 +203,7 @@ describeIfPostgres('AgentRunner (live, real db + activity log + ToolRegistry)', 
   });
 
   it('caps the loop at maxToolRoundsPerTick when the model only returns tool calls', async () => {
-    const agent = makeAgent('runaway');
+    const agent = makeAgent('runaway', TEST_USER_ID);
     await db.agents.upsert(agent);
 
     // Always return a tool call — never plain text. Provide 12 steps so we

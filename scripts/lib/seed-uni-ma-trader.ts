@@ -28,6 +28,7 @@ Always pass amountIn as a string of base-units (no decimal scaling). USDC has 6 
 export interface SeedAgentOptions {
   dryRun?: boolean;        // default true — every swap goes through DryRunWallet
   now?: number;
+  userId?: string;
 }
 
 export function buildSeedAgentConfig(opts: SeedAgentOptions = {}): AgentConfig {
@@ -35,6 +36,7 @@ export function buildSeedAgentConfig(opts: SeedAgentOptions = {}): AgentConfig {
   const now = opts.now ?? Date.now();
   return {
     id: SEED_AGENT_ID,
+    userId: opts.userId ?? 'seed-user',
     name: 'UNI Moving Average Trader',
     running: false,
     intervalMs: 60_000,

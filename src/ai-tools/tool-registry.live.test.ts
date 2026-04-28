@@ -15,9 +15,10 @@ import type { AgentToolContext } from './tool';
 const TEST_KEY = '0x' + '11'.repeat(32);
 const COINGECKO = process.env.COINGECKO_API_KEY;
 
-function makeAgent(id: string): AgentConfig {
+function makeAgent(id: string, userId = 'user-placeholder'): AgentConfig {
   return {
     id,
+    userId,
     name: id,
     running: true,
     intervalMs: 60_000,
@@ -47,7 +48,8 @@ describeIfPostgres('ToolRegistry tools (live, real services + postgres)', () => 
   beforeEach(async () => {
     await truncateAll(prisma);
     db = new PrismaDatabase(prisma);
-    agent = makeAgent('a1');
+    const u = await db.users.findOrCreateByPrivyDid('did:privy:test', {});
+    agent = makeAgent('a1', u.id);
     await db.agents.upsert(agent);
     const wallet = new DryRunWallet(agent, db.transactions, { WALLET_PRIVATE_KEY: TEST_KEY });
     ctx = { agent, wallet, tickId: 'tick-test-1' };

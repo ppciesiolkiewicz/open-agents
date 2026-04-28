@@ -12,6 +12,8 @@ import type { AgentConfig, Transaction, TokenAmount, Position, AgentMemory, User
 describeIfPostgres('PrismaAgentRepository', () => {
   const prisma = getTestPrisma()!;
   const repo = new PrismaAgentRepository(prisma);
+  const userRepo = new PrismaUserRepository(prisma);
+  let TEST_USER_ID: string;
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -21,11 +23,14 @@ describeIfPostgres('PrismaAgentRepository', () => {
   });
   beforeEach(async () => {
     await truncateAll(prisma);
+    const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
+    TEST_USER_ID = u.id;
   });
 
   function makeAgent(id: string): AgentConfig {
     return {
       id,
+      userId: TEST_USER_ID,
       name: `agent-${id}`,
       prompt: 'do the thing',
       dryRun: true,
@@ -81,13 +86,15 @@ describeIfPostgres('PrismaTransactionRepository', () => {
   const prisma = getTestPrisma()!;
   const agents = new PrismaAgentRepository(prisma);
   const txs = new PrismaTransactionRepository(prisma);
+  const userRepo = new PrismaUserRepository(prisma);
 
   beforeAll(async () => { await prisma.$connect(); });
   afterAll(async () => { await prisma.$disconnect(); });
   beforeEach(async () => {
     await truncateAll(prisma);
+    const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
     await agents.upsert({
-      id: 'a1', name: 'a1', prompt: '', dryRun: true,
+      id: 'a1', userId: u.id, name: 'a1', prompt: '', dryRun: true,
       riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
     });
   });
@@ -150,13 +157,15 @@ describeIfPostgres('PrismaPositionRepository', () => {
   const prisma = getTestPrisma()!;
   const agents = new PrismaAgentRepository(prisma);
   const positions = new PrismaPositionRepository(prisma);
+  const userRepo = new PrismaUserRepository(prisma);
 
   beforeAll(async () => { await prisma.$connect(); });
   afterAll(async () => { await prisma.$disconnect(); });
   beforeEach(async () => {
     await truncateAll(prisma);
+    const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
     await agents.upsert({
-      id: 'a1', name: 'a1', prompt: '', dryRun: true,
+      id: 'a1', userId: u.id, name: 'a1', prompt: '', dryRun: true,
       riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
     });
   });
@@ -215,13 +224,15 @@ describeIfPostgres('PrismaAgentMemoryRepository', () => {
   const prisma = getTestPrisma()!;
   const agents = new PrismaAgentRepository(prisma);
   const memory = new PrismaAgentMemoryRepository(prisma);
+  const userRepo = new PrismaUserRepository(prisma);
 
   beforeAll(async () => { await prisma.$connect(); });
   afterAll(async () => { await prisma.$disconnect(); });
   beforeEach(async () => {
     await truncateAll(prisma);
+    const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
     await agents.upsert({
-      id: 'a1', name: 'a1', prompt: '', dryRun: true,
+      id: 'a1', userId: u.id, name: 'a1', prompt: '', dryRun: true,
       riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
     });
   });

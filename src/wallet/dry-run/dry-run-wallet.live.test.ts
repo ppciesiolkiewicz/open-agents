@@ -4,6 +4,7 @@ import { DRY_RUN_HASH_REGEX } from './dry-run-hash';
 import { PrismaTransactionRepository } from '../../database/prisma-database/prisma-transaction-repository';
 import { describeIfPostgres, getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
 import { PrismaAgentRepository } from '../../database/prisma-database/prisma-agent-repository';
+import { PrismaUserRepository } from '../../database/prisma-database/prisma-user-repository';
 import { TOKENS } from '../../constants';
 import type { AgentConfig, Transaction, TokenAmount } from '../../database/types';
 
@@ -25,9 +26,10 @@ const uni: TokenAmount = {
   decimals: 18,
 };
 
-function makeAgent(id: string): AgentConfig {
+function makeAgent(id: string, userId = 'user-test'): AgentConfig {
   return {
     id,
+    userId,
     name: `agent-${id}`,
     running: true,
     intervalMs: 60_000,
@@ -66,9 +68,11 @@ function makeSwapTx(id: string, agentId: string, tokenIn: TokenAmount, tokenOut:
 describeIfPostgres('DryRunWallet (live, real PrismaTransactionRepository)', () => {
   const prisma = getTestPrisma()!;
   const agentRepo = new PrismaAgentRepository(prisma);
+  const userRepo = new PrismaUserRepository(prisma);
   let txRepo: PrismaTransactionRepository;
   let agent: AgentConfig;
   let wallet: DryRunWallet;
+  let TEST_USER_ID: string;
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -79,8 +83,10 @@ describeIfPostgres('DryRunWallet (live, real PrismaTransactionRepository)', () =
 
   beforeEach(async () => {
     await truncateAll(prisma);
+    const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
+    TEST_USER_ID = u.id;
     txRepo = new PrismaTransactionRepository(prisma);
-    agent = makeAgent('a1');
+    agent = makeAgent('a1', TEST_USER_ID);
     await agentRepo.upsert(agent);
     wallet = new DryRunWallet(agent, txRepo, { WALLET_PRIVATE_KEY: TEST_KEY });
   });
@@ -127,7 +133,7 @@ describeIfPostgres('DryRunWallet (live, real PrismaTransactionRepository)', () =
   });
 
   it('isolates balances per agent (other agent\'s txs do not leak)', async () => {
-    const other = makeAgent('someone-else');
+    const other = makeAgent('someone-else', TEST_USER_ID);
     await agentRepo.upsert(other);
     await txRepo.insert(makeSwapTx('1', 'someone-else', usdc, uni));
     const usdcBal = await wallet.getTokenBalance(TOKENS.USDC.address);

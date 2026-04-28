@@ -18,9 +18,10 @@ import type { LLMClient } from '../agent-runner/llm-client';
 const TEST_KEY = '0x' + '11'.repeat(32);
 const TEST_ENV = { WALLET_PRIVATE_KEY: TEST_KEY, ALCHEMY_API_KEY: 'unused' };
 
-function makeAgent(id: string, opts: { running?: boolean; intervalMs?: number; lastTickAt?: number | null } = {}): AgentConfig {
+function makeAgent(id: string, opts: { running?: boolean; intervalMs?: number; lastTickAt?: number | null; userId?: string } = {}): AgentConfig {
   return {
     id,
+    userId: opts.userId ?? 'user-placeholder',
     name: id,
     running: opts.running ?? true,
     intervalMs: opts.intervalMs ?? 1_000,
@@ -49,6 +50,7 @@ describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
   let queue: InMemoryTickQueue;
   let orchestrator: AgentOrchestrator;
   let toolRegistry: ToolRegistry;
+  let TEST_USER_ID: string;
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -60,6 +62,8 @@ describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
   beforeEach(async () => {
     await truncateAll(prisma);
     db = new PrismaDatabase(prisma);
+    const u = await db.users.findOrCreateByPrivyDid('did:privy:test', {});
+    TEST_USER_ID = u.id;
     activityLog = new AgentActivityLog(db.activityLog);
     walletFactory = new WalletFactory(TEST_ENV, db.transactions);
     toolRegistry = new ToolRegistry({
@@ -77,7 +81,7 @@ describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
   });
 
   it('runs an agent that has never ticked (lastTickAt = null)', async () => {
-    await db.agents.upsert(makeAgent('a1', { intervalMs: 1_000, lastTickAt: null }));
+    await db.agents.upsert(makeAgent('a1', { intervalMs: 1_000, lastTickAt: null, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
     await queue.drain();
@@ -88,7 +92,7 @@ describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
   });
 
   it('skips agents whose interval has not elapsed', async () => {
-    await db.agents.upsert(makeAgent('not-due', { intervalMs: 5_000, lastTickAt: 9_000 }));
+    await db.agents.upsert(makeAgent('not-due', { intervalMs: 5_000, lastTickAt: 9_000, userId: TEST_USER_ID }));
     // clock is at 10_000; 10_000 - 9_000 = 1_000 < 5_000 → not due
 
     await orchestrator.tick();
@@ -98,7 +102,7 @@ describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
   });
 
   it('skips disabled agents', async () => {
-    await db.agents.upsert(makeAgent('off', { running: false, lastTickAt: null }));
+    await db.agents.upsert(makeAgent('off', { running: false, lastTickAt: null, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
     await queue.drain();
@@ -108,7 +112,7 @@ describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
 
   it('runs only ONCE per orchestrator.tick even if N intervals were missed (skip-backlog)', async () => {
     // intervalMs = 1_000, lastTickAt = 0; clock at 10_000 → 10 intervals missed.
-    await db.agents.upsert(makeAgent('catch-up', { intervalMs: 1_000, lastTickAt: 0 }));
+    await db.agents.upsert(makeAgent('catch-up', { intervalMs: 1_000, lastTickAt: 0, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
     await queue.drain();
@@ -126,7 +130,7 @@ describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
   });
 
   it('runs again after the interval elapses on a future orchestrator.tick', async () => {
-    await db.agents.upsert(makeAgent('a1', { intervalMs: 1_000, lastTickAt: null }));
+    await db.agents.upsert(makeAgent('a1', { intervalMs: 1_000, lastTickAt: null, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
     await queue.drain();              // first tick at clock=10_000
@@ -139,8 +143,8 @@ describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
   });
 
   it('one agent failing does not block the next agent', async () => {
-    await db.agents.upsert(makeAgent('fails', { intervalMs: 1_000, lastTickAt: null }));
-    await db.agents.upsert(makeAgent('ok', { intervalMs: 1_000, lastTickAt: null }));
+    await db.agents.upsert(makeAgent('fails', { intervalMs: 1_000, lastTickAt: null, userId: TEST_USER_ID }));
+    await db.agents.upsert(makeAgent('ok', { intervalMs: 1_000, lastTickAt: null, userId: TEST_USER_ID }));
 
     class SelectiveLLM implements LLMClient {
       modelName() { return 'selective'; }
@@ -175,8 +179,8 @@ describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
   it('runs agents sequentially (subsequent agent sees previous lastTickAt)', async () => {
     // Two agents with the same id space — verify ordering by inserting both
     // and checking the order tick_start appears in the global log stream.
-    await db.agents.upsert(makeAgent('first', { intervalMs: 1_000, lastTickAt: null }));
-    await db.agents.upsert(makeAgent('second', { intervalMs: 1_000, lastTickAt: null }));
+    await db.agents.upsert(makeAgent('first', { intervalMs: 1_000, lastTickAt: null, userId: TEST_USER_ID }));
+    await db.agents.upsert(makeAgent('second', { intervalMs: 1_000, lastTickAt: null, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
     await queue.drain();

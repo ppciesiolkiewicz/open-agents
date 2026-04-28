@@ -18,6 +18,7 @@ export class PrismaAgentRepository implements AgentRepository {
 
   async upsert(agent: AgentConfig): Promise<void> {
     const data = {
+      userId: agent.userId,
       name: agent.name,
       prompt: agent.prompt,
       dryRun: agent.dryRun,

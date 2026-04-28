@@ -2,16 +2,19 @@ import { it, expect, beforeEach } from 'vitest';
 import { describeIfPostgres, getTestPrisma, truncateAll } from './test-helpers';
 import { PrismaAgentRepository } from './prisma-agent-repository';
 import { PrismaActivityLogRepository } from './prisma-activity-log-repository';
+import { PrismaUserRepository } from './prisma-user-repository';
 
 describeIfPostgres('PrismaActivityLogRepository', () => {
   const prisma = getTestPrisma()!;
   const agents = new PrismaAgentRepository(prisma);
   const log = new PrismaActivityLogRepository(prisma);
+  const userRepo = new PrismaUserRepository(prisma);
 
   beforeEach(async () => {
     await truncateAll(prisma);
+    const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
     await agents.upsert({
-      id: 'a1', name: 'a1', prompt: '', dryRun: true,
+      id: 'a1', userId: u.id, name: 'a1', prompt: '', dryRun: true,
       riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
     });
   });
