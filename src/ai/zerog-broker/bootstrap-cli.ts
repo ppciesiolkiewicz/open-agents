@@ -52,12 +52,18 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const ledgerExists = await service.hasLedger();
   const ledger = await service.readLedgerSnapshot();
   console.log('');
-  console.log(`Your 0G credit:`);
-  console.log(`  total owned:           ${formatWeiAsOG(ledger.totalWei)} OG  (main ledger + sub-accounts combined)`);
-  console.log(`  main ledger available: ${formatWeiAsOG(ledger.availableWei)} OG  (free to transfer to a sub-account)`);
-  console.log(`  locked in sub-accounts:${formatWeiAsOG(ledger.lockedWei)} OG  (sum across providers)`);
+  if (!ledgerExists) {
+    console.log(`Your 0G credit: NO LEDGER ACCOUNT YET on ${env.ZEROG_NETWORK}.`);
+    console.log(`  → bootstrap will create one for you (addLedger ${DEFAULT_LEDGER_OG} OG) before any transfer.`);
+  } else {
+    console.log(`Your 0G credit:`);
+    console.log(`  total owned:           ${formatWeiAsOG(ledger.totalWei)} OG  (main ledger + sub-accounts combined)`);
+    console.log(`  main ledger available: ${formatWeiAsOG(ledger.availableWei)} OG  (free to transfer to a sub-account)`);
+    console.log(`  locked in sub-accounts:${formatWeiAsOG(ledger.lockedWei)} OG  (sum across providers)`);
+  }
 
   console.log('');
   const modelFilter = process.env.ZEROG_MODEL_FILTER;
@@ -107,6 +113,7 @@ async function main(): Promise<void> {
   console.log(`[zerog-bootstrap] main ledger available: ${formatWeiAsOG(ledgerBalanceWei)} OG  (top-up threshold: ${MIN_LEDGER_OG} OG — SDK auto-funding draws from here)`);
 
   // Compute the actual sequence of wallet-touching operations:
+  //   - if no ledger account exists yet, addLedger creates one (wallet → ledger).
   //   - if main ledger has < transferOG, an embedded depositFund(ledgerOG) fires
   //     inside fundAndAcknowledge BEFORE the transfer can succeed.
   //   - transferFund itself is internal (main → sub-account); zero wallet outflow.
@@ -115,11 +122,18 @@ async function main(): Promise<void> {
   const planLines: string[] = [];
   let walletOutflowOG = 0;
   let projectedLedgerOG = ledgerBalanceOG;
+  let ledgerCreated = ledgerExists;
+
+  if (!ledgerCreated) {
+    planLines.push(`addLedger(${ledgerOG} OG)  [wallet → ledger, creates ledger account on ${env.ZEROG_NETWORK}]`);
+    walletOutflowOG += ledgerOG;
+    projectedLedgerOG += ledgerOG;
+    ledgerCreated = true;
+  }
 
   if (willTopUpSub) {
     if (projectedLedgerOG < transferOG) {
-      const op = ledgerBalanceWei === 0n ? 'addLedger' : 'depositFund';
-      planLines.push(`${op}(${ledgerOG} OG)  [wallet → ledger, funds upcoming transfer]`);
+      planLines.push(`depositFund(${ledgerOG} OG)  [wallet → ledger, funds upcoming transfer]`);
       walletOutflowOG += ledgerOG;
       projectedLedgerOG += ledgerOG;
     }
@@ -128,8 +142,7 @@ async function main(): Promise<void> {
   }
 
   if (projectedLedgerOG < MIN_LEDGER_OG) {
-    const op = projectedLedgerOG === 0 && ledgerBalanceWei === 0n && !willTopUpSub ? 'addLedger' : 'depositFund';
-    planLines.push(`${op}(${ledgerOG} OG)  [wallet → ledger, keep main ≥ ${MIN_LEDGER_OG} OG for SDK auto-funding]`);
+    planLines.push(`depositFund(${ledgerOG} OG)  [wallet → ledger, keep main ≥ ${MIN_LEDGER_OG} OG for SDK auto-funding]`);
     walletOutflowOG += ledgerOG;
   }
 
@@ -146,6 +159,13 @@ async function main(): Promise<void> {
   }
 
   console.log('[zerog-bootstrap] running…');
+
+  if (!ledgerExists) {
+    console.log(`[zerog-bootstrap] no ledger on ${env.ZEROG_NETWORK} — creating with addLedger(${ledgerOG} OG)…`);
+    await service.createLedger(ledgerOG);
+    console.log(`[zerog-bootstrap] ledger created.`);
+  }
+
   const result = await service.fundAndAcknowledge({
     providerAddress: chosen.providerAddress,
     ledgerInitialOG: ledgerOG,

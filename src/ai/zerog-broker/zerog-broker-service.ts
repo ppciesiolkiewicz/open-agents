@@ -84,6 +84,28 @@ export class ZeroGBrokerService {
   }
 
   /**
+   * Returns true if a ledger account exists for this wallet on the current
+   * network. Used by the bootstrap CLI to decide whether to addLedger before
+   * any transferFund attempt (which would otherwise throw "Account does not exist").
+   */
+  async hasLedger(): Promise<boolean> {
+    try {
+      await this.broker.ledger.getLedger();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Create a fresh ledger with the given OG. Used when hasLedger() returns false.
+   */
+  async createLedger(initialOG: number): Promise<void> {
+    if (initialOG < 3) throw new Error('initialOG must be >= 3 (0G ledger minimum)');
+    await this.broker.ledger.addLedger(initialOG);
+  }
+
+  /**
    * Ensure the main ledger has at least `minOG` available. If below, deposit
    * `depositOG` (or addLedger if no ledger yet). Used to keep the SDK's
    * background auto-funding from warning when the sub-account is fine but
@@ -105,7 +127,7 @@ export class ZeroGBrokerService {
       await this.broker.ledger.depositFund(args.depositOG);
     } catch (err) {
       const msg = (err as Error).message ?? '';
-      if (!/ledgerNotExists|LedgerNotExists/i.test(msg)) throw err;
+      if (!isLedgerNotExistsError(msg)) throw err;
       await this.broker.ledger.addLedger(args.depositOG);
     }
     const balanceAfterWei = await this.readLedgerAvailableBalanceWei();
@@ -197,7 +219,7 @@ export class ZeroGBrokerService {
       return;
     } catch (err) {
       const msg = (err as Error).message ?? '';
-      const isNoLedger = /ledgerNotExists|LedgerNotExists/i.test(msg);
+      const isNoLedger = isLedgerNotExistsError(msg);
       const isInsufficient = /InsufficientAvailableBalance|insufficient/i.test(msg);
       if (!isNoLedger && !isInsufficient) throw err;
 
@@ -244,6 +266,13 @@ function pickAddress(obj: Record<string, unknown>, keys: string[]): `0x${string}
   const s = pickString(obj, keys);
   if (s && /^0x[0-9a-fA-F]{40}$/.test(s)) return s as `0x${string}`;
   return undefined;
+}
+
+function isLedgerNotExistsError(msg: string): boolean {
+  // The 0G SDK formats this error as either the raw `LedgerNotExists` contract revert
+  // or the user-facing message "Account does not exist. Please create an account first
+  // using \"add-account\".". Match either.
+  return /ledgerNotExists/i.test(msg) || /account does not exist/i.test(msg);
 }
 
 function pickBigInt(obj: Record<string, unknown>, keys: string[]): bigint | undefined {
