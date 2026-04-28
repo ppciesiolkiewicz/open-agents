@@ -146,16 +146,21 @@ export class ZeroGLLMClient implements LLMClient {
         messages: messages.map(toOpenAIMessage),
         ...(tools.length > 0 ? { tools: tools.map(toOpenAITool) } : {}),
         stream: true,
+        stream_options: { include_usage: true },
       },
       { headers },
     );
 
     let content = '';
     let completionId = '';
+    let tokenCount: number | undefined;
     const toolCallAccumulator = new Map<number, { id: string; name: string; argumentsJson: string }>();
 
     for await (const chunk of stream) {
       completionId = completionId || chunk.id;
+      if (chunk.usage?.total_tokens !== undefined) {
+        tokenCount = chunk.usage.total_tokens;
+      }
       const delta = chunk.choices[0]?.delta;
       if (!delta) continue;
       if (delta.content) {
@@ -196,6 +201,7 @@ export class ZeroGLLMClient implements LLMClient {
     return {
       ...(content.length > 0 ? { content } : {}),
       ...(toolCalls.length > 0 ? { toolCalls } : {}),
+      ...(tokenCount !== undefined ? { tokenCount } : {}),
       assistantMessage,
     };
   }
