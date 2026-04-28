@@ -106,23 +106,40 @@ async function main(): Promise<void> {
   console.log(`[zerog-bootstrap] sub-account balance: ${formatWeiAsOG(subBalanceWei)} OG  (top-up threshold: ${MIN_SUBACCOUNT_OG} OG)`);
   console.log(`[zerog-bootstrap] main ledger available: ${formatWeiAsOG(ledgerBalanceWei)} OG  (top-up threshold: ${MIN_LEDGER_OG} OG — SDK auto-funding draws from here)`);
 
+  // Compute the actual sequence of wallet-touching operations:
+  //   - if main ledger has < transferOG, an embedded depositFund(ledgerOG) fires
+  //     inside fundAndAcknowledge BEFORE the transfer can succeed.
+  //   - transferFund itself is internal (main → sub-account); zero wallet outflow.
+  //   - after the transfer, ledger is back at original-(transferOG) which may
+  //     be below MIN_LEDGER_OG, triggering a second depositFund(ledgerOG).
   const planLines: string[] = [];
-  let costOG = 0;
+  let walletOutflowOG = 0;
+  let projectedLedgerOG = ledgerBalanceOG;
+
   if (willTopUpSub) {
-    planLines.push(`top up sub-account: transferFund(${transferOG} OG) from main ledger`);
-    costOG += transferOG;
+    if (projectedLedgerOG < transferOG) {
+      const op = ledgerBalanceWei === 0n ? 'addLedger' : 'depositFund';
+      planLines.push(`${op}(${ledgerOG} OG)  [wallet → ledger, funds upcoming transfer]`);
+      walletOutflowOG += ledgerOG;
+      projectedLedgerOG += ledgerOG;
+    }
+    planLines.push(`transferFund(${transferOG} OG)  [ledger → sub-account, internal — no wallet cost]`);
+    projectedLedgerOG -= transferOG;
   }
-  if (willTopUpLedger) {
-    planLines.push(`top up main ledger: ${ledgerBalanceWei === 0n ? 'addLedger' : 'depositFund'}(${ledgerOG} OG)`);
-    costOG += ledgerOG;
+
+  if (projectedLedgerOG < MIN_LEDGER_OG) {
+    const op = projectedLedgerOG === 0 && ledgerBalanceWei === 0n && !willTopUpSub ? 'addLedger' : 'depositFund';
+    planLines.push(`${op}(${ledgerOG} OG)  [wallet → ledger, keep main ≥ ${MIN_LEDGER_OG} OG for SDK auto-funding]`);
+    walletOutflowOG += ledgerOG;
   }
-  planLines.push(`acknowledge provider signer (idempotent)`);
-  planLines.push(`persist db/zerog-bootstrap.json`);
+
+  planLines.push(`acknowledge provider signer (idempotent — no wallet cost)`);
+  planLines.push(`persist db/zerog-bootstrap.json (no wallet cost)`);
 
   console.log('[zerog-bootstrap] plan:');
   for (const l of planLines) console.log(`  - ${l}`);
 
-  const ok = await confirm(`Proceed? Estimated cost: ${costOG} OG.`);
+  const ok = await confirm(`Proceed? Wallet outflow: ${walletOutflowOG} OG (deposits only; transfers are internal).`);
   if (!ok) {
     console.log('[zerog-bootstrap] cancelled.');
     return;
