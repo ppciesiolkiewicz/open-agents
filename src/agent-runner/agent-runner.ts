@@ -54,7 +54,7 @@ export class AgentRunner {
       const toolDefs = tools.map(toToolDefinition);
       const ctx: AgentToolContext = { agent, wallet, tickId };
 
-      await this.runToolLoop(agent, tickId, initialMessages, toolDefs, toolByName, ctx, options);
+      await this.runToolLoop(agent, tickId, initialMessages, toolDefs, toolByName, ctx);
     } catch (err) {
       const e = err as Error;
       this.logStdout(agent.id, `ERROR ${e.message}`);
@@ -75,9 +75,7 @@ export class AgentRunner {
     toolDefs: ToolDefinition[],
     toolByName: Map<string, AgentTool>,
     ctx: AgentToolContext,
-    options: { onToken?: (text: string) => void },
   ): Promise<void> {
-    void options; // onToken plumbed through in Phase 2
     let rounds = 0;
     while (rounds < AGENT_RUNNER.maxToolRoundsPerTick) {
       rounds++;
