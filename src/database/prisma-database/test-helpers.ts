@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { describe } from 'vitest';
 
 let cached: PrismaClient | null = null;
 
@@ -31,7 +32,5 @@ export function describeIfPostgres(name: string, fn: () => void): void {
     console.log(`[skip] ${name} — TEST_DATABASE_URL not set`);
     return;
   }
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { describe } = require('vitest') as typeof import('vitest');
   describe(name, fn);
 }
