@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { AgentActivityLog, AgentActivityEvent } from '../../agent-activity-log/agent-activity-log';
+import type { AgentActivityLog, AgentActivityEvent } from '../../database/agent-activity-log';
 import type { Database } from '../../database/database';
 import { assertAgentOwnedBy } from '../middleware/auth';
 import { NotFoundError } from '../middleware/error-handler';

@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import type { AgentActivityLog } from '../../agent-activity-log/agent-activity-log';
-import type { AgentActivityLogEntry } from '../../agent-activity-log/types';
+import type { AgentActivityLog } from '../../database/agent-activity-log';
+import type { AgentActivityLogEntry } from '../../database/types';
 import type { Database } from '../../database/database';
 import { assertAgentOwnedBy } from '../middleware/auth';
 import { BadRequestError, NotFoundError } from '../middleware/error-handler';

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { AgentActivityLog } from '../../agent-activity-log/agent-activity-log';
+import type { AgentActivityLog } from '../../database/agent-activity-log';
 import type { AgentRunner } from '../../agent-runner/agent-runner';
 import { ChatTickStrategy } from '../../agent-runner/tick-strategies/chat-tick-strategy';
 import {

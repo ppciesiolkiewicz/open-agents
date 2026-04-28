@@ -1,6 +1,6 @@
 import type { Database } from '../database/database';
 import type { AgentConfig, AgentMemory } from '../database/types';
-import type { AgentActivityLog } from '../agent-activity-log/agent-activity-log';
+import type { AgentActivityLog } from '../database/agent-activity-log';
 import type { WalletFactory } from '../wallet/factory/wallet-factory';
 import type { ToolRegistry } from '../ai-tools/tool-registry';
 import type { AgentTool, AgentToolContext } from '../ai-tools/tool';

@@ -1,4 +1,4 @@
-import type { AgentActivityLog } from '../../agent-activity-log/agent-activity-log';
+import type { AgentActivityLog } from '../../database/agent-activity-log';
 import type { ChatMessage } from '../llm-client';
 import { projectChatMessagesAsLLMMessages } from './chat-history-projection';
 import type { TickStrategy, TickStrategyContext } from './tick-strategy';

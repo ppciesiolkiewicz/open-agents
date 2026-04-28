@@ -1,6 +1,6 @@
 import express, { type Express } from 'express';
 import type { Server } from 'node:http';
-import type { AgentActivityLog } from '../agent-activity-log/agent-activity-log';
+import type { AgentActivityLog } from '../database/agent-activity-log';
 import type { AgentRunner } from '../agent-runner/agent-runner';
 import type { TickQueue } from '../agent-runner/tick-queue';
 import type { Database } from '../database/database';

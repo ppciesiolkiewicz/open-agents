@@ -1,4 +1,4 @@
-import type { AgentActivityLog } from '../agent-activity-log/agent-activity-log';
+import type { AgentActivityLog } from '../database/agent-activity-log';
 import type { Database } from '../database/database';
 import type { AgentRunner, Clock } from '../agent-runner/agent-runner';
 import type { TickQueue } from '../agent-runner/tick-queue';

@@ -1,4 +1,4 @@
-import type { AgentActivityLogEntry } from '../../agent-activity-log/types';
+import type { AgentActivityLogEntry } from '../../database/types';
 import type { ChatMessage, ToolCall } from '../llm-client';
 
 export interface ChatMessageView {

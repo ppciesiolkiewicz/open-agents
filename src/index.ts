@@ -5,8 +5,7 @@ import { LOOPER } from './constants';
 import { Looper } from './agent-looper/looper';
 import { AgentOrchestrator } from './agent-looper/agent-orchestrator';
 import { FileDatabase } from './database/file-database/file-database';
-import { FileActivityLogStore } from './agent-activity-log/file-activity-log-store';
-import { AgentActivityLog } from './agent-activity-log/agent-activity-log';
+import { AgentActivityLog } from './database/agent-activity-log';
 import { WalletFactory } from './wallet/factory/wallet-factory';
 import { AgentRunner } from './agent-runner/agent-runner';
 import { StubLLMClient } from './agent-runner/stub-llm-client';
@@ -61,7 +60,7 @@ async function main(): Promise<void> {
   }
 
   const db = new FileDatabase(env.DB_DIR);
-  const activityLog = new AgentActivityLog(new FileActivityLogStore(env.DB_DIR));
+  const activityLog = new AgentActivityLog(db.activityLog);
   const walletFactory = new WalletFactory(env, db.transactions);
   const uniswap = new UniswapService(env, db);
   const llm = await buildLLM(env);
