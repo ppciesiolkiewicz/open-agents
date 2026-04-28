@@ -1,0 +1,94 @@
+import { z } from 'zod';
+import { extendZodWithOpenApi, OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
+
+extendZodWithOpenApi(z);
+
+export const registry = new OpenAPIRegistry();
+
+export const AgentTypeSchema = z.enum(['scheduled', 'chat']).openapi({ description: 'Agent execution mode' });
+
+export const RiskLimitsSchema = z.object({
+  maxTradeUSD: z.number().nonnegative(),
+  maxSlippageBps: z.number().int().nonnegative(),
+}).passthrough();
+
+export const AgentConfigSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: AgentTypeSchema,
+  prompt: z.string(),
+  walletAddress: z.string(),
+  dryRun: z.boolean(),
+  dryRunSeedBalances: z.record(z.string()).optional(),
+  riskLimits: RiskLimitsSchema,
+  createdAt: z.number(),
+  enabled: z.boolean().optional(),
+  intervalMs: z.number().int().nonnegative().optional(),
+  lastTickAt: z.number().nullable().optional(),
+  lastMessageAt: z.number().nullable().optional(),
+}).openapi('AgentConfig');
+
+export const CreateAgentBodySchema = z.object({
+  name: z.string().min(1),
+  type: AgentTypeSchema,
+  prompt: z.string().min(1),
+  walletAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+  dryRun: z.boolean(),
+  dryRunSeedBalances: z.record(z.string()).optional(),
+  riskLimits: RiskLimitsSchema,
+  intervalMs: z.number().int().nonnegative().optional(),
+}).openapi('CreateAgentBody');
+
+export const UpdateAgentBodySchema = z.object({
+  name: z.string().min(1).optional(),
+  prompt: z.string().min(1).optional(),
+  riskLimits: RiskLimitsSchema.optional(),
+  intervalMs: z.number().int().nonnegative().optional(),
+}).openapi('UpdateAgentBody');
+
+export const PostMessageBodySchema = z.object({
+  content: z.string().min(1),
+}).openapi('PostMessageBody');
+
+export const ChatMessageViewSchema = z.object({
+  tickId: z.string(),
+  role: z.enum(['user', 'assistant', 'tool']),
+  content: z.string(),
+  toolCalls: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    argumentsJson: z.string(),
+  })).optional(),
+  toolCallId: z.string().optional(),
+  createdAt: z.number(),
+}).openapi('ChatMessageView');
+
+export const ActivityLogEntrySchema = z.object({
+  agentId: z.string(),
+  tickId: z.string(),
+  timestamp: z.number(),
+  type: z.enum(['user_message', 'tick_start', 'tick_end', 'tool_call', 'tool_result', 'llm_call', 'llm_response', 'memory_update', 'error']),
+  payload: z.record(z.unknown()),
+}).openapi('ActivityLogEntry');
+
+export const PaginationQuerySchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  order: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export const PageOfActivitySchema = z.object({
+  items: z.array(ActivityLogEntrySchema),
+  nextCursor: z.string().nullable(),
+}).openapi('PageOfActivity');
+
+export const PageOfMessagesSchema = z.object({
+  items: z.array(ChatMessageViewSchema),
+  nextCursor: z.string().nullable(),
+}).openapi('PageOfMessages');
+
+export const ErrorResponseSchema = z.object({
+  error: z.string(),
+  message: z.string().optional(),
+  issues: z.array(z.unknown()).optional(),
+}).openapi('ErrorResponse');
