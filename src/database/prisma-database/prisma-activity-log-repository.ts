@@ -14,7 +14,6 @@ export class PrismaActivityLogRepository implements ActivityLogRepository {
         agentId: entry.agentId,
         tickId: entry.tickId,
         type: entry.type,
-        level: 'info',
         payload: entry.payload as object,
         timestamp: BigInt(entry.timestamp),
       },

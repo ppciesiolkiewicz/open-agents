@@ -90,7 +90,6 @@ model ActivityEvent {
   agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
   tickId      String?
   type        String
-  level       String
   payload     Json
   timestamp   BigInt
   seq         BigInt   @default(autoincrement()) @unique
