@@ -1,4 +1,5 @@
 export type AgentActivityLogEntryType =
+  | 'user_message'
   | 'tick_start'
   | 'tick_end'
   | 'tool_call'
