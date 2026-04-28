@@ -1,4 +1,4 @@
-import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { it, expect, beforeEach } from 'vitest';
 import { describeIfPostgres, getTestPrisma, truncateAll } from './test-helpers';
 import { PrismaAgentRepository } from './prisma-agent-repository';
 import { PrismaActivityLogRepository } from './prisma-activity-log-repository';
@@ -8,8 +8,6 @@ describeIfPostgres('PrismaActivityLogRepository', () => {
   const agents = new PrismaAgentRepository(prisma);
   const log = new PrismaActivityLogRepository(prisma);
 
-  beforeAll(async () => { await prisma.$connect(); });
-  afterAll(async () => { await prisma.$disconnect(); });
   beforeEach(async () => {
     await truncateAll(prisma);
     await agents.upsert({
