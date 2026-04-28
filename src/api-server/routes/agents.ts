@@ -34,7 +34,6 @@ export function buildAgentsRouter(deps: Deps): Router {
         id: randomUUID(),
         name: body.name,
         prompt: body.prompt,
-        walletAddress: body.walletAddress,
         dryRun: body.dryRun,
         ...(body.dryRunSeedBalances ? { dryRunSeedBalances: body.dryRunSeedBalances } : {}),
         riskLimits: body.riskLimits,

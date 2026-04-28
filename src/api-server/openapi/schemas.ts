@@ -14,7 +14,6 @@ export const AgentConfigSchema = z.object({
   id: z.string(),
   name: z.string(),
   prompt: z.string(),
-  walletAddress: z.string(),
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
   riskLimits: RiskLimitsSchema,
@@ -27,7 +26,6 @@ export const AgentConfigSchema = z.object({
 export const CreateAgentBodySchema = z.object({
   name: z.string().min(1),
   prompt: z.string().min(1),
-  walletAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
   riskLimits: RiskLimitsSchema,

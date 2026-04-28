@@ -58,7 +58,6 @@ export async function runSwap(args: RunSwapArgs): Promise<void> {
     running: false,
     intervalMs: 1_000,
     prompt: 'interactive script',
-    walletAddress: wallet.getAddress(),
     dryRun: false,
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: Number(args.slippageBps) },
     lastTickAt: null,

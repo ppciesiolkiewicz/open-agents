@@ -24,7 +24,6 @@ function makeAgent(id: string): AgentConfig {
     running: true,
     intervalMs: 60_000,
     prompt: 'test',
-    walletAddress: '',
     dryRun: true,
     dryRunSeedBalances: { native: '0', [TOKENS.USDC.address]: '5000000' },
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },

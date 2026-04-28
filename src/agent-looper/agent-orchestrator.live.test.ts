@@ -28,7 +28,6 @@ function makeAgent(id: string, opts: { running?: boolean; intervalMs?: number; l
     running: opts.running ?? true,
     intervalMs: opts.intervalMs ?? 1_000,
     prompt: `agent ${id}`,
-    walletAddress: '',
     dryRun: true,
     dryRunSeedBalances: { native: '0' },
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },

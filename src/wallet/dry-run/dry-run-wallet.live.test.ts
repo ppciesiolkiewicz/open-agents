@@ -33,7 +33,6 @@ function makeAgent(id: string): AgentConfig {
     running: true,
     intervalMs: 60_000,
     prompt: 'test',
-    walletAddress: '',
     dryRun: true,
     dryRunSeedBalances: {
       native: '1000000000000000000',                  // 1 ETH

@@ -9,7 +9,6 @@ export interface AgentConfig {
   id: string;
   name: string;
   prompt: string;
-  walletAddress: string;
   dryRun: boolean;
   dryRunSeedBalances?: Record<string, string>;  // tokenAddr (or "native") → raw bigint string
   riskLimits: {

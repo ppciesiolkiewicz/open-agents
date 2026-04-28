@@ -39,7 +39,6 @@ export function buildSeedAgentConfig(opts: SeedAgentOptions = {}): AgentConfig {
     running: false,
     intervalMs: 60_000,
     prompt: PROMPT,
-    walletAddress: '',
     dryRun,
     // Seeded balances are only consumed when dryRun=true. We always set them
     // anyway so toggling dryRun in db/database.json still works without edits.

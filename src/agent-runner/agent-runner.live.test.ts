@@ -31,7 +31,6 @@ function makeAgent(id: string): AgentConfig {
     running: true,
     intervalMs: 60_000,
     prompt: `You are ${id}. Respond briefly.`,
-    walletAddress: '',
     dryRun: true,
     dryRunSeedBalances: { native: '1000000000000000000' },
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
