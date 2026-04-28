@@ -19,7 +19,6 @@ const envSchema = z.object({
   DB_DIR: z.string().default('./db'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
-  DOCS_PORT: z.coerce.number().int().min(1).max(65_535).optional(),
   API_CORS_ORIGINS: z.string().optional(),
   MODE: z.enum(['looper', 'server', 'both']).default('both'),
 });

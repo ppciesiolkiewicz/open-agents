@@ -18,6 +18,12 @@ function formatWeiAsOG(wei: bigint | undefined): string {
   return og.toFixed(8).replace(/\.?0+$/, '') || '0';
 }
 
+function pricePerMillionOG(weiPerToken: bigint | undefined): string {
+  if (weiPerToken === undefined) return '?';
+  const ogPerMillion = (Number(weiPerToken) / 1e18) * 1_000_000;
+  return ogPerMillion.toFixed(4).replace(/\.?0+$/, '') || '0';
+}
+
 async function confirm(q: string): Promise<boolean> {
   const rl = createInterface({ input, output });
   try {
@@ -53,7 +59,7 @@ async function main(): Promise<void> {
   console.log('');
   for (const p of providers) {
     console.log(`  ${p.providerAddress}  model=${p.model}`);
-    console.log(`    in: ${formatWeiAsOG(p.inputPricePerToken)} OG/token   out: ${formatWeiAsOG(p.outputPricePerToken)} OG/token`);
+    console.log(`    in: ${pricePerMillionOG(p.inputPricePerToken)} OG/1M tokens   out: ${pricePerMillionOG(p.outputPricePerToken)} OG/1M tokens`);
     console.log(`    sub-account balance: ${formatWeiAsOG(p.subAccountBalanceWei)} OG`);
     console.log(`    url=${p.serviceUrl}`);
   }
