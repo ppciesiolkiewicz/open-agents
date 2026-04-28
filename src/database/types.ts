@@ -28,8 +28,8 @@ export interface Transaction {
   agentId: string;
   hash: string;                 // real 0x-prefixed hash, or dry-run sentinel
   chainId: number;
-  from: string;
-  to: string;
+  fromAddress: string;
+  toAddress: string;
   tokenIn?: TokenAmount;
   tokenOut?: TokenAmount;
   gasUsed: string;              // bigint as string; estimated for dry-run

@@ -31,8 +31,8 @@ model Transaction {
   agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
   hash          String
   chainId       Int
-  from          String
-  to            String
+  fromAddress   String
+  toAddress     String
   tokenIn       Json?
   tokenOut      Json?
   gasUsed       String
