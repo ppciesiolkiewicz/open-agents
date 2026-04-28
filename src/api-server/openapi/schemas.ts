@@ -28,16 +28,31 @@ export const AgentConfigSchema = z.object({
   lastMessageAt: z.number().nullable().optional(),
 }).openapi('AgentConfig');
 
-export const CreateAgentBodySchema = z.object({
+export const CreateScheduledAgentBodySchema = z.object({
   name: z.string().min(1),
-  type: AgentTypeSchema,
+  type: z.literal('scheduled'),
   prompt: z.string().min(1),
   walletAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
   riskLimits: RiskLimitsSchema,
-  intervalMs: z.number().int().nonnegative().optional(),
-}).openapi('CreateAgentBody');
+  intervalMs: z.number().int().min(1000),
+}).openapi('CreateScheduledAgentBody');
+
+export const CreateChatAgentBodySchema = z.object({
+  name: z.string().min(1),
+  type: z.literal('chat'),
+  prompt: z.string().min(1),
+  walletAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+  dryRun: z.boolean(),
+  dryRunSeedBalances: z.record(z.string()).optional(),
+  riskLimits: RiskLimitsSchema,
+}).openapi('CreateChatAgentBody');
+
+export const CreateAgentBodySchema = z.discriminatedUnion('type', [
+  CreateScheduledAgentBodySchema,
+  CreateChatAgentBodySchema,
+]);
 
 export const UpdateAgentBodySchema = z.object({
   name: z.string().min(1).optional(),

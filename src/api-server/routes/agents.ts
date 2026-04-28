@@ -48,7 +48,7 @@ export function buildAgentsRouter(deps: Deps): Router {
       };
       const agent: AgentConfig =
         body.type === 'scheduled'
-          ? { ...base, enabled: false, intervalMs: body.intervalMs ?? 0, lastTickAt: null }
+          ? { ...base, enabled: false, intervalMs: body.intervalMs, lastTickAt: null }
           : { ...base, lastMessageAt: null };
       await deps.db.agents.upsert(agent);
       res.status(201).json(agent);
