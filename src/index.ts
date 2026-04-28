@@ -73,43 +73,51 @@ async function main(): Promise<void> {
     uniswap,
   });
   const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
-  const orchestrator = new AgentOrchestrator(db, runner);
 
   console.log(
-    `[bootstrap] env loaded — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}`,
+    `[bootstrap] env loaded — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}, MODE=${env.MODE}`,
   );
   console.log(`[bootstrap] database + activity log initialized at ${env.DB_DIR}`);
   console.log(`[bootstrap] wallet factory initialized`);
   console.log(`[bootstrap] tool registry initialized (${toolRegistry.build().length} tools)`);
   console.log(`[bootstrap] agent runner initialized (LLM: ${llm.modelName()})`);
 
-  const looper = new Looper({
-    tickIntervalMs: LOOPER.tickIntervalMs,
-    onTick: async () => {
-      const agents = await db.agents.list();
-      console.log(
-        `[looper] tick @ ${new Date().toISOString()} — ${agents.length} agent(s) loaded`,
-      );
-      await orchestrator.tick();
-    },
-  });
+  const runLooper = env.MODE === 'looper' || env.MODE === 'both';
+  const runServer = env.MODE === 'server' || env.MODE === 'both';
 
-  looper.start();
-  console.log(`[bootstrap] looper started, ticking every ${LOOPER.tickIntervalMs}ms`);
+  let looper: Looper | null = null;
+  if (runLooper) {
+    const orchestrator = new AgentOrchestrator(db, runner);
+    looper = new Looper({
+      tickIntervalMs: LOOPER.tickIntervalMs,
+      onTick: async () => {
+        const agents = await db.agents.list();
+        console.log(
+          `[looper] tick @ ${new Date().toISOString()} — ${agents.length} agent(s) loaded`,
+        );
+        await orchestrator.tick();
+      },
+    });
+    looper.start();
+    console.log(`[bootstrap] looper started, ticking every ${LOOPER.tickIntervalMs}ms`);
+  }
 
-  const api = new ApiServer({
-    db,
-    activityLog,
-    runner,
-    port: env.PORT,
-    ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
-  });
-  await api.start();
+  let api: ApiServer | null = null;
+  if (runServer) {
+    api = new ApiServer({
+      db,
+      activityLog,
+      runner,
+      port: env.PORT,
+      ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
+    });
+    await api.start();
+  }
 
   const shutdown = async (signal: string) => {
     console.log(`[bootstrap] received ${signal}, stopping`);
-    looper.stop();
-    await api.stop().catch(() => {});
+    if (looper) looper.stop();
+    if (api) await api.stop().catch(() => {});
     process.exit(0);
   };
   process.on('SIGINT', () => shutdown('SIGINT'));

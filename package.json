@@ -9,7 +9,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "NODE_OPTIONS=--conditions=require tsx src/index.ts",
+    "start:looper": "MODE=looper NODE_OPTIONS=--conditions=require tsx src/index.ts",
+    "start:server": "MODE=server NODE_OPTIONS=--conditions=require tsx src/index.ts",
     "dev": "NODE_OPTIONS=--conditions=require tsx watch src/index.ts",
+    "dev:looper": "MODE=looper NODE_OPTIONS=--conditions=require tsx watch src/index.ts",
+    "dev:server": "MODE=server NODE_OPTIONS=--conditions=require tsx watch src/index.ts",
     "test": "NODE_OPTIONS=--conditions=require vitest run",
     "test:watch": "NODE_OPTIONS=--conditions=require vitest",
     "swap:buy-uni": "NODE_OPTIONS=--conditions=require tsx scripts/swap-buy-uni.ts",

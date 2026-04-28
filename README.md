@@ -48,7 +48,17 @@ Every fund-spending script prompts `[y/N]` before doing anything.
 
 ## API Server
 
-`npm start` boots an Express HTTP server alongside the Looper, on `PORT` (default `3000`). CORS allow-list via `API_CORS_ORIGINS` (CSV; omit for `*`).
+`npm start` boots both the Looper and an Express HTTP server in the same process (`PORT`, default `3000`). To run them separately:
+
+```bash
+npm run start:looper    # MODE=looper — only the agent loop
+npm run start:server    # MODE=server — only the HTTP API
+npm start               # MODE=both (default) — both in one process
+```
+
+The two modes share the file-backed DB at `DB_DIR`. v1 has no file lock, so don't run `start:looper` and the seed/swap scripts at the same instant — for normal usage (one looper + one server) sequential reads/writes are fine. When the file DB is replaced with a real DB, this caveat goes away.
+
+CORS allow-list via `API_CORS_ORIGINS` (CSV; omit for `*`).
 
 - `GET /docs` — Swagger UI
 - `GET /openapi.json` — OpenAPI 3.1 spec (consume from FE to generate SDK)

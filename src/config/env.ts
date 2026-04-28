@@ -20,6 +20,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   API_CORS_ORIGINS: z.string().optional(),
+  MODE: z.enum(['looper', 'server', 'both']).default('both'),
 });
 
 export type Env = z.infer<typeof envSchema>;
