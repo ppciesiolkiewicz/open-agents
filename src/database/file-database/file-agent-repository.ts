@@ -30,6 +30,14 @@ export class FileAgentRepository implements AgentRepository {
     await this.writeFile(file);
   }
 
+  async delete(id: string): Promise<void> {
+    const file = await this.readFile();
+    const before = file.agents.length;
+    file.agents = file.agents.filter((a) => a.id !== id);
+    if (file.agents.length === before) return;
+    await this.writeFile(file);
+  }
+
   private get path(): string {
     return join(this.dbDir, 'database.json');
   }
