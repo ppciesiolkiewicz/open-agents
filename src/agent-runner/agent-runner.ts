@@ -6,7 +6,9 @@ import type { ToolRegistry } from '../ai-tools/tool-registry';
 import type { AgentTool, AgentToolContext } from '../ai-tools/tool';
 import { toToolDefinition } from '../ai-tools/zod-to-openai';
 import { AGENT_RUNNER } from '../constants';
-import type { ChatMessage, LLMClient, ToolCall } from './llm-client';
+import type { ChatMessage, LLMClient, ToolCall, ToolDefinition } from './llm-client';
+import type { TickStrategy } from './tick-strategies/tick-strategy';
+import { ScheduledTickStrategy } from './tick-strategies/scheduled-tick-strategy';
 
 export interface Clock {
   now(): number;
@@ -15,6 +17,8 @@ export interface Clock {
 const SYSTEM_CLOCK: Clock = { now: () => Date.now() };
 
 export class AgentRunner {
+  private readonly defaultStrategy: TickStrategy;
+
   constructor(
     private readonly db: Database,
     private readonly activityLog: AgentActivityLog,
@@ -22,12 +26,25 @@ export class AgentRunner {
     private readonly llm: LLMClient,
     private readonly toolRegistry: ToolRegistry,
     private readonly clock: Clock = SYSTEM_CLOCK,
-  ) {}
+    defaultStrategy: TickStrategy = new ScheduledTickStrategy(),
+  ) {
+    this.defaultStrategy = defaultStrategy;
+  }
 
-  async run(agent: AgentConfig): Promise<void> {
+  async run(
+    agent: AgentConfig,
+    strategy: TickStrategy = this.defaultStrategy,
+    options: { onToken?: (text: string) => void } = {},
+  ): Promise<void> {
     const tickId = `${agent.id}-${this.clock.now()}`;
-
     try {
+      const memory = await this.loadOrInitMemory(agent.id);
+      const systemPrompt = this.buildSystemPrompt(agent, memory);
+      const { userMessageContent, initialMessages } = await strategy.buildInitialMessages({
+        agent, memory, systemPrompt,
+      });
+
+      await this.activityLog.userMessage(agent.id, tickId, { content: userMessageContent });
       await this.activityLog.tickStart(agent.id, tickId);
       this.logStdout(agent.id, `tick start (tickId=${tickId})`);
 
@@ -35,108 +52,87 @@ export class AgentRunner {
       const tools = this.toolRegistry.build();
       const toolByName = new Map(tools.map((t) => [t.name, t]));
       const toolDefs = tools.map(toToolDefinition);
-
-      const memory = await this.loadOrInitMemory(agent.id);
       const ctx: AgentToolContext = { agent, wallet, tickId };
 
-      const messages: ChatMessage[] = [
-        { role: 'system', content: this.buildSystemPrompt(agent, memory) },
-        { role: 'user', content: 'Run one tick.' },
-      ];
-
-      let rounds = 0;
-      while (rounds < AGENT_RUNNER.maxToolRoundsPerTick) {
-        rounds++;
-        const promptChars = messages.reduce((sum, m) => {
-          let chars = m.content.length;
-          if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
-            chars += JSON.stringify(m.toolCalls).length;
-          }
-          return sum + chars;
-        }, 0);
-        await this.activityLog.llmCall(agent.id, tickId, {
-          model: this.llm.modelName(),
-          promptChars,
-        });
-        this.logStdout(
-          agent.id,
-          `llm_call round=${rounds} model=${this.llm.modelName()} promptChars=${promptChars}`,
-        );
-
-        const turn = await this.llm.invokeWithTools(messages, toolDefs);
-
-        await this.activityLog.llmResponse(agent.id, tickId, {
-          model: this.llm.modelName(),
-          responseChars: (turn.content ?? '').length,
-          ...(turn.tokenCount !== undefined ? { tokenCount: turn.tokenCount } : {}),
-          content: turn.content ?? '',
-          ...(turn.toolCalls && turn.toolCalls.length > 0
-            ? {
-                toolCalls: turn.toolCalls.map((c) => ({
-                  id: c.id,
-                  name: c.name,
-                  argumentsJson: c.argumentsJson,
-                })),
-              }
-            : {}),
-        });
-        const reasoning = (turn.content ?? '').trim();
-        if (reasoning) {
-          this.logStdout(agent.id, `reasoning: ${truncate(reasoning, 600)}`);
-        }
-        if (turn.toolCalls && turn.toolCalls.length > 0) {
-          this.logStdout(
-            agent.id,
-            `llm_response toolCalls=[${turn.toolCalls.map((c) => c.name).join(', ')}]`,
-          );
-        } else {
-          this.logStdout(agent.id, `llm_response toolCalls=[] (final answer)`);
-        }
-
-        messages.push(turn.assistantMessage);
-
-        if (!turn.toolCalls || turn.toolCalls.length === 0) {
-          // No more tool work — model is done.
-          await this.activityLog.tickEnd(agent.id, tickId, {
-            ok: true,
-            rounds,
-            responseChars: (turn.content ?? '').length,
-          });
-          this.logStdout(agent.id, `tick end ok=true rounds=${rounds}`);
-          return;
-        }
-
-        // Dispatch each tool call, collect tool reply messages.
-        for (const call of turn.toolCalls) {
-          const reply = await this.dispatchToolCall(agent.id, tickId, call, toolByName, ctx);
-          messages.push(reply);
-        }
-      }
-
-      // Hit the round cap without the model returning plain text.
-      await this.activityLog.error(agent.id, tickId, {
-        message: `exceeded ${AGENT_RUNNER.maxToolRoundsPerTick} tool-call rounds`,
-      });
-      await this.activityLog.tickEnd(agent.id, tickId, { ok: false, rounds });
-      this.logStdout(
-        agent.id,
-        `tick end ok=false rounds=${rounds} (exceeded maxToolRoundsPerTick)`,
-      );
+      await this.runToolLoop(agent, tickId, initialMessages, toolDefs, toolByName, ctx, options);
     } catch (err) {
       const e = err as Error;
       this.logStdout(agent.id, `ERROR ${e.message}`);
       try {
-        await this.activityLog.error(agent.id, tickId, {
-          message: e.message,
-          stack: e.stack,
-        });
+        await this.activityLog.error(agent.id, tickId, { message: e.message, stack: e.stack });
         await this.activityLog.tickEnd(agent.id, tickId, { ok: false });
-      } catch {
-        // intentionally ignored — never rethrow
-      }
+      } catch { /* ignore */ }
+      throw err;
     } finally {
       await this.db.agents.upsert({ ...agent, lastTickAt: this.clock.now() });
     }
+  }
+
+  private async runToolLoop(
+    agent: AgentConfig,
+    tickId: string,
+    messages: ChatMessage[],
+    toolDefs: ToolDefinition[],
+    toolByName: Map<string, AgentTool>,
+    ctx: AgentToolContext,
+    options: { onToken?: (text: string) => void },
+  ): Promise<void> {
+    void options; // onToken plumbed through in Phase 2
+    let rounds = 0;
+    while (rounds < AGENT_RUNNER.maxToolRoundsPerTick) {
+      rounds++;
+      const promptChars = messages.reduce((sum, m) => {
+        let chars = m.content.length;
+        if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+          chars += JSON.stringify(m.toolCalls).length;
+        }
+        return sum + chars;
+      }, 0);
+      await this.activityLog.llmCall(agent.id, tickId, { model: this.llm.modelName(), promptChars });
+      this.logStdout(agent.id, `llm_call round=${rounds} model=${this.llm.modelName()} promptChars=${promptChars}`);
+
+      const turn = await this.llm.invokeWithTools(messages, toolDefs);
+
+      await this.activityLog.llmResponse(agent.id, tickId, {
+        model: this.llm.modelName(),
+        responseChars: (turn.content ?? '').length,
+        ...(turn.tokenCount !== undefined ? { tokenCount: turn.tokenCount } : {}),
+        content: turn.content ?? '',
+        ...(turn.toolCalls && turn.toolCalls.length > 0
+          ? { toolCalls: turn.toolCalls.map((c) => ({ id: c.id, name: c.name, argumentsJson: c.argumentsJson })) }
+          : {}),
+      });
+
+      const reasoning = (turn.content ?? '').trim();
+      if (reasoning) this.logStdout(agent.id, `reasoning: ${truncate(reasoning, 600)}`);
+      this.logStdout(
+        agent.id,
+        turn.toolCalls && turn.toolCalls.length > 0
+          ? `llm_response toolCalls=[${turn.toolCalls.map((c) => c.name).join(', ')}]`
+          : `llm_response toolCalls=[] (final answer)`,
+      );
+
+      messages.push(turn.assistantMessage);
+
+      if (!turn.toolCalls || turn.toolCalls.length === 0) {
+        await this.activityLog.tickEnd(agent.id, tickId, {
+          ok: true, rounds, responseChars: (turn.content ?? '').length,
+        });
+        this.logStdout(agent.id, `tick end ok=true rounds=${rounds}`);
+        return;
+      }
+
+      for (const call of turn.toolCalls) {
+        const reply = await this.dispatchToolCall(agent.id, tickId, call, toolByName, ctx);
+        messages.push(reply);
+      }
+    }
+
+    await this.activityLog.error(agent.id, tickId, {
+      message: `exceeded ${AGENT_RUNNER.maxToolRoundsPerTick} tool-call rounds`,
+    });
+    await this.activityLog.tickEnd(agent.id, tickId, { ok: false, rounds });
+    this.logStdout(agent.id, `tick end ok=false rounds=${rounds} (exceeded maxToolRoundsPerTick)`);
   }
 
   private async dispatchToolCall(

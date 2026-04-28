@@ -126,7 +126,8 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
 
     const types = (await activityLog.list('a1')).map((e) => e.type);
     console.log('[runner] entries:', types);
-    expect(types[0]).toBe('tick_start');
+    expect(types[0]).toBe('user_message');
+    expect(types).toContain('tick_start');
     expect(types).toContain('llm_call');
     expect(types).toContain('llm_response');
     expect(types[types.length - 1]).toBe('tick_end');
@@ -157,14 +158,14 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
     expect(mem?.notes).toContain('first thought');
   });
 
-  it('does not rethrow when the LLM throws, and still updates lastTickAt + writes error entry', async () => {
+  it('rethrows when the LLM throws, and still updates lastTickAt + writes error entry', async () => {
     const agent = makeAgent('boom');
     await db.agents.upsert(agent);
     const fixedClock: Clock = { now: () => 9_000 };
 
     const llm = new ScriptedLLMClient([{ kind: 'throw', message: 'llm exploded' }]);
     const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry, fixedClock);
-    await expect(runner.run(agent)).resolves.toBeUndefined();
+    await expect(runner.run(agent)).rejects.toThrow('llm exploded');
 
     const types = (await activityLog.list('boom')).map((e) => e.type);
     console.log('[runner] error path:', types);

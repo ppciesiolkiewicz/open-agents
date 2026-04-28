@@ -21,8 +21,7 @@ export class AgentOrchestrator {
       try {
         await this.runner.run(agent);
       } catch (err) {
-        // AgentRunner.run does not rethrow; this catch is defense-in-depth.
-        console.error(`[orchestrator] agent ${agent.id} threw unexpectedly:`, err);
+        console.error(`[orchestrator] agent ${agent.id} threw:`, err);
       }
     }
   }
