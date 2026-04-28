@@ -26,7 +26,7 @@ export class PrismaActivityLogRepository implements ActivityLogRepository {
     agentId: string,
     opts?: { limit?: number; sinceTickId?: string },
   ): Promise<AgentActivityLogEntry[]> {
-    let entries: AgentActivityLogEntry[];
+    const where: { agentId: string; seq?: { gt: bigint } } = { agentId };
 
     if (opts?.sinceTickId) {
       const anchor = await this.prisma.activityEvent.findFirst({
@@ -34,30 +34,19 @@ export class PrismaActivityLogRepository implements ActivityLogRepository {
         orderBy: { seq: 'desc' },
         select: { seq: true },
       });
-      if (anchor === null) {
-        const rows = await this.prisma.activityEvent.findMany({
-          where: { agentId },
-          orderBy: { seq: 'asc' },
-        });
-        entries = rows.map(activityEventRowToDomain);
-      } else {
-        const rows = await this.prisma.activityEvent.findMany({
-          where: { agentId, seq: { gt: anchor.seq } },
-          orderBy: { seq: 'asc' },
-        });
-        entries = rows.map(activityEventRowToDomain);
+      if (anchor !== null) {
+        where.seq = { gt: anchor.seq };
       }
-    } else {
-      const rows = await this.prisma.activityEvent.findMany({
-        where: { agentId },
-        orderBy: { seq: 'asc' },
-      });
-      entries = rows.map(activityEventRowToDomain);
     }
 
-    if (typeof opts?.limit === 'number') {
-      entries = entries.slice(-opts.limit);
-    }
-    return entries;
+    // Negative `take` returns the last N rows in the requested order — keeps
+    // the tail-slice on the database side instead of streaming everything
+    // into memory.
+    const rows = await this.prisma.activityEvent.findMany({
+      where,
+      orderBy: { seq: 'asc' },
+      ...(typeof opts?.limit === 'number' ? { take: -opts.limit } : {}),
+    });
+    return rows.map(activityEventRowToDomain);
   }
 }
