@@ -26,17 +26,17 @@ Every tick, do exactly:
 Always pass amountIn as a string of base-units (no decimal scaling). USDC has 6 decimals, UNI has 18.`;
 
 export interface SeedAgentOptions {
+  userId: string;
   dryRun?: boolean;        // default true — every swap goes through DryRunWallet
   now?: number;
-  userId?: string;
 }
 
-export function buildSeedAgentConfig(opts: SeedAgentOptions = {}): AgentConfig {
+export function buildSeedAgentConfig(opts: SeedAgentOptions): AgentConfig {
   const dryRun = opts.dryRun ?? true;
   const now = opts.now ?? Date.now();
   return {
     id: SEED_AGENT_ID,
-    userId: opts.userId ?? 'seed-user',
+    userId: opts.userId,
     name: 'UNI Moving Average Trader',
     running: false,
     intervalMs: 60_000,

@@ -3,12 +3,17 @@ import { PrismaClient } from '@prisma/client';
 import { confirmContinue } from '../src/test-lib/interactive-prompt';
 import { buildSeedAgentConfig, SEED_AGENT_ID } from '../scripts/lib/seed-uni-ma-trader';
 import { PrismaAgentRepository } from '../src/database/prisma-database/prisma-agent-repository';
+import { PrismaUserRepository } from '../src/database/prisma-database/prisma-user-repository';
+
+const DEV_USER_DID = 'did:privy:dev-local';
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   try {
-    const repo = new PrismaAgentRepository(prisma);
-    const existing = await repo.findById(SEED_AGENT_ID);
+    const users = new PrismaUserRepository(prisma);
+    const agents = new PrismaAgentRepository(prisma);
+
+    const existing = await agents.findById(SEED_AGENT_ID);
     if (existing) {
       console.error(`[seed] agent id "${SEED_AGENT_ID}" already exists in DB.`);
       console.error(`[seed] v1 supports only a single seed agent. Run \`npm run db:reset\` to start fresh.`);
@@ -30,10 +35,13 @@ async function main(): Promise<void> {
       return;
     }
 
-    const seed = buildSeedAgentConfig({ dryRun });
-    await repo.upsert(seed);
+    const devUser = await users.findOrCreateByPrivyDid(DEV_USER_DID, { email: 'dev@local' });
+    console.log(`[seed] dev user: ${devUser.id} (${DEV_USER_DID})`);
 
-    console.log(`[seed] installed agent "${seed.id}" (dryRun=${dryRun}).`);
+    const seed = buildSeedAgentConfig({ dryRun, userId: devUser.id });
+    await agents.upsert(seed);
+
+    console.log(`[seed] installed agent "${seed.id}" (dryRun=${dryRun}) for user ${devUser.id}.`);
     if (!dryRun) {
       console.log(`[seed] WARNING: real-onchain mode. Make sure the wallet has UNI/USDC + gas before running \`npm start\`.`);
     }
