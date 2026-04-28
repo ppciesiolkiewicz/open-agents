@@ -67,6 +67,23 @@ export class ZeroGBrokerService {
   }
 
   /**
+   * Reads the full ledger state: total OG you own (main + locked into sub-accounts),
+   * available (in main, free to transfer), and locked (sum of sub-account balances).
+   * Returns zeros if no ledger exists yet.
+   */
+  async readLedgerSnapshot(): Promise<{ totalWei: bigint; availableWei: bigint; lockedWei: bigint }> {
+    try {
+      const ledger = await this.broker.ledger.getLedger();
+      const totalWei: bigint = ledger.totalBalance;
+      const availableWei: bigint = ledger.availableBalance;
+      const lockedWei = totalWei - availableWei;
+      return { totalWei, availableWei, lockedWei };
+    } catch {
+      return { totalWei: 0n, availableWei: 0n, lockedWei: 0n };
+    }
+  }
+
+  /**
    * Ensure the main ledger has at least `minOG` available. If below, deposit
    * `depositOG` (or addLedger if no ledger yet). Used to keep the SDK's
    * background auto-funding from warning when the sub-account is fine but

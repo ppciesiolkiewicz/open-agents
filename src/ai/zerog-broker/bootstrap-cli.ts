@@ -52,6 +52,13 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const ledger = await service.readLedgerSnapshot();
+  console.log('');
+  console.log(`Your 0G credit:`);
+  console.log(`  total owned:           ${formatWeiAsOG(ledger.totalWei)} OG  (main ledger + sub-accounts combined)`);
+  console.log(`  main ledger available: ${formatWeiAsOG(ledger.availableWei)} OG  (free to transfer to a sub-account)`);
+  console.log(`  locked in sub-accounts:${formatWeiAsOG(ledger.lockedWei)} OG  (sum across providers)`);
+
   console.log('');
   const modelFilter = process.env.ZEROG_MODEL_FILTER;
   const filterNote = modelFilter ? `  (model filter: "${modelFilter}")` : '';
