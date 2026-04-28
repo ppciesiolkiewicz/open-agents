@@ -7,6 +7,7 @@ export interface TokenAmount {
 
 export interface AgentConfig {
   id: string;
+  userId: string;
   name: string;
   prompt: string;
   dryRun: boolean;
@@ -93,4 +94,20 @@ export interface AgentActivityLogEntryInput {
 
 export interface AgentActivityLogEntry extends AgentActivityLogEntryInput {
   seq: number;
+}
+
+export interface User {
+  id: string;
+  privyDid: string;
+  email: string | null;
+  createdAt: number;
+}
+
+export interface UserWallet {
+  id: string;
+  userId: string;
+  privyWalletId: string;
+  walletAddress: string;
+  isPrimary: boolean;
+  createdAt: number;
 }
