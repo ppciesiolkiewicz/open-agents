@@ -11,8 +11,6 @@ export interface AgentConfig {
   id: string;
   name: string;
   type: AgentType;
-  enabled: boolean;
-  intervalMs: number;
   prompt: string;
   walletAddress: string;
   dryRun: boolean;
@@ -22,9 +20,13 @@ export interface AgentConfig {
     maxSlippageBps: number;    // new — agent's ceiling on slippage tolerance (50 = 0.5%, 100 = 1%)
     [k: string]: unknown;
   };
-  lastTickAt: number | null;
-  lastMessageAt?: number | null;
   createdAt: number;
+  // scheduled-only (optional on the union)
+  enabled?: boolean;
+  intervalMs?: number;
+  lastTickAt?: number | null;
+  // chat-only
+  lastMessageAt?: number | null;
 }
 
 export interface Transaction {
