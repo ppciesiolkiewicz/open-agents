@@ -86,11 +86,13 @@ async function main(): Promise<void> {
   const runLooper = env.MODE === 'looper' || env.MODE === 'both';
   const runServer = env.MODE === 'server' || env.MODE === 'both';
 
-  const queue = new InMemoryTickQueue();
+  const queue = new InMemoryTickQueue({
+    notify: (agentId, payload) => activityLog.emitEphemeral(agentId, payload),
+  });
 
   let looper: Looper | null = null;
   if (runLooper) {
-    const orchestrator = new AgentOrchestrator(db, runner, queue);
+    const orchestrator = new AgentOrchestrator(db, runner, queue, undefined, activityLog);
     looper = new Looper({
       tickIntervalMs: LOOPER.tickIntervalMs,
       onTick: async () => {

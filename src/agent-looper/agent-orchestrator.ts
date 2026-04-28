@@ -1,3 +1,4 @@
+import type { AgentActivityLog } from '../agent-activity-log/agent-activity-log';
 import type { Database } from '../database/database';
 import type { AgentRunner, Clock } from '../agent-runner/agent-runner';
 import type { TickQueue } from '../agent-runner/tick-queue';
@@ -10,6 +11,7 @@ export class AgentOrchestrator {
     private readonly runner: AgentRunner,
     private readonly queue: TickQueue,
     private readonly clock: Clock = SYSTEM_CLOCK,
+    private readonly activityLog?: AgentActivityLog,
   ) {}
 
   async tick(): Promise<void> {
@@ -24,10 +26,14 @@ export class AgentOrchestrator {
       // optimistic lastTickAt bump prevents the next looper iteration from
       // re-enqueuing the same agent while this scheduled tick is still pending.
       await this.db.agents.upsert({ ...agent, lastTickAt: now });
+      const agentId = agent.id;
+      const log = this.activityLog;
       await this.queue.enqueue({
-        agentId: agent.id,
+        agentId,
         trigger: 'scheduled',
-        run: () => this.runner.run(agent),
+        run: () => this.runner.run(agent, undefined, log
+          ? { onToken: (text) => log.emitEphemeral(agentId, { type: 'token', text }) }
+          : {}),
       });
     }
   }
