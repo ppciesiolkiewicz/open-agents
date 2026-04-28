@@ -27,12 +27,13 @@ export class FileActivityLogStore implements ActivityLogStore {
     return cur;
   }
 
-  async append(entry: AgentActivityLogEntryInput): Promise<void> {
+  async append(entry: AgentActivityLogEntryInput): Promise<AgentActivityLogEntry> {
     const path = this.pathFor(entry.agentId);
     await mkdir(dirname(path), { recursive: true });
     const seq = await this.nextSeq(entry.agentId);
     const final: AgentActivityLogEntry = { ...entry, seq };
     await appendFile(path, JSON.stringify(final) + '\n', 'utf8');
+    return final;
   }
 
   async listByAgent(

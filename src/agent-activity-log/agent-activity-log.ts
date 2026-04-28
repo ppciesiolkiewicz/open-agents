@@ -1,8 +1,27 @@
+import { EventEmitter } from 'node:events';
 import type { ActivityLogStore } from './activity-log-store';
 import type { AgentActivityLogEntry, AgentActivityLogEntryType } from './types';
 
+export type AgentActivityEvent =
+  | { kind: 'append'; entry: AgentActivityLogEntry }
+  | { kind: 'ephemeral'; agentId: string; payload: Record<string, unknown> };
+
 export class AgentActivityLog {
-  constructor(private readonly store: ActivityLogStore) {}
+  private readonly emitter = new EventEmitter();
+
+  constructor(private readonly store: ActivityLogStore) {
+    this.emitter.setMaxListeners(100);
+  }
+
+  on(agentId: string, listener: (event: AgentActivityEvent) => void): () => void {
+    const eventName = `agent:${agentId}`;
+    this.emitter.on(eventName, listener);
+    return () => this.emitter.off(eventName, listener);
+  }
+
+  emitEphemeral(agentId: string, payload: Record<string, unknown>): void {
+    this.emitter.emit(`agent:${agentId}`, { kind: 'ephemeral', agentId, payload });
+  }
 
   tickStart(agentId: string, tickId: string, payload: Record<string, unknown> = {}): Promise<void> {
     return this.write(agentId, tickId, 'tick_start', payload);
@@ -87,18 +106,19 @@ export class AgentActivityLog {
     return this.store.listByAgent(agentId, opts);
   }
 
-  private write(
+  private async write(
     agentId: string,
     tickId: string,
     type: AgentActivityLogEntryType,
     payload: Record<string, unknown>,
   ): Promise<void> {
-    return this.store.append({
+    const entry = await this.store.append({
       agentId,
       tickId,
       timestamp: Date.now(),
       type,
       payload,
     });
+    this.emitter.emit(`agent:${agentId}`, { kind: 'append', entry } satisfies AgentActivityEvent);
   }
 }
