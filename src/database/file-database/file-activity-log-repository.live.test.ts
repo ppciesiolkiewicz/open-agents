@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileActivityLogStore } from './file-activity-log-store';
-import type { AgentActivityLogEntryInput } from './types';
+import { FileActivityLogRepository } from './file-activity-log-repository';
+import type { AgentActivityLogEntryInput } from '../types';
 
 function makeEntry(agentId: string, tickId: string, type: AgentActivityLogEntryInput['type']): AgentActivityLogEntryInput {
   return {
@@ -15,13 +15,13 @@ function makeEntry(agentId: string, tickId: string, type: AgentActivityLogEntryI
   };
 }
 
-describe('FileActivityLogStore (live, real filesystem)', () => {
+describe('FileActivityLogRepository (live, real filesystem)', () => {
   let dbDir: string;
-  let store: FileActivityLogStore;
+  let store: FileActivityLogRepository;
 
   beforeEach(async () => {
     dbDir = await mkdtemp(join(tmpdir(), 'agent-loop-log-'));
-    store = new FileActivityLogStore(dbDir);
+    store = new FileActivityLogRepository(dbDir);
   });
 
   afterEach(async () => {
