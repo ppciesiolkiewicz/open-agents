@@ -6,7 +6,7 @@ import type { ToolRegistry } from '../ai-tools/tool-registry';
 import type { AgentTool, AgentToolContext } from '../ai-tools/tool';
 import { toToolDefinition } from '../ai-tools/zod-to-openai';
 import { AGENT_RUNNER } from '../constants';
-import type { ChatMessage, LLMClient, ToolCall, ToolDefinition } from './llm-client';
+import type { ChatMessage, InvokeOptions, LLMClient, ToolCall, ToolDefinition } from './llm-client';
 import type { TickStrategy } from './tick-strategies/tick-strategy';
 import { ScheduledTickStrategy } from './tick-strategies/scheduled-tick-strategy';
 
@@ -34,7 +34,7 @@ export class AgentRunner {
   async run(
     agent: AgentConfig,
     strategy: TickStrategy = this.defaultStrategy,
-    options: { onToken?: (text: string) => void } = {},
+    options: InvokeOptions = {},
   ): Promise<void> {
     const tickId = `${agent.id}-${this.clock.now()}`;
     try {
@@ -74,7 +74,7 @@ export class AgentRunner {
     toolDefs: ToolDefinition[],
     toolByName: Map<string, AgentTool>,
     ctx: AgentToolContext,
-    options: { onToken?: (text: string) => void } = {},
+    options: InvokeOptions = {},
   ): Promise<void> {
     let rounds = 0;
     while (rounds < AGENT_RUNNER.maxToolRoundsPerTick) {
@@ -92,7 +92,7 @@ export class AgentRunner {
       const turn = await this.llm.invokeWithTools(
         messages,
         toolDefs,
-        options.onToken ? { onToken: options.onToken } : undefined,
+        Object.keys(options).length > 0 ? options : undefined,
       );
 
       await this.activityLog.llmResponse(agent.id, tickId, {
@@ -125,7 +125,7 @@ export class AgentRunner {
       }
 
       for (const call of turn.toolCalls) {
-        const reply = await this.dispatchToolCall(agent.id, tickId, call, toolByName, ctx);
+        const reply = await this.dispatchToolCall(agent.id, tickId, call, toolByName, ctx, options);
         messages.push(reply);
       }
     }
@@ -143,6 +143,7 @@ export class AgentRunner {
     call: ToolCall,
     toolByName: Map<string, AgentTool>,
     ctx: AgentToolContext,
+    options: InvokeOptions = {},
   ): Promise<ChatMessage> {
     const tool = toolByName.get(call.name);
     if (!tool) {
@@ -163,6 +164,7 @@ export class AgentRunner {
     }
 
     await this.activityLog.toolCall(agentId, tickId, { id: call.id, tool: call.name, input: parsed });
+    options.onToolCall?.({ id: call.id, name: call.name, argumentsJson: call.argumentsJson });
     this.logStdout(agentId, `tool_call ${call.name} input=${truncate(JSON.stringify(parsed), 400)}`);
     const start = this.clock.now();
     try {
@@ -174,6 +176,7 @@ export class AgentRunner {
         output,
         durationMs,
       });
+      options.onToolResult?.({ id: call.id, name: call.name, durationMs });
       this.logStdout(
         agentId,
         `tool_result ${call.name} (${durationMs}ms) output=${truncate(JSON.stringify(output), 400)}`,
@@ -194,6 +197,7 @@ export class AgentRunner {
         output: `error: ${errMsg}`,
         durationMs,
       });
+      options.onToolResult?.({ id: call.id, name: call.name, durationMs });
       this.logStdout(agentId, `tool_error ${call.name} (${durationMs}ms) ${errMsg}`);
       return { role: 'tool', toolCallId: call.id, content: `error: ${errMsg}` };
     }
