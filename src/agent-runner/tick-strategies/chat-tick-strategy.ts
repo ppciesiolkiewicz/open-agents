@@ -11,9 +11,9 @@ export class ChatTickStrategy implements TickStrategy {
   ) {}
 
   async buildInitialMessages(ctx: TickStrategyContext): Promise<ChatMessage[]> {
-    await this.activityLog.userMessage(ctx.agent.id, ctx.tickId, { content: this.userMessage });
     const entries = await this.activityLog.list(ctx.agent.id, { limit: AGENT_RUNNER.chatHistoryLimit });
     const history = projectChatMessagesAsLLMMessages(entries);
+    await this.activityLog.userMessage(ctx.agent.id, ctx.tickId, { content: this.userMessage });
     return [
       { role: 'system', content: ctx.systemPrompt },
       ...history,
