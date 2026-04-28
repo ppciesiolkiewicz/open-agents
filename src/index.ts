@@ -16,6 +16,7 @@ import { buildZeroGBroker } from './ai/zerog-broker/zerog-broker-factory';
 import { silenceZeroGSdkNoise } from './ai/zerog-broker/silence-sdk-noise';
 import { ZeroGLLMClient } from './ai/chat-model/zerog-llm-client';
 import { ToolRegistry } from './ai-tools/tool-registry';
+import { TickGuard } from './agent-runner/tick-guard';
 import { CoingeckoService } from './providers/coingecko/coingecko-service';
 import { CoinMarketCapService } from './providers/coinmarketcap/coinmarketcap-service';
 import { SerperService } from './providers/serper/serper-service';
@@ -85,9 +86,11 @@ async function main(): Promise<void> {
   const runLooper = env.MODE === 'looper' || env.MODE === 'both';
   const runServer = env.MODE === 'server' || env.MODE === 'both';
 
+  const tickGuard = new TickGuard();
+
   let looper: Looper | null = null;
   if (runLooper) {
-    const orchestrator = new AgentOrchestrator(db, runner);
+    const orchestrator = new AgentOrchestrator(db, runner, tickGuard);
     looper = new Looper({
       tickIntervalMs: LOOPER.tickIntervalMs,
       onTick: async () => {

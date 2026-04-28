@@ -9,6 +9,7 @@ import { WalletFactory } from '../wallet/factory/wallet-factory';
 import { AgentRunner, type Clock } from '../agent-runner/agent-runner';
 import { StubLLMClient } from '../agent-runner/stub-llm-client';
 import { AgentOrchestrator } from './agent-orchestrator';
+import { TickGuard } from '../agent-runner/tick-guard';
 import { ToolRegistry } from '../ai-tools/tool-registry';
 import { CoingeckoService } from '../providers/coingecko/coingecko-service';
 import { CoinMarketCapService } from '../providers/coinmarketcap/coinmarketcap-service';
@@ -68,7 +69,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     });
     clock = new MutableClock(10_000);
     runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), toolRegistry, clock);
-    orchestrator = new AgentOrchestrator(db, runner, clock);
+    orchestrator = new AgentOrchestrator(db, runner, new TickGuard(), clock);
   });
 
   afterEach(async () => {
@@ -151,7 +152,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     }
 
     const failingRunner = new AgentRunner(db, activityLog, walletFactory, new SelectiveLLM(), toolRegistry, clock);
-    const failingOrch = new AgentOrchestrator(db, failingRunner, clock);
+    const failingOrch = new AgentOrchestrator(db, failingRunner, new TickGuard(), clock);
 
     await failingOrch.tick();
 
