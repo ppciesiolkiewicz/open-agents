@@ -6,6 +6,7 @@ import {
   CreateAgentBodySchema,
   UpdateAgentBodySchema,
   PostMessageBodySchema,
+  PostMessageAcceptedSchema,
   PageOfActivitySchema,
   PageOfMessagesSchema,
   ErrorResponseSchema,
@@ -107,15 +108,24 @@ function registerPaths(): void {
   registry.registerPath({
     method: 'post',
     path: '/agents/{id}/messages',
-    description:
-      'Streams an SSE response. Each `data:` line is a JSON object with one of types: token, tool_call, tool_result, error, done. Returns 409 if another tick is already running.',
+    description: 'Enqueues a chat task. Returns immediately with queue position. Subscribe to GET /agents/{id}/stream to receive events.',
     request: {
       params: z.object({ id: z.string() }),
       body: { content: { 'application/json': { schema: PostMessageBodySchema } } },
     },
     responses: {
+      202: { description: 'enqueued', content: { 'application/json': { schema: PostMessageAcceptedSchema } } },
+      404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/agents/{id}/stream',
+    description: 'SSE: streams all activity-log appends + ephemeral events for this agent. Each `data:` line is `{ type: "append"|"ephemeral", entry|payload }`.',
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
       200: { description: 'SSE stream', content: { 'text/event-stream': { schema: z.string() } } },
-      409: { description: 'tick already in progress', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });
 }

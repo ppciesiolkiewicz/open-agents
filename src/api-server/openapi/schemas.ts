@@ -84,6 +84,10 @@ export const PageOfMessagesSchema = z.object({
   nextCursor: z.string().nullable(),
 }).openapi('PageOfMessages');
 
+export const PostMessageAcceptedSchema = z.object({
+  position: z.number().int(),
+}).openapi('PostMessageAccepted');
+
 export const ErrorResponseSchema = z.object({
   error: z.string(),
   message: z.string().optional(),
