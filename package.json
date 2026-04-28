@@ -16,8 +16,16 @@
     "dev:server": "MODE=server NODE_OPTIONS=--conditions=require tsx watch src/index.ts",
     "test": "NODE_OPTIONS=--conditions=require vitest run",
     "test:watch": "NODE_OPTIONS=--conditions=require vitest",
-    "seed-agent": "NODE_OPTIONS=--conditions=require tsx scripts/seed-agent.ts",
-    "reset-db": "NODE_OPTIONS=--conditions=require tsx scripts/reset-db.ts",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:nuke": "docker compose down -v",
+    "db:logs": "docker compose logs -f postgres",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset",
+    "db:seed": "NODE_OPTIONS=--conditions=require tsx prisma/seed.ts",
     "llm:probe": "NODE_OPTIONS=--conditions=require tsx scripts/tests/zerog-llm-probe.ts",
     "llm:probe:streaming": "NODE_OPTIONS=--conditions=require tsx scripts/tests/zerog-llm-probe-streaming.ts",
     "swap:buy-uni": "NODE_OPTIONS=--conditions=require tsx scripts/tests/swap-buy-uni.ts",
@@ -48,5 +56,8 @@
     "tsx": "^4.16.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
+  },
+  "prisma": {
+    "seed": "NODE_OPTIONS=--conditions=require tsx prisma/seed.ts"
   }
 }
