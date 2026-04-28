@@ -45,8 +45,8 @@ Rationale: shared fields dominate (wallet, prompt, dryRun, riskLimits, createdAt
 
 `AgentRunner.run()` is refactored to extract its message-construction step. The tool/round loop (`LLM call → tool dispatch → repeat → final assistant message`) is shared. Two strategies feed it:
 
-- `ScheduledTickStrategy` — system prompt + `[{role:'user', content:'Run one tick.'}]` (current behavior)
-- `ChatTickStrategy` — system prompt + replayed prior chat history + new user message
+- `ScheduledTickStrategy` — system prompt only. No synthetic user message; the system prompt itself is the directive (agent prompt + memory state + recent entries). Scheduled ticks emit no `user_message` activity event.
+- `ChatTickStrategy` — system prompt + replayed prior chat history + the new user message. Logs the new user message as a `user_message` activity event before reading history (so the message survives a mid-stream crash but is not double-included in the LLM prompt).
 
 Same `maxToolRoundsPerTick`, same activity-log writes, same memory injection, same wallet, same tool registry.
 
@@ -69,7 +69,7 @@ type AgentActivityLogEntryType =
   | 'memory_update' | 'error';
 ```
 
-`AgentRunner` writes a `user_message` event **before** `tick_start` at the entry of every tick. Scheduled ticks log `{ content: "Run one tick." }` for symmetry. Chat ticks log the user's actual text, persisted before any LLM cost is incurred — durable independent of tick success.
+Only chat ticks log `user_message` events. `ChatTickStrategy.buildInitialMessages` writes the event itself with the user's text, persisted before any LLM cost is incurred — durable independent of tick success. Scheduled ticks emit no `user_message` (no user is involved).
 
 **Reading chat history** (server-side, for the next tick's `messages[]`, and for `GET /agents/:id/messages`): a pure function in `chat-history-projection.ts` replays activity events for the agent in `createdAt` order and projects them into OpenAI message shape, plus a FE-friendly view shape:
 
@@ -106,12 +106,12 @@ interface ChatMessageView {
 `POST /agents/:id/messages` accepts a JSON body `{ content: string }` and returns `text/event-stream`. The user's `content` is logged as a `user_message` activity event before the stream opens, so it survives a mid-stream disconnect. Events emitted:
 
 - `{ type: 'token', text }` — incremental LLM output
-- `{ type: 'tool_call', id, name, argumentsJson }` — model invoked a tool
-- `{ type: 'tool_result', toolCallId, output, durationMs }` — tool finished
+- `{ type: 'tool_call', id, name }` — model invoked a tool (compact form; full args remain in the activity log)
+- `{ type: 'tool_result', id, name, durationMs }` — tool finished (compact form; full output remains in the activity log)
 - `{ type: 'error', message }` — recoverable error mid-stream
 - `{ type: 'done', message: ChatMessageView }` — final assistant message (projected from the activity-log event)
 
-Streaming hook lives on `LLMClient.invokeWithTools` as an optional `onToken` callback. `ZeroGLLMClient` sets `stream: true` on the underlying OpenAI request when the callback is present. Scheduled ticks pass no callback → unchanged buffered behavior.
+Streaming + tool-event hooks live on `LLMClient.invokeWithTools` as an optional `InvokeOptions { onToken?, onToolCall?, onToolResult? }` argument. `ZeroGLLMClient` sets `stream: true` (and `stream_options: { include_usage: true }` for token counts) on the underlying OpenAI request when `onToken` is set. `AgentRunner.dispatchToolCall` invokes `onToolCall` / `onToolResult` alongside its activity-log writes. Scheduled ticks pass no callbacks → unchanged buffered behavior.
 
 OpenAPI describes the endpoint as `text/event-stream` with the event payload union schema. The generated SDK client does **not** consume SSE; the FE uses native `EventSource` (or a `fetch` reader wrapper) for chat. This is a hand-written FE module separate from the generated client.
 
@@ -266,7 +266,7 @@ export interface AgentConfig {
 }
 ```
 
-Migration: existing agents in `database.json` lack `type`. On load, `AgentRepository` defaults missing `type` to `'scheduled'` (preserves all current behavior). New agents are written with `type` set explicitly.
+Migration: `type` is required on every persisted agent row. There is no fallback default. Pre-existing rows without `type` will not load cleanly — operators run a one-shot migration (or reset the DB).
 
 ### Streaming hook on `LLMClient`
 

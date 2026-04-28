@@ -12,6 +12,21 @@
 
 ---
 
+## Post-implementation deviations from the original task code blocks
+
+Phases 1–2 landed the structures described below, then five cleanups changed the contracts. **Read this section before reading individual task code blocks — the snippets below this line are out of date in these specific ways.** The shipped code at `HEAD` is the source of truth.
+
+1. **`AgentConfig.type` is required, not defaulted.** `FileAgentRepository.readFile` does NOT inject `type: 'scheduled'` for missing rows. DBs must carry `type` on every row; pre-existing rows need a manual migration or DB reset.
+2. **`TickStrategy.buildInitialMessages` returns `Promise<ChatMessage[]>` directly.** The `TickStrategyResult { userMessageContent; initialMessages }` shape was dropped. Strategies are now responsible for any preamble logging they want.
+3. **`TickStrategyContext` carries `tickId: string`** so strategies can write activity-log events scoped to the current tick.
+4. **`ScheduledTickStrategy` returns `[{role:'system', content: systemPrompt}]`** — no synthetic `{role:'user', content:'Run one tick.'}` and no `user_message` activity event. System prompt is the directive.
+5. **`ChatTickStrategy` writes `user_message` itself** at the top of `buildInitialMessages` (before reading history) using `ctx.tickId`. `AgentRunner` no longer emits `user_message` from its own code path.
+6. **`AGENT_RUNNER.chatHistoryLimit`** in `src/constants/` replaces the module-local `HISTORY_LIMIT = 200`.
+7. **`InvokeOptions` carries `onToken`, `onToolCall`, `onToolResult`.** `AgentRunner.dispatchToolCall` accepts `options` as a final parameter and invokes the callbacks alongside its existing activity-log writes (success and error paths). The Phase 5 SSE route forwards each callback as a `tool_call` / `tool_result` SSE event — Task 21's "deferred tool events" note is obsolete.
+8. **Streaming `tokenCount`** is captured via `stream_options: { include_usage: true }` on the OpenAI request and read from the final chunk's `chunk.usage.total_tokens`. Activity-log `llm_response` events for chat ticks now carry token counts identically to scheduled ticks.
+
+---
+
 ## File Structure
 
 **New modules:**
@@ -1875,9 +1890,7 @@ function viewId(v: ChatMessageView): string {
 }
 ```
 
-Note: tool_call and tool_result events are NOT forwarded to the SSE stream in v1. The current `LLMClient.invokeWithTools` boundary owns one LLM call per loop iteration, and the runner emits its own `tool_call`/`tool_result` activity-log events but the route doesn't have a hook into them. Adding tool events to the SSE stream is a follow-up that requires either (a) an event emitter on `AgentRunner` or (b) the SSE route polling the activity log between rounds. v1 ships with `token`/`done`/`error` only; the FE can fetch tool history via `GET /messages` after `done`.
-
-Update spec to match. (Plan task list reflects this in Task 25.)
+Note (superseded): an earlier draft of this plan deferred tool events. After the Phase 1+2 cleanups, `InvokeOptions` carries `onToolCall` and `onToolResult` callbacks that `AgentRunner.dispatchToolCall` invokes alongside its activity-log writes. The SSE route should pass them through `runner.run()` and forward each as a `data: {type:'tool_call', name, id}` / `data: {type:'tool_result', name, id, durationMs}` SSE event.
 
 - [ ] **Step 2: Typecheck**
 
