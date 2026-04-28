@@ -1,7 +1,8 @@
+import { PrismaClient } from '@prisma/client';
 import { confirmContinue } from '../../src/test-lib/interactive-prompt';
 import { RealWallet } from '../../src/wallet/real/real-wallet';
 import { UniswapService } from '../../src/uniswap/uniswap-service';
-import { FileDatabase } from '../../src/database/file-database/file-database';
+import { PrismaDatabase } from '../../src/database/prisma-database/prisma-database';
 import type { TokenInfo } from '../../src/constants';
 import type { AgentConfig } from '../../src/database/types';
 import type { FeeTier } from '../../src/uniswap/types';
@@ -18,11 +19,10 @@ export interface RunSwapArgs {
   promptText: string;
 }
 
-const dbDir = process.env.DB_DIR ?? './db';
-
-function preflight(): { key: string; alchemy: string } {
+function preflight(): { key: string; alchemy: string; databaseUrl: string } {
   const key = process.env.WALLET_PRIVATE_KEY;
   const alchemy = process.env.ALCHEMY_API_KEY;
+  const databaseUrl = process.env.DATABASE_URL;
   if (typeof key !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(key)) {
     console.error('[scripts] WALLET_PRIVATE_KEY missing or not 0x-prefixed 32-byte hex.');
     process.exit(1);
@@ -31,18 +31,23 @@ function preflight(): { key: string; alchemy: string } {
     console.error('[scripts] ALCHEMY_API_KEY missing.');
     process.exit(1);
   }
-  return { key, alchemy };
+  if (!databaseUrl) {
+    console.error('[scripts] DATABASE_URL missing.');
+    process.exit(1);
+  }
+  return { key, alchemy, databaseUrl };
 }
 
 export async function runSwap(args: RunSwapArgs): Promise<void> {
-  const { key, alchemy } = preflight();
+  const { key, alchemy, databaseUrl } = preflight();
   const ok = await confirmContinue(args.promptText);
   if (!ok) {
     console.log(`[${args.scenarioName}] skipped by user.`);
     return;
   }
 
-  const db = new FileDatabase(dbDir);
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+  const db = new PrismaDatabase(prisma);
   const wallet = new RealWallet({
     WALLET_PRIVATE_KEY: key,
     ALCHEMY_API_KEY: alchemy,
@@ -63,6 +68,7 @@ export async function runSwap(args: RunSwapArgs): Promise<void> {
     lastTickAt: null,
     createdAt: Date.now(),
   };
+  await db.agents.upsert(agent);
 
   const tier: FeeTier = args.feeTier ?? 3_000;
   console.log(`[${args.scenarioName}] wallet: ${wallet.getAddress()}`);
@@ -119,4 +125,6 @@ export async function runSwap(args: RunSwapArgs): Promise<void> {
       `[${args.scenarioName}] closed position: ${result.closed.id} realizedPnlUSD=${result.closed.realizedPnlUSD}`,
     );
   }
+
+  await db.disconnect();
 }
