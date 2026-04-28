@@ -126,8 +126,8 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
 
     const types = (await activityLog.list('a1')).map((e) => e.type);
     console.log('[runner] entries:', types);
-    expect(types[0]).toBe('user_message');
-    expect(types).toContain('tick_start');
+    expect(types).not.toContain('user_message');
+    expect(types[0]).toBe('tick_start');
     expect(types).toContain('llm_call');
     expect(types).toContain('llm_response');
     expect(types[types.length - 1]).toBe('tick_end');

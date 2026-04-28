@@ -5,13 +5,9 @@ export interface TickStrategyContext {
   agent: AgentConfig;
   memory: AgentMemory;
   systemPrompt: string;
-}
-
-export interface TickStrategyResult {
-  userMessageContent: string;
-  initialMessages: ChatMessage[];
+  tickId: string;
 }
 
 export interface TickStrategy {
-  buildInitialMessages(ctx: TickStrategyContext): Promise<TickStrategyResult>;
+  buildInitialMessages(ctx: TickStrategyContext): Promise<ChatMessage[]>;
 }

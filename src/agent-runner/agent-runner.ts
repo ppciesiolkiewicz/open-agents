@@ -40,11 +40,10 @@ export class AgentRunner {
     try {
       const memory = await this.loadOrInitMemory(agent.id);
       const systemPrompt = this.buildSystemPrompt(agent, memory);
-      const { userMessageContent, initialMessages } = await strategy.buildInitialMessages({
-        agent, memory, systemPrompt,
+      const initialMessages = await strategy.buildInitialMessages({
+        agent, memory, systemPrompt, tickId,
       });
 
-      await this.activityLog.userMessage(agent.id, tickId, { content: userMessageContent });
       await this.activityLog.tickStart(agent.id, tickId);
       this.logStdout(agent.id, `tick start (tickId=${tickId})`);
 
