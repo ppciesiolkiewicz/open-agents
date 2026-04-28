@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import type { Transaction } from '../types';
 import type { TransactionRepository } from '../repositories/transaction-repository';
 import { txDomainToCreate, txRowToDomain } from './mappers';
@@ -7,7 +7,14 @@ export class PrismaTransactionRepository implements TransactionRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async insert(tx: Transaction): Promise<void> {
-    await this.prisma.transaction.create({ data: txDomainToCreate(tx) });
+    const row = txDomainToCreate(tx);
+    await this.prisma.transaction.create({
+      data: {
+        ...row,
+        tokenIn: (row.tokenIn ?? Prisma.DbNull) as Prisma.InputJsonValue,
+        tokenOut: (row.tokenOut ?? Prisma.DbNull) as Prisma.InputJsonValue,
+      },
+    });
   }
 
   async findById(id: string): Promise<Transaction | null> {
