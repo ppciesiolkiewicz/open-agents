@@ -46,7 +46,6 @@ export class FileAgentRepository implements AgentRepository {
     try {
       const raw = await readFile(this.path, 'utf8');
       const parsed = JSON.parse(raw) as DatabaseFile;
-      parsed.agents = parsed.agents.map((a) => ({ ...a, type: a.type ?? 'scheduled' }));
       return parsed;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
