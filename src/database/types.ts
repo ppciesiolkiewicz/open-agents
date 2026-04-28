@@ -5,9 +5,12 @@ export interface TokenAmount {
   decimals: number;
 }
 
+export type AgentType = 'scheduled' | 'chat';
+
 export interface AgentConfig {
   id: string;
   name: string;
+  type: AgentType;
   enabled: boolean;
   intervalMs: number;
   prompt: string;
@@ -20,6 +23,7 @@ export interface AgentConfig {
     [k: string]: unknown;
   };
   lastTickAt: number | null;
+  lastMessageAt?: number | null;
   createdAt: number;
 }
 

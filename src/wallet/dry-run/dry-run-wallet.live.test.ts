@@ -30,6 +30,7 @@ function makeAgent(id: string): AgentConfig {
   return {
     id,
     name: `agent-${id}`,
+    type: 'scheduled',
     enabled: true,
     intervalMs: 60_000,
     prompt: 'test',

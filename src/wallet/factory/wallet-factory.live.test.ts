@@ -18,6 +18,7 @@ function makeAgent(id: string, dryRun: boolean): AgentConfig {
   return {
     id,
     name: id,
+    type: 'scheduled',
     enabled: true,
     intervalMs: 60_000,
     prompt: 'test',

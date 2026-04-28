@@ -36,6 +36,7 @@ export function buildSeedAgentConfig(opts: SeedAgentOptions = {}): AgentConfig {
   return {
     id: SEED_AGENT_ID,
     name: 'UNI Moving Average Trader',
+    type: 'scheduled' as const,
     enabled: true,
     intervalMs: 60_000,
     prompt: PROMPT,

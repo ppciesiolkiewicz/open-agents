@@ -55,6 +55,7 @@ export async function runSwap(args: RunSwapArgs): Promise<void> {
   const agent: AgentConfig = {
     id: args.scenarioName,
     name: args.scenarioName,
+    type: 'scheduled',
     enabled: false,
     intervalMs: 1_000,
     prompt: 'interactive script',

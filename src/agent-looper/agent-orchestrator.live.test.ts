@@ -24,6 +24,7 @@ function makeAgent(id: string, opts: { enabled?: boolean; intervalMs?: number; l
   return {
     id,
     name: id,
+    type: 'scheduled',
     enabled: opts.enabled ?? true,
     intervalMs: opts.intervalMs ?? 1_000,
     prompt: `agent ${id}`,

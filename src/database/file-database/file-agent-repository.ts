@@ -37,7 +37,9 @@ export class FileAgentRepository implements AgentRepository {
   private async readFile(): Promise<DatabaseFile> {
     try {
       const raw = await readFile(this.path, 'utf8');
-      return JSON.parse(raw) as DatabaseFile;
+      const parsed = JSON.parse(raw) as DatabaseFile;
+      parsed.agents = parsed.agents.map((a) => ({ ...a, type: a.type ?? 'scheduled' }));
+      return parsed;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         return { agents: [], transactions: [], positions: [] };
