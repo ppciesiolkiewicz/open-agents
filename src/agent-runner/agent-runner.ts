@@ -63,7 +63,15 @@ export class AgentRunner {
       } catch { /* ignore */ }
       throw err;
     } finally {
-      await this.db.agents.upsert({ ...agent, lastTickAt: this.clock.now() });
+      const fresh = await this.db.agents.findById(agent.id);
+      if (fresh) {
+        const now = this.clock.now();
+        const updated =
+          agent.type === 'scheduled'
+            ? { ...fresh, lastTickAt: now }
+            : { ...fresh, lastMessageAt: now };
+        await this.db.agents.upsert(updated);
+      }
     }
   }
 

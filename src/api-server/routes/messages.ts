@@ -116,8 +116,6 @@ export function buildMessagesRouter(deps: Deps): Router {
         sse!.send({ type: 'error', message: (err as Error).message });
       } finally {
         sse!.close();
-        const fresh = await deps.db.agents.findById(agentId);
-        if (fresh) await deps.db.agents.upsert({ ...fresh, lastMessageAt: Date.now() });
       }
     } catch (err) {
       if (sse && !sse.isClosed()) {
