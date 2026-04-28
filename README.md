@@ -64,27 +64,35 @@ Set `DOCS_PORT` to mount Swagger UI on its own port (e.g. `PORT=3000 DOCS_PORT=8
 
 - `GET /docs` — Swagger UI
 - `GET /openapi.json` — OpenAPI 3.1 spec (consume from FE to generate SDK)
-- `GET /agents` (filter `?type=scheduled|chat`), `POST /agents`, `GET /agents/:id`, `PATCH /agents/:id`, `DELETE /agents/:id`
-- `POST /agents/:id/start`, `POST /agents/:id/stop` — scheduled agents only
+- `GET /agents`, `POST /agents`, `GET /agents/:id`, `PATCH /agents/:id`, `DELETE /agents/:id`
+- `POST /agents/:id/start`, `POST /agents/:id/stop` — set `running = true/false` on any agent
 - `GET /agents/:id/activity?cursor=&limit=&order=desc|asc` — paginated activity log
-- `GET /agents/:id/messages?cursor=&limit=&order=desc|asc` — paginated chat history (chat agents only)
-- `POST /agents/:id/messages` — send a chat message; response is `text/event-stream` with `token`, `tool_call`, `tool_result`, `error`, `done` events
+- `GET /agents/:id/messages?cursor=&limit=&order=desc|asc` — paginated chat history
+- `POST /agents/:id/messages` — send a chat message; response is `text/event-stream` with `token`, `tool_call`, `tool_result`, `error`, `done` events. Returns **409** if another tick is already running.
 
 Auth is a stub in v1 (every request gets `user.id = 'local-dev'`). JWT decoding lands in the same middleware later; endpoint signatures stay the same.
 
-### Agent types
+### Unified agent model
 
-- **scheduled** — runs on the Looper tick. Requires `intervalMs >= 1000`. Toggled with `start`/`stop`.
-- **chat** — idle until you POST a message. Each message = one tick. Transcript lives in the activity log.
+There is no agent type discriminator. Every agent can:
+
+- **Run on a schedule** — set `intervalMs >= 1000` and call `POST /agents/:id/start`. The orchestrator fires a scheduled tick whenever `running === true` and the interval has elapsed.
+- **Accept chat messages** — call `POST /agents/:id/messages` at any time, regardless of `running` state or whether `intervalMs` is set. Each message triggers one tick.
+
+The two trigger types (scheduled tick vs. chat message) describe how the LLM prompt is assembled, not what kind of agent it is. The same agent can do both.
+
+### TickGuard — global tick serialization
+
+A single in-process `TickGuard` mutex ensures only one tick runs at a time across all agents and both trigger types:
+
+- Scheduled ticks: if the guard is busy, the orchestrator skips the agent on this loop iteration (same skip-backlog semantics as before — it will catch up on the next iteration when the guard is free).
+- Chat POSTs: if the guard is busy, `POST /agents/:id/messages` returns `409 { "error": "busy" }` immediately. The client should retry.
+
+The guard is in-memory. Running `MODE=both` (one process, both looper and server) is the recommended topology. Cross-process coordination is out of scope for v1.
 
 ### Migrating an existing DB
 
-The activity-log + agent shape changed in this version:
-
-- every agent row now requires `type: 'scheduled' | 'chat'` (no fallback default)
-- every activity-log entry now carries a monotonic `seq` for stable cursor pagination
-
-There is no in-place migration. Wipe and re-seed:
+The agent shape changed: `type`, `enabled`, and `lastMessageAt` fields are dropped; `enabled` is now `running`. There is no in-place migration — wipe and re-seed:
 
 ```bash
 npm run reset-db          # preserves zerog-bootstrap.json
