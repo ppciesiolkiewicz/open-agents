@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id                  String   @id
+  name                String
+  prompt              String
+  dryRun              Boolean
+  dryRunSeedBalances  Json?
+  riskLimits          Json
+  createdAt           BigInt
+  running             Boolean?
+  intervalMs          Int?
+  lastTickAt          BigInt?
+
+  transactions        Transaction[]
+  positions           Position[]
+  memory              AgentMemory?
+  events              ActivityEvent[]
+}
+
+model Transaction {
+  id            String   @id
+  agentId       String
+  agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  hash          String
+  chainId       Int
+  from          String
+  to            String
+  tokenIn       Json?
+  tokenOut      Json?
+  gasUsed       String
+  gasPriceWei   String
+  gasCostWei    String
+  status        String
+  blockNumber   BigInt?
+  timestamp     BigInt
+
+  @@index([agentId, timestamp])
+}
+
+model Position {
+  id                       String    @id
+  agentId                  String
+  agent                    Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  amount                   Json
+  costBasisUSD             Float
+  openedByTransactionId    String
+  closedByTransactionId    String?
+  openedAt                 BigInt
+  closedAt                 BigInt?
+  realizedPnlUSD           Float?
+
+  @@index([agentId, closedAt])
+}
+
+model AgentMemory {
+  agentId     String        @id
+  agent       Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  notes       String        @default("")
+  state       Json
+  updatedAt   BigInt
+
+  entries     MemoryEntry[]
+}
+
+model MemoryEntry {
+  id              String      @id
+  agentId         String
+  memory          AgentMemory @relation(fields: [agentId], references: [agentId], onDelete: Cascade)
+  tickId          String
+  type            String
+  content         String
+  parentEntryIds  String[]
+  createdAt       BigInt
+
+  @@index([agentId, createdAt])
+  @@index([agentId, tickId])
+}
+
+model ActivityEvent {
+  id          String   @id
+  agentId     String
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  tickId      String?
+  type        String
+  level       String
+  payload     Json
+  timestamp   BigInt
+  seq         BigInt   @default(autoincrement()) @unique
+
+  @@index([agentId, timestamp])
+  @@index([agentId, tickId])
+  @@index([agentId, seq])
+}
