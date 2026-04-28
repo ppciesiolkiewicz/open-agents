@@ -3,9 +3,9 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileActivityLogStore } from './file-activity-log-store';
-import type { AgentActivityLogEntry } from './types';
+import type { AgentActivityLogEntryInput } from './types';
 
-function makeEntry(agentId: string, tickId: string, type: AgentActivityLogEntry['type']): AgentActivityLogEntry {
+function makeEntry(agentId: string, tickId: string, type: AgentActivityLogEntryInput['type']): AgentActivityLogEntryInput {
   return {
     agentId,
     tickId,

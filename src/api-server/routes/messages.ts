@@ -107,6 +107,7 @@ export function buildMessagesRouter(deps: Deps): Router {
         const tickId = finalLlmResponse?.tickId ?? '';
         const view: ChatMessageView = {
           tickId,
+          seq: finalLlmResponse?.seq ?? 0,
           role: 'assistant',
           content: assistantContent,
           createdAt: finalLlmResponse?.timestamp ?? Date.now(),
@@ -131,5 +132,5 @@ export function buildMessagesRouter(deps: Deps): Router {
 }
 
 function viewId(v: ChatMessageView): string {
-  return `${v.tickId}:${v.role}:${v.toolCallId ?? ''}:${v.createdAt}`;
+  return String(v.seq);
 }

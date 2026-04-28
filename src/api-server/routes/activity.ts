@@ -66,5 +66,5 @@ export function buildActivityRouter(deps: Deps): Router {
 }
 
 function entryId(e: AgentActivityLogEntry): string {
-  return `${e.tickId}:${e.type}:${e.timestamp}`;
+  return String(e.seq);
 }

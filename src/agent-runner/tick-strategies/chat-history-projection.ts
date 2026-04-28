@@ -3,6 +3,7 @@ import type { ChatMessage, ToolCall } from '../llm-client';
 
 export interface ChatMessageView {
   tickId: string;
+  seq: number;
   role: 'user' | 'assistant' | 'tool';
   content: string;
   toolCalls?: { id: string; name: string; argumentsJson: string }[];
@@ -15,10 +16,10 @@ export function projectChatMessages(entries: AgentActivityLogEntry[]): ChatMessa
   for (const e of entries) {
     if (e.type === 'user_message') {
       const p = e.payload as { content: string };
-      out.push({ tickId: e.tickId, role: 'user', content: p.content, createdAt: e.timestamp });
+      out.push({ tickId: e.tickId, seq: e.seq, role: 'user', content: p.content, createdAt: e.timestamp });
     } else if (e.type === 'llm_response') {
       const p = e.payload as { content: string; toolCalls?: { id: string; name: string; argumentsJson: string }[] };
-      const view: ChatMessageView = { tickId: e.tickId, role: 'assistant', content: p.content, createdAt: e.timestamp };
+      const view: ChatMessageView = { tickId: e.tickId, seq: e.seq, role: 'assistant', content: p.content, createdAt: e.timestamp };
       if (p.toolCalls && p.toolCalls.length > 0) {
         view.toolCalls = p.toolCalls.map((c) => ({ id: c.id, name: c.name, argumentsJson: c.argumentsJson }));
       }
@@ -27,6 +28,7 @@ export function projectChatMessages(entries: AgentActivityLogEntry[]): ChatMessa
       const p = e.payload as { id: string; tool: string; output: unknown };
       out.push({
         tickId: e.tickId,
+        seq: e.seq,
         role: 'tool',
         toolCallId: p.id,
         content: typeof p.output === 'string' ? p.output : JSON.stringify(p.output),

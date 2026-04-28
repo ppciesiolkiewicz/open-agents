@@ -9,10 +9,14 @@ export type AgentActivityLogEntryType =
   | 'memory_update'
   | 'error';
 
-export interface AgentActivityLogEntry {
+export interface AgentActivityLogEntryInput {
   agentId: string;
   tickId: string;
   timestamp: number;
   type: AgentActivityLogEntryType;
   payload: Record<string, unknown>;
+}
+
+export interface AgentActivityLogEntry extends AgentActivityLogEntryInput {
+  seq: number;
 }

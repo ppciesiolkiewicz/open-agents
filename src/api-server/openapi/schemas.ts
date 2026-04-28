@@ -52,6 +52,7 @@ export const PostMessageBodySchema = z.object({
 
 export const ChatMessageViewSchema = z.object({
   tickId: z.string(),
+  seq: z.number().int(),
   role: z.enum(['user', 'assistant', 'tool']),
   content: z.string(),
   toolCalls: z.array(z.object({
@@ -66,6 +67,7 @@ export const ChatMessageViewSchema = z.object({
 export const ActivityLogEntrySchema = z.object({
   agentId: z.string(),
   tickId: z.string(),
+  seq: z.number().int(),
   timestamp: z.number(),
   type: z.enum(['user_message', 'tick_start', 'tick_end', 'tool_call', 'tool_result', 'llm_call', 'llm_response', 'memory_update', 'error']),
   payload: z.record(z.unknown()),

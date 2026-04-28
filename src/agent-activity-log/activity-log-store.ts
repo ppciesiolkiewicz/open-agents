@@ -1,7 +1,7 @@
-import type { AgentActivityLogEntry } from './types';
+import type { AgentActivityLogEntry, AgentActivityLogEntryInput } from './types';
 
 export interface ActivityLogStore {
-  append(entry: AgentActivityLogEntry): Promise<void>;
+  append(entry: AgentActivityLogEntryInput): Promise<void>;
   listByAgent(
     agentId: string,
     opts?: { limit?: number; sinceTickId?: string },

@@ -1,15 +1,38 @@
 import { appendFile, readFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { ActivityLogStore } from './activity-log-store';
-import type { AgentActivityLogEntry } from './types';
+import type { AgentActivityLogEntry, AgentActivityLogEntryInput } from './types';
 
 export class FileActivityLogStore implements ActivityLogStore {
+  private readonly seqByAgent = new Map<string, number>();
+
   constructor(private readonly dbDir: string) {}
 
-  async append(entry: AgentActivityLogEntry): Promise<void> {
+  private async nextSeq(agentId: string): Promise<number> {
+    if (!this.seqByAgent.has(agentId)) {
+      try {
+        const raw = await readFile(this.pathFor(agentId), 'utf8');
+        const lines = raw.split('\n').filter((l) => l.length > 0);
+        this.seqByAgent.set(agentId, lines.length);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          this.seqByAgent.set(agentId, 0);
+        } else {
+          throw err;
+        }
+      }
+    }
+    const cur = (this.seqByAgent.get(agentId) ?? 0) + 1;
+    this.seqByAgent.set(agentId, cur);
+    return cur;
+  }
+
+  async append(entry: AgentActivityLogEntryInput): Promise<void> {
     const path = this.pathFor(entry.agentId);
     await mkdir(dirname(path), { recursive: true });
-    await appendFile(path, JSON.stringify(entry) + '\n', 'utf8');
+    const seq = await this.nextSeq(entry.agentId);
+    const final: AgentActivityLogEntry = { ...entry, seq };
+    await appendFile(path, JSON.stringify(final) + '\n', 'utf8');
   }
 
   async listByAgent(
