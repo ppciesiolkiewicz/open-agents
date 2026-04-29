@@ -16,7 +16,9 @@ export class AgentActivityLog {
   }
 
   emitEphemeral(agentId: string, payload: Record<string, unknown>): void {
-    void this.bus.publish({ kind: 'ephemeral', agentId, payload });
+    this.bus.publish({ kind: 'ephemeral', agentId, payload }).catch((err) =>
+      console.error('[activity-log] bus publish failed:', err),
+    );
   }
 
   tickStart(agentId: string, tickId: string, payload: Record<string, unknown> = {}): Promise<void> {

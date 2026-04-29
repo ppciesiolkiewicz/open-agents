@@ -34,8 +34,8 @@ async function main(): Promise<void> {
   const activityLog = new AgentActivityLog(db.activityLog, activityBus);
 
   const queueProducer = RedisClient.build(env.REDIS_URL);
-  const queueSubscriber = RedisClient.build(env.REDIS_URL);
-  const queue = new RedisTickQueue({ producer: queueProducer, subscriber: queueSubscriber });
+  // server only enqueues — reuse queueProducer as subscriber to avoid an idle connection
+  const queue = new RedisTickQueue({ producer: queueProducer, subscriber: queueProducer });
 
   const privy = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
   const privyAuth = new PrivyAuth(privy);
@@ -60,7 +60,6 @@ async function main(): Promise<void> {
     await api.stop().catch(() => {});
     await activityBus.close().catch(() => {});
     await queueProducer.quit().catch(() => {});
-    await queueSubscriber.quit().catch(() => {});
     await db.disconnect().catch(() => {});
     process.exit(0);
   };
