@@ -6,7 +6,10 @@ TypeScript loop that fires AI agents on a schedule. Each agent gets an LLM-drive
 
 ```bash
 npm install
-cp .env.example .env  # fill in keys
+cp .env.example .env  # fill in keys (WALLET_PRIVATE_KEY, ALCHEMY_API_KEY, ZEROG_NETWORK, REDIS_URL, DATABASE_URL, etc.)
+docker compose up -d postgres redis
+npm run db:migrate
+npm run db:seed
 ```
 
 ## Run
@@ -17,26 +20,24 @@ npm run zerog-bootstrap          # lists providers
 # set ZEROG_PROVIDER_ADDRESS=0x... in .env
 npm run zerog-bootstrap          # this run actually funds + persists
 
-# 2. install + run the seed agent
-npm run seed-agent               # default dry-run; pass `-- --real` for real onchain
-npm start                        # watch db/activity-log/ + db/memory/
-
-# fresh start
-npm run reset-db                 # preserves zerog-bootstrap.json
-npm run reset-db -- --all        # wipes everything
+# 2. run the two processes (separate terminals)
+npm run start:worker
+npm run start:server
 ```
 
 ## Scripts
 
 | Command | What |
 |---|---|
-| `npm start` | run the agent loop |
+| `npm run start:worker` | scheduler + tick dispatcher process |
+| `npm run start:server` | API + SSE process |
+| `npm run dev:worker` / `npm run dev:server` | tsx watch mode |
 | `npm test` / `npm run typecheck` / `npm run build` | dev loops; safe to run any time |
 | `npm run zerog-bootstrap` | list / fund 0G inference provider |
 | `npm run llm:probe` | sanity-check the LLM round trip |
-| `npm run seed-agent` | install canonical UNI MA trader (`-- --real` for real onchain) |
 | `npm run swap:buy-uni` / `npm run swap:sell-uni` | manual UNI/USDC swap on Unichain |
-| `npm run reset-db` | wipe ephemeral db state |
+| `npm run db:up` / `db:down` / `db:nuke` | Postgres + Redis docker lifecycle |
+| `npm run db:migrate` / `db:seed` / `db:reset` / `db:studio` | Prisma lifecycle |
 
 Every fund-spending script prompts `[y/N]` before doing anything.
 
@@ -46,19 +47,24 @@ Every fund-spending script prompts `[y/N]` before doing anything.
 - [docs/superpowers/specs/](docs/superpowers/specs/) — design spec
 - [docs/superpowers/plans/](docs/superpowers/plans/) — per-slice implementation plans
 
-## API Server
+## Processes
 
-`npm start` boots both the Looper and an Express HTTP server in the same process (`PORT`, default `3000`). To run them separately:
+The agent loop runs as **two independent processes** sharing Postgres + Redis:
 
 ```bash
-npm run start:looper    # MODE=looper — only the agent loop
-npm run start:server    # MODE=server — only the HTTP API
-npm start               # MODE=both (default) — both in one process
+npm run start:worker    # scheduler + tick dispatcher (no HTTP)
+npm run start:server    # Express API + SSE (no scheduler)
 ```
 
-The two modes share the file-backed DB at `DB_DIR`. v1 has no file lock, so don't run `start:looper` and the seed/swap scripts at the same instant — for normal usage (one looper + one server) sequential reads/writes are fine. When the file DB is replaced with a real DB, this caveat goes away.
+Both processes can run on different machines / containers. Communication:
 
-CORS allow-list via `API_CORS_ORIGINS` (CSV; omit for `*`).
+- **Postgres** — durable state (agents, transactions, positions, memory, activity log)
+- **Redis LIST** (`agent-loop:queue`) — tick payloads enqueued by either process; consumed by worker via `BRPOP`
+- **Redis pub/sub** (`agent-loop:activity:<agentId>`) — activity-log events published by the worker; subscribed by the server for SSE delivery
+
+Either process can crash/restart without losing durable state. In-flight ticks consumed via `BRPOP` are not requeued on worker crash (at-most-once); chat messages can be retried by the client.
+
+CORS allow-list via `API_CORS_ORIGINS` (CSV; omit for `*`). Privy creds (`PRIVY_APP_ID` + `PRIVY_APP_SECRET`) are required by the server only.
 
 - `GET /docs` — Swagger UI
 - `GET /openapi.json` — OpenAPI 3.1 spec (consume from FE to generate SDK)
@@ -80,14 +86,14 @@ There is no agent type discriminator. Every agent can:
 
 The two trigger types (scheduled tick vs. chat message) describe how the LLM prompt is assembled, not what kind of agent it is. The same agent can do both.
 
-### TickQueue — single-worker FIFO
+### Tick queue — Redis-backed FIFO
 
-A single in-process `TickQueue` serializes all tick execution (scheduled + chat) across the whole process. One worker drains the queue:
+A single Redis LIST (`agent-loop:queue`) serializes all tick execution (scheduled + chat) across the whole system. Both processes can enqueue:
 
-- **Scheduled ticks** — orchestrator enqueues a task per due agent and bumps `lastTickAt` optimistically so subsequent looper iterations don't pile up duplicates.
-- **Chat POSTs** — `POST /agents/:id/messages` always succeeds (returns `202 { position }`). Clients subscribe to `GET /agents/:id/stream` to observe progress. Ephemeral events `task_queued`, `task_started`, `token` (one per LLM token), and `task_finished` appear in the stream alongside persisted `append` events for `tick_start`, `llm_call`, `tool_call`, `tool_result`, `llm_response`, `tick_end`.
+- **Scheduled ticks** — the worker's orchestrator enqueues a payload per due agent and bumps `lastTickAt` optimistically so subsequent worker iterations don't pile up duplicates.
+- **Chat POSTs** — `POST /agents/:id/messages` on the server enqueues a `chat` payload immediately and returns `202 { position }`.
 
-The current implementation is `InMemoryTickQueue` — single-process only, lost on restart. The `TickQueue` interface is shaped for swap-in alternatives (file-based, Redis-backed) without changing consumer code. Run `MODE=both` so the looper and server share the same queue instance.
+The worker's `TickDispatcher` `BRPOP`s the list and runs payloads sequentially via `AgentRunner`.
 
 ### Migrating an existing DB
 
@@ -114,9 +120,10 @@ Use `openapi-fetch<paths>` for typed requests. `/stream` is a standard SSE endpo
 
 ```
 src/
-  agent-looper/  agent-runner/  agent-activity-log/
+  agent-worker/  agent-runner/  agent-activity-log/
   ai/{zerog-broker, chat-model}/  ai-tools/
   uniswap/  wallet/{real, dry-run, factory}/
-  providers/  database/  constants/  config/
+  providers/  database/  redis/  constants/  config/
+  worker.ts  server.ts
 scripts/         operator commands (anything that spends money)
 ```

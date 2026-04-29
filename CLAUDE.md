@@ -78,7 +78,8 @@ src/
     types.ts            domain types (incl. AgentActivityLogEntry)
   constants/            chain config, token addresses, pool keys
   config/               env loader + zod validation
-  index.ts              bootstrap → IntervalScheduler.start()
+  worker.ts             bootstrap → worker process entry
+  server.ts             bootstrap → server process entry
 prisma/
   schema.prisma         Postgres schema
   migrations/           Prisma-generated SQL
@@ -87,9 +88,9 @@ docker-compose.yml      local Postgres 16 service
 docker/postgres-init/   first-boot SQL (creates agent_loop_test DB)
 ```
 
-### Single process, worker-ready
+### Two-process architecture
 
-v1 = one Node process, sequential agent execution. `AgentRunner.run()` is a callable taking config + deps so it can move to a worker later with no refactor.
+Two processes share Postgres + Redis. The worker runs the scheduler, orchestrator, and `TickDispatcher`. The server runs the HTTP API. `AgentRunner.run()` is called from `TickDispatcher` in the worker process.
 
 ### Scheduler gate logic
 
@@ -120,7 +121,7 @@ API auth middleware verifies the `Authorization: Bearer <privy-jwt>` header via 
 
 `Agent.userId` is required and FK-cascades to `User`. Cross-user agent access returns 404 (not 403) to avoid leaking agent existence.
 
-`WalletFactory.forAgent` returns the operator-funded env-key `RealWallet` regardless of which user owns the agent. Per-user Privy wallets ship in a follow-up cutover spec; the `src/wallet/privy/` module is fully built and live-tested in preparation. `MODE=looper` runs without Privy credentials; `MODE=server`/`MODE=both` require `PRIVY_APP_ID` + `PRIVY_APP_SECRET`.
+`WalletFactory.forAgent` returns the operator-funded env-key `RealWallet` regardless of which user owns the agent. Per-user Privy wallets ship in a follow-up cutover spec; the `src/wallet/privy/` module is fully built and live-tested in preparation. The worker process runs without Privy credentials; the server process requires `PRIVY_APP_ID` + `PRIVY_APP_SECRET`.
 
 ### Wallet abstraction
 
@@ -218,7 +219,10 @@ LOG_LEVEL=info
 DATABASE_URL=
 TEST_DATABASE_URL=        # optional; live tests skip when absent
 
-# Privy (required when MODE=server or MODE=both)
+# Redis (queue + activity bus)
+REDIS_URL=
+
+# Privy (required by the server process)
 PRIVY_APP_ID=
 PRIVY_APP_SECRET=
 ```
