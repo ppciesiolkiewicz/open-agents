@@ -21,6 +21,7 @@ import { ZeroGLLMClient } from './ai/chat-model/zerog-llm-client';
 import { ToolRegistry } from './ai-tools/tool-registry';
 import { InMemoryTickQueue } from './agent-runner/tick-queue';
 import { CoingeckoService } from './providers/coingecko/coingecko-service';
+import { BalanceService } from './balance/balance-service';
 import { CoinMarketCapService } from './providers/coinmarketcap/coinmarketcap-service';
 import { SerperService } from './providers/serper/serper-service';
 import { FirecrawlService } from './providers/firecrawl/firecrawl-service';
@@ -69,8 +70,10 @@ async function main(): Promise<void> {
   const walletFactory = new WalletFactory(env, db.transactions);
   const uniswap = new UniswapService(env, db);
   const llm = await buildLLM(env);
+  const coingecko = new CoingeckoService({ apiKey: env.COINGECKO_API_KEY });
+  const balanceService = new BalanceService(env, coingecko);
   const toolRegistry = new ToolRegistry({
-    coingecko: new CoingeckoService({ apiKey: env.COINGECKO_API_KEY }),
+    coingecko,
     coinmarketcap: new CoinMarketCapService({ apiKey: env.COINMARKETCAP_API_KEY }),
     serper: new SerperService({ apiKey: env.SERPER_API_KEY }),
     firecrawl: new FirecrawlService({ apiKey: env.FIRECRAWL_API_KEY }),
@@ -134,6 +137,7 @@ async function main(): Promise<void> {
       queue,
       privyAuth: privyAuth!,
       walletProvisioner: walletProvisioner!,
+      balanceService,
       port: env.PORT,
       ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
     });

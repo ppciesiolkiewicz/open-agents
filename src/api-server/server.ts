@@ -6,6 +6,7 @@ import type { TickQueue } from '../agent-runner/tick-queue';
 import type { Database } from '../database/database';
 import type { PrivyAuth } from './auth/privy-auth';
 import type { WalletProvisioner } from '../wallet/privy/wallet-provisioner';
+import type { BalanceService } from '../balance/balance-service';
 import { buildAuthMiddleware } from './middleware/auth';
 import { buildCorsMiddleware } from './middleware/cors';
 import { errorHandler } from './middleware/error-handler';
@@ -23,6 +24,7 @@ export interface ApiServerDeps {
   queue: TickQueue;
   privyAuth: PrivyAuth;
   walletProvisioner: WalletProvisioner;
+  balanceService: BalanceService;
   port: number;
   corsOrigins?: string;
 }
@@ -42,7 +44,7 @@ export class ApiServer {
     // All other routes require Privy auth.
     this.app.use(buildAuthMiddleware(deps.privyAuth, deps.db.users));
 
-    this.app.use('/users', buildUsersRouter({ db: deps.db, walletProvisioner: deps.walletProvisioner }));
+    this.app.use('/users', buildUsersRouter({ db: deps.db, walletProvisioner: deps.walletProvisioner, balanceService: deps.balanceService }));
     this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
     this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, runner: deps.runner, queue: deps.queue }));
