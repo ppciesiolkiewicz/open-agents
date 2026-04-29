@@ -5,6 +5,10 @@ const envSchema = z.object({
     .string()
     .regex(/^0x[0-9a-fA-F]{64}$/, 'must be 0x-prefixed 32-byte hex'),
 
+  TREASURY_WALLET_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/, 'must be 0x-prefixed 32-byte hex'),
+
   ALCHEMY_API_KEY: z.string().min(1),
   UNICHAIN_RPC_URL: z.string().url().optional(),
 
@@ -22,8 +26,8 @@ const envSchema = z.object({
 
   REDIS_URL: z.string().url(),
 
-  PRIVY_APP_ID: z.string().min(1).optional(),
-  PRIVY_APP_SECRET: z.string().min(1).optional(),
+  PRIVY_APP_ID: z.string().min(1),
+  PRIVY_APP_SECRET: z.string().min(1),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   API_CORS_ORIGINS: z.string().optional(),

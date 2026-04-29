@@ -1,0 +1,9 @@
+export const TREASURY_SERVICE_FEE_BPS = 1000;
+
+export const JAINE_USDC_0G_POOL_ADDRESS = '0x961DA9B2FD03e04b088A90843a93E66f13112D0a' as const;
+export const JAINE_SWAP_ROUTER_ADDRESS = '0x8b598a7c136215a95ba0282b4d832b9f9801f2e2' as const;
+export const JAINE_POOL_FEE = 10000;
+
+export const ACROSS_UNICHAIN_SPOKE_POOL_ADDRESS = '0x09aea4b2242abC8bb4BB78D537A67a245A7bEC64' as const;
+
+export const TREASURY_REDIS_QUEUE = 'treasury:events' as const;

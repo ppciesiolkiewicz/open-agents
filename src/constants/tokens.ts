@@ -27,3 +27,16 @@ export const ZEROG_NATIVE_TOKEN = {
   decimals: 18,
   coingeckoId: 'zero-gravity',
 } as const;
+
+export const USDCE_ON_ZEROG = {
+  address: '0x1f3aa82227281ca364bfb3d253b0f1af1da6473e' as `0x${string}`,
+  decimals: 6,
+  symbol: 'USDC.e',
+  coingeckoId: 'usd-coin',
+} as const;
+
+export const W0G_ON_ZEROG = {
+  address: '0x1cd0690ff9a693f5ef2dd976660a8dafc81a109c' as `0x${string}`,
+  decimals: 18,
+  symbol: 'W0G',
+} as const;
