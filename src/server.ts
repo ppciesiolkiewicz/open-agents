@@ -1,0 +1,74 @@
+import 'dotenv/config';
+import { loadEnv } from './config/env';
+import { ApiServer } from './api-server/server';
+import { PrivyClient } from '@privy-io/server-auth';
+import { PrivyAuth } from './api-server/auth/privy-auth';
+import { WalletProvisioner } from './wallet/privy/wallet-provisioner';
+import { PrismaClient } from '@prisma/client';
+import { PrismaDatabase } from './database/prisma-database/prisma-database';
+import { AgentActivityLog } from './database/agent-activity-log';
+import { RedisActivityBus } from './redis/redis-activity-bus';
+import { RedisTickQueue } from './agent-runner/redis-tick-queue';
+import { RedisClient } from './redis/redis-client';
+
+async function main(): Promise<void> {
+  let env;
+  try {
+    env = loadEnv();
+  } catch (err) {
+    console.error('[bootstrap] env validation failed:', (err as Error).message);
+    process.exit(1);
+  }
+
+  if (!env.PRIVY_APP_ID || !env.PRIVY_APP_SECRET) {
+    console.error('[bootstrap] PRIVY_APP_ID + PRIVY_APP_SECRET are required for the server');
+    process.exit(1);
+  }
+
+  const prisma = new PrismaClient({ datasources: { db: { url: env.DATABASE_URL } } });
+  const db = new PrismaDatabase(prisma);
+
+  const busPublisher = RedisClient.build(env.REDIS_URL);
+  const busSubscriber = RedisClient.build(env.REDIS_URL);
+  const activityBus = new RedisActivityBus({ publisher: busPublisher, subscriber: busSubscriber });
+  const activityLog = new AgentActivityLog(db.activityLog, activityBus);
+
+  const queueProducer = RedisClient.build(env.REDIS_URL);
+  const queueSubscriber = RedisClient.build(env.REDIS_URL);
+  const queue = new RedisTickQueue({ producer: queueProducer, subscriber: queueSubscriber });
+
+  const privy = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
+  const privyAuth = new PrivyAuth(privy);
+  const walletProvisioner = new WalletProvisioner(privy, db.userWallets);
+
+  const api = new ApiServer({
+    db,
+    activityLog,
+    queue,
+    privyAuth,
+    walletProvisioner,
+    port: env.PORT,
+    ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
+  });
+
+  console.log(`[bootstrap] server — postgres at ${env.DATABASE_URL.replace(/:[^:@]+@/, ':***@')}`);
+  console.log(`[bootstrap] server — redis at ${env.REDIS_URL.replace(/:[^:@]+@/, ':***@')}`);
+  await api.start();
+
+  const shutdown = async (signal: string) => {
+    console.log(`[bootstrap] received ${signal}, stopping`);
+    await api.stop().catch(() => {});
+    await activityBus.close().catch(() => {});
+    await queueProducer.quit().catch(() => {});
+    await queueSubscriber.quit().catch(() => {});
+    await db.disconnect().catch(() => {});
+    process.exit(0);
+  };
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+}
+
+main().catch((err) => {
+  console.error('[bootstrap] fatal:', err);
+  process.exit(1);
+});
