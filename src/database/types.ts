@@ -111,3 +111,49 @@ export interface UserWallet {
   isPrimary: boolean;
   createdAt: number;
 }
+
+export type ZeroGPurchaseStatus =
+  | 'pending'
+  | 'bridging'
+  | 'swapping'
+  | 'sending'
+  | 'topping_up'
+  | 'completed'
+  | 'failed';
+
+export interface ZeroGPurchase {
+  id: string;
+  userId: string;
+  userWalletAddress: string;
+
+  incomingTxHash: string;
+  incomingUsdcAmount: string;
+
+  serviceFeeUsdcAmount: string;
+  swapInputUsdcAmount: string;
+
+  bridgeTxHash?: string;
+  bridgeGasCostWei?: string;
+
+  swapTxHash?: string;
+  swapInputUsdceAmount?: string;
+  swapOutputW0gAmount?: string;
+  swapGasCostWei?: string;
+
+  unwrapTxHash?: string;
+  unwrapGasCostWei?: string;
+  unwrappedOgAmount?: string;
+
+  sendTxHash?: string;
+  sendGasCostWei?: string;
+  ogAmountSentToUser?: string;
+
+  ledgerTopUpTxHash?: string;
+  ledgerTopUpGasCostWei?: string;
+
+  status: ZeroGPurchaseStatus;
+  errorMessage?: string;
+
+  createdAt: number;
+  updatedAt: number;
+}

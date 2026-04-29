@@ -43,4 +43,11 @@ export class PrismaUserWalletRepository implements UserWalletRepository {
     const row = await this.prisma.userWallet.findUnique({ where: { privyWalletId } });
     return row ? userWalletRowToDomain(row) : null;
   }
+
+  async findByWalletAddress(address: string): Promise<UserWallet | null> {
+    const row = await this.prisma.userWallet.findFirst({
+      where: { walletAddress: address },
+    });
+    return row ? userWalletRowToDomain(row) : null;
+  }
 }

@@ -103,14 +103,31 @@ model ActivityEvent {
   @@index([agentId, seq])
 }
 
+model Token {
+  id        Int      @id @default(autoincrement())
+  chainId   Int
+  chain     String
+  address   String
+  symbol    String
+  name      String
+  decimals  Int
+  logoUri   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([address, chainId])
+  @@index([chainId])
+}
+
 model User {
   id          String   @id
   privyDid    String   @unique
   email       String?
   createdAt   BigInt
 
-  wallets     UserWallet[]
-  agents      Agent[]
+  wallets          UserWallet[]
+  agents           Agent[]
+  zeroGPurchases   ZeroGPurchase[]
 }
 
 model UserWallet {
@@ -124,4 +141,45 @@ model UserWallet {
 
   @@index([userId])
   @@index([userId, isPrimary])
+}
+
+model ZeroGPurchase {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id])
+  userWalletAddress     String
+
+  incomingTxHash        String   @unique
+  incomingUsdcAmount    BigInt
+
+  serviceFeeUsdcAmount  BigInt
+  swapInputUsdcAmount   BigInt
+
+  bridgeTxHash          String?
+  bridgeGasCostWei      BigInt?
+
+  swapTxHash            String?
+  swapInputUsdceAmount  BigInt?
+  swapOutputW0gAmount   BigInt?
+  swapGasCostWei        BigInt?
+
+  unwrapTxHash          String?
+  unwrapGasCostWei      BigInt?
+  unwrappedOgAmount     BigInt?
+
+  sendTxHash            String?
+  sendGasCostWei        BigInt?
+  ogAmountSentToUser    BigInt?
+
+  ledgerTopUpTxHash     String?
+  ledgerTopUpGasCostWei BigInt?
+
+  status        String
+  errorMessage  String?
+
+  createdAt  BigInt
+  updatedAt  BigInt
+
+  @@index([userId])
+  @@index([userWalletAddress])
 }
