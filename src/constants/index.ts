@@ -5,4 +5,4 @@ export * from './fee-tiers';
 export * from './worker';
 export * from './agent-runner';
 export * from './uniswap';
-export * from './treasury.js';
+export * from './treasury';

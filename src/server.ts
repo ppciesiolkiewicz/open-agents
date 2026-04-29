@@ -22,11 +22,6 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  if (!env.PRIVY_APP_ID || !env.PRIVY_APP_SECRET) {
-    console.error('[bootstrap] PRIVY_APP_ID + PRIVY_APP_SECRET are required for the server');
-    process.exit(1);
-  }
-
   const prisma = new PrismaClient({ datasources: { db: { url: env.DATABASE_URL } } });
   const db = new PrismaDatabase(prisma);
 
