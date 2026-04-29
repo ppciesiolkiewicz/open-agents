@@ -19,8 +19,8 @@ export function buildAgentsRouter(deps: Deps): Router {
 
   r.get('/', async (req, res, next) => {
     try {
-      const agents = await deps.db.agents.list();
-      res.json(agents.filter((a) => a.userId === req.user!.id));
+      const agents = await deps.db.agents.listByUser(req.user!.id);
+      res.json(agents);
     } catch (err) {
       next(err);
     }

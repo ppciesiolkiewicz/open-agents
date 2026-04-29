@@ -11,6 +11,14 @@ export class PrismaAgentRepository implements AgentRepository {
     return rows.map(agentRowToDomain);
   }
 
+  async listByUser(userId: string): Promise<AgentConfig[]> {
+    const rows = await this.prisma.agent.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map(agentRowToDomain);
+  }
+
   async findById(id: string): Promise<AgentConfig | null> {
     const row = await this.prisma.agent.findUnique({ where: { id } });
     return row ? agentRowToDomain(row) : null;

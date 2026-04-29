@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response, RequestHandler } from 'express';
-import type { AgentConfig, User } from '../../database/types';
+import type { User } from '../../database/types';
 import type { UserRepository } from '../../database/repositories/user-repository';
 import type { PrivyAuth } from '../auth/privy-auth';
 
@@ -47,8 +47,4 @@ export function buildAuthMiddleware(
       next(err);
     }
   };
-}
-
-export function assertAgentOwnedBy(agent: AgentConfig, user: User): void {
-  if (agent.userId !== user.id) throw new ForbiddenError();
 }

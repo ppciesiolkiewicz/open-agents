@@ -57,9 +57,10 @@ export async function runSwap(args: RunSwapArgs): Promise<void> {
     { ALCHEMY_API_KEY: alchemy, UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL },
     db,
   );
+  const devUser = await db.users.findOrCreateByPrivyDid('did:privy:dev-local', { email: 'dev@local' });
   const agent: AgentConfig = {
     id: args.scenarioName,
-    userId: 'script-user',
+    userId: devUser.id,
     name: args.scenarioName,
     running: false,
     intervalMs: 1_000,

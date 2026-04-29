@@ -11,9 +11,33 @@ import {
   PageOfMessagesSchema,
   ErrorResponseSchema,
   PaginationQuerySchema,
+  UserWalletSchema,
+  UsersMeResponseSchema,
 } from './schemas';
 
 function registerPaths(): void {
+  registry.registerPath({
+    method: 'get',
+    path: '/users/me',
+    description: 'Returns the authenticated user (resolved from the Privy JWT) and their wallets.',
+    responses: {
+      200: { description: 'user + wallets', content: { 'application/json': { schema: UsersMeResponseSchema } } },
+      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/users/me/wallets',
+    description: 'Provisions the primary Privy server wallet for the authenticated user. Idempotent: returns the existing primary if one exists.',
+    responses: {
+      200: { description: 'existing primary wallet', content: { 'application/json': { schema: UserWalletSchema } } },
+      201: { description: 'newly created primary wallet', content: { 'application/json': { schema: UserWalletSchema } } },
+      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
+      502: { description: 'Privy wallet provisioning failed', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
   registry.registerPath({
     method: 'get',
     path: '/agents',
