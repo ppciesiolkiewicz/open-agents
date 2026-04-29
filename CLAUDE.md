@@ -108,6 +108,16 @@ Local dev:
 
 Schema in `prisma/schema.prisma`. Tests against a separate `agent_loop_test` database controlled by `TEST_DATABASE_URL`; live tests skip when the env var is missing so `npm test` is always safe to run.
 
+### Users + auth
+
+`User` rows are keyed by Privy DID; `UserWallet` is 1:N to `User` with `isPrimary` flagging the default wallet. v1 invariant: every User has exactly one `UserWallet`.
+
+API auth middleware verifies the `Authorization: Bearer <privy-jwt>` header via `@privy-io/server-auth`, then upserts the `User` row by DID and attaches it to `req.user`. First-time users hit `POST /users/me/wallets` to provision their primary Privy server wallet.
+
+`Agent.userId` is required and FK-cascades to `User`. Cross-user agent access returns 404 (not 403) to avoid leaking agent existence.
+
+`WalletFactory.forAgent` returns the operator-funded env-key `RealWallet` regardless of which user owns the agent. Per-user Privy wallets ship in a follow-up cutover spec; the `src/wallet/privy/` module is fully built and live-tested in preparation. `MODE=looper` runs without Privy credentials; `MODE=server`/`MODE=both` require `PRIVY_APP_ID` + `PRIVY_APP_SECRET`.
+
 ### Wallet abstraction
 
 Single `Wallet` interface. Two impls:
@@ -203,6 +213,10 @@ LOG_LEVEL=info
 # Postgres
 DATABASE_URL=
 TEST_DATABASE_URL=        # optional; live tests skip when absent
+
+# Privy (required when MODE=server or MODE=both)
+PRIVY_APP_ID=
+PRIVY_APP_SECRET=
 ```
 
 Service URL, secret, model — discovered at bootstrap, persisted to `./db/zerog-bootstrap.json`. Looper tick interval lives in `constants/`, not env.
