@@ -9,3 +9,10 @@ export const ZEROG_NETWORKS = {
 } as const satisfies Record<'mainnet' | 'testnet', ZeroGNetwork>;
 
 export type ZeroGNetworkName = keyof typeof ZEROG_NETWORKS;
+
+export const ZEROG_NATIVE_TOKEN = {
+  symbol: 'OG',
+  decimals: 18,
+  // Verify at https://www.coingecko.com/en/coins/list — search "zero-gravity" or "0G"
+  coingeckoId: 'zero-gravity-network',
+} as const;
