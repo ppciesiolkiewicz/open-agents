@@ -17,5 +17,19 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    container_name: agent-loop-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - agent-loop-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
 volumes:
   agent-loop-pgdata:
+  agent-loop-redisdata:

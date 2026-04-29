@@ -20,12 +20,13 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   TEST_DATABASE_URL: z.string().url().optional(),
 
+  REDIS_URL: z.string().url(),
+
   PRIVY_APP_ID: z.string().min(1).optional(),
   PRIVY_APP_SECRET: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   API_CORS_ORIGINS: z.string().optional(),
-  MODE: z.enum(['looper', 'server', 'both']).default('both'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -80,7 +80,7 @@ async function main(): Promise<void> {
   const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
 
   console.log(
-    `[bootstrap] env loaded — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}, MODE=${env.MODE}`,
+    `[bootstrap] env loaded — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}`,
   );
   console.log(`[bootstrap] database + activity log initialized (Postgres at ${env.DATABASE_URL.replace(/:[^:@]+@/, ':***@')})`);
   console.log(`[bootstrap] wallet factory initialized`);
@@ -90,19 +90,17 @@ async function main(): Promise<void> {
   let privyAuth: PrivyAuth | null = null;
   let walletProvisioner: WalletProvisioner | null = null;
 
-  if (env.MODE === 'server' || env.MODE === 'both') {
-    if (!env.PRIVY_APP_ID || !env.PRIVY_APP_SECRET) {
-      console.error('[bootstrap] PRIVY_APP_ID + PRIVY_APP_SECRET are required when MODE includes server');
-      process.exit(1);
-    }
-    const privy = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
-    privyAuth = new PrivyAuth(privy);
-    walletProvisioner = new WalletProvisioner(privy, db.userWallets);
-    console.log('[bootstrap] Privy auth + wallet provisioner initialized');
+  if (!env.PRIVY_APP_ID || !env.PRIVY_APP_SECRET) {
+    console.error('[bootstrap] PRIVY_APP_ID + PRIVY_APP_SECRET are required for the server');
+    process.exit(1);
   }
+  const privy = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
+  privyAuth = new PrivyAuth(privy);
+  walletProvisioner = new WalletProvisioner(privy, db.userWallets);
+  console.log('[bootstrap] Privy auth + wallet provisioner initialized');
 
-  const runLooper = env.MODE === 'looper' || env.MODE === 'both';
-  const runServer = env.MODE === 'server' || env.MODE === 'both';
+  const runLooper = true;
+  const runServer = true;
 
   const queue = new InMemoryTickQueue({
     notify: (agentId, payload) => activityLog.emitEphemeral(agentId, payload),
