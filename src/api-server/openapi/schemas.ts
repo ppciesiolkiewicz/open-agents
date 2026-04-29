@@ -111,3 +111,14 @@ export const UsersMeResponseSchema = z.object({
   user: UserSchema,
   wallets: z.array(UserWalletSchema),
 }).openapi('UsersMeResponse');
+
+export const TreasuryDepositBodySchema = z.object({
+  amount: z.string().min(1),
+}).openapi('TreasuryDepositBody');
+
+export const TreasuryDepositResponseSchema = z.object({
+  txHash: z.string(),
+  amount: z.string(),
+  symbol: z.string(),
+  decimals: z.number().int(),
+}).openapi('TreasuryDepositResponse');

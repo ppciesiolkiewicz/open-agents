@@ -13,6 +13,8 @@ import {
   PaginationQuerySchema,
   UserWalletSchema,
   UsersMeResponseSchema,
+  TreasuryDepositBodySchema,
+  TreasuryDepositResponseSchema,
 } from './schemas';
 
 function registerPaths(): void {
@@ -35,6 +37,18 @@ function registerPaths(): void {
       201: { description: 'newly created primary wallet', content: { 'application/json': { schema: UserWalletSchema } } },
       401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
       502: { description: 'Privy wallet provisioning failed', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/users/me/treasury/deposit',
+    description: 'Sends USDC from the authenticated user\'s primary Privy wallet on Unichain to the treasury wallet. The TreasuryFundsWatcher detects the transfer and triggers the swap → bridge → broker top-up pipeline asynchronously.',
+    request: { body: { content: { 'application/json': { schema: TreasuryDepositBodySchema } } } },
+    responses: {
+      201: { description: 'transfer submitted', content: { 'application/json': { schema: TreasuryDepositResponseSchema } } },
+      400: { description: 'no primary wallet', content: { 'application/json': { schema: ErrorResponseSchema } } },
+      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });
 
