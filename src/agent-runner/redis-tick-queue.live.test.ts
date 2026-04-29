@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { buildRedisClient } from '../redis/redis-client';
+import { RedisClient } from '../redis/redis-client';
 import { RedisTickQueue } from './redis-tick-queue';
 
 function requireRedisUrl(): string {
@@ -11,13 +11,13 @@ function requireRedisUrl(): string {
 describe('RedisTickQueue (live)', () => {
   const REDIS_URL = requireRedisUrl();
   const keyPrefix = `test:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  let producer: ReturnType<typeof buildRedisClient>;
-  let subscriber: ReturnType<typeof buildRedisClient>;
+  let producer: ReturnType<typeof RedisClient.build>;
+  let subscriber: ReturnType<typeof RedisClient.build>;
   let queue: RedisTickQueue;
 
   beforeEach(() => {
-    producer = buildRedisClient(REDIS_URL);
-    subscriber = buildRedisClient(REDIS_URL);
+    producer = RedisClient.build(REDIS_URL);
+    subscriber = RedisClient.build(REDIS_URL);
     queue = new RedisTickQueue({ producer, subscriber, keyPrefix });
   });
 

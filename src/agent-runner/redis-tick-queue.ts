@@ -21,7 +21,6 @@ export class RedisTickQueue implements TickQueue {
   private readonly producer: Redis;
   private readonly subscriber: Redis;
   private readonly now: () => number;
-  private stopped = false;
 
   constructor(deps: RedisTickQueueDeps) {
     const prefix = deps.keyPrefix ?? DEFAULT_KEY_PREFIX;
@@ -33,8 +32,7 @@ export class RedisTickQueue implements TickQueue {
 
   async enqueue(payload: TickPayloadInput): Promise<{ position: number }> {
     const validated = TickPayloadSchema.parse({ ...payload, enqueuedAt: this.now() });
-    await this.producer.lpush(this.listKey, JSON.stringify(validated));
-    const len = await this.producer.llen(this.listKey);
+    const len = await this.producer.lpush(this.listKey, JSON.stringify(validated));
     return { position: len };
   }
 
@@ -62,38 +60,38 @@ export class RedisTickQueue implements TickQueue {
         }
       })
       .filter((p): p is TickPayload => p !== null)
-      .reverse()
+      .reverse() // LRANGE returns LPUSH-order (newest first); reverse to FIFO (next-to-consume first)
       .map((p) => ({ agentId: p.agentId, trigger: p.trigger, enqueuedAt: p.enqueuedAt }));
-    return { current: null, pending };
+    return { current: null, pending }; // current is not tracked cross-process; always null
   }
 
   consume(): TickQueueConsumer {
+    let stopped = false;
+    const pull = async (): Promise<TickPayload | null> => {
+      if (stopped) return null;
+      try {
+        const result = await this.subscriber.brpop(this.listKey, 0);
+        if (!result) return null;
+        const [, raw] = result;
+        const parsed = TickPayloadSchema.safeParse(JSON.parse(raw));
+        if (!parsed.success) {
+          console.error('[redis-tq] dropped malformed payload:', raw, parsed.error.format());
+          return pull();
+        }
+        return parsed.data;
+      } catch (err) {
+        if (stopped) return null;
+        throw err;
+      }
+    };
     return {
-      next: () => this.pull(),
+      next: pull,
       stop: async () => {
-        this.stopped = true;
+        stopped = true;
         // disconnect (not quit) is required to unblock an in-flight BRPOP — quit waits for the
         // blocking command to finish, which never happens with BRPOP timeout=0.
         this.subscriber.disconnect();
       },
     };
-  }
-
-  private async pull(): Promise<TickPayload | null> {
-    if (this.stopped) return null;
-    try {
-      const result = await this.subscriber.brpop(this.listKey, 0);
-      if (!result) return null;
-      const [, raw] = result;
-      const parsed = TickPayloadSchema.safeParse(JSON.parse(raw));
-      if (!parsed.success) {
-        console.error('[redis-tq] dropped malformed payload:', raw, parsed.error.format());
-        return this.pull();
-      }
-      return parsed.data;
-    } catch (err) {
-      if (this.stopped) return null;
-      throw err;
-    }
   }
 }

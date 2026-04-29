@@ -36,7 +36,9 @@ export class RedisActivityBus implements ActivityBus {
     const channel = this.channelFor(agentId);
     if (!this.subscribedChannels.has(channel)) {
       this.subscribedChannels.add(channel);
-      void this.deps.subscriber.subscribe(channel);
+      void this.deps.subscriber.subscribe(channel).catch((err) =>
+        console.error('[redis-bus] subscribe failed:', channel, err),
+      );
     }
 
     return () => {
@@ -44,7 +46,9 @@ export class RedisActivityBus implements ActivityBus {
       if (bucket && bucket.size === 0) {
         this.listenersByAgent.delete(agentId);
         this.subscribedChannels.delete(channel);
-        void this.deps.subscriber.unsubscribe(channel);
+        void this.deps.subscriber.unsubscribe(channel).catch((err) =>
+          console.error('[redis-bus] unsubscribe failed:', channel, err),
+        );
       }
     };
   }

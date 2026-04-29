@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { buildRedisClient } from './redis-client';
+import { RedisClient } from './redis-client';
 import { RedisActivityBus } from './redis-activity-bus';
 import type { AgentActivityEvent } from '../database/activity-bus';
 
@@ -16,8 +16,8 @@ describe('RedisActivityBus (live)', () => {
   let subscriber: RedisActivityBus;
 
   beforeEach(() => {
-    publisher = new RedisActivityBus({ publisher: buildRedisClient(REDIS_URL), subscriber: buildRedisClient(REDIS_URL), channelPrefix });
-    subscriber = new RedisActivityBus({ publisher: buildRedisClient(REDIS_URL), subscriber: buildRedisClient(REDIS_URL), channelPrefix });
+    publisher = new RedisActivityBus({ publisher: RedisClient.build(REDIS_URL), subscriber: RedisClient.build(REDIS_URL), channelPrefix });
+    subscriber = new RedisActivityBus({ publisher: RedisClient.build(REDIS_URL), subscriber: RedisClient.build(REDIS_URL), channelPrefix });
   });
 
   afterEach(async () => {
