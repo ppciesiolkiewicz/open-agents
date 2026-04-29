@@ -92,3 +92,22 @@ export const ErrorResponseSchema = z.object({
   message: z.string().optional(),
   issues: z.array(z.unknown()).optional(),
 }).openapi('ErrorResponse');
+
+export const UserSchema = z.object({
+  id: z.string(),
+  privyDid: z.string(),
+  email: z.string().nullable(),
+  createdAt: z.number(),
+}).openapi('User');
+
+export const UserWalletSchema = z.object({
+  id: z.string(),
+  walletAddress: z.string(),
+  isPrimary: z.boolean(),
+  createdAt: z.number(),
+}).openapi('UserWallet');
+
+export const UsersMeResponseSchema = z.object({
+  user: UserSchema,
+  wallets: z.array(UserWalletSchema),
+}).openapi('UsersMeResponse');
