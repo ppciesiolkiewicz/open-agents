@@ -39,7 +39,7 @@ Every change to the zod env schema MUST update `.env.example` in the same commit
 
 ### Constants module
 
-Single source for chain config (Unichain + 0G mainnet/testnet), token addresses, Uniswap fee tiers, looper tick interval. Never inline addresses, chainIds, RPC URLs, or magic numbers like polling intervals.
+Single source for chain config (Unichain + 0G mainnet/testnet), token addresses, Uniswap fee tiers, worker tick interval. Never inline addresses, chainIds, RPC URLs, or magic numbers like polling intervals.
 
 **Pool addresses + state are NOT constants.** `UniswapService` derives the v4 PoolKey + on-chain pool address + state from `(tokenA, tokenB, feeTier)` at runtime. `constants/` only holds `FEE_TIERS` (Uniswap-defined: 500 / 3_000 / 10_000 bps). Discovery helpers (`buildPoolKey`, `getPoolAddress`, `getPoolState`) live in the `uniswap/` module.
 
@@ -74,9 +74,11 @@ src/
   database/             Database facade + repositories + AgentActivityLog
     repositories/       interfaces (Agent, Transaction, Position, AgentMemory, ActivityLog)
     prisma-database/    PrismaDatabase impl + mappers
-    agent-activity-log.ts  EventEmitter facade over ActivityLogRepository
+    activity-bus.ts        ActivityBus interface (InMemoryActivityBus impl)
+    agent-activity-log.ts  facade — writes to repo + publishes to ActivityBus
     types.ts            domain types (incl. AgentActivityLogEntry)
   constants/            chain config, token addresses, pool keys
+  redis/                RedisClient factory, RedisTickQueue, RedisActivityBus
   config/               env loader + zod validation
   worker.ts             bootstrap → worker process entry
   server.ts             bootstrap → server process entry
@@ -84,7 +86,7 @@ prisma/
   schema.prisma         Postgres schema
   migrations/           Prisma-generated SQL
   seed.ts               installs seed UNI MA trader
-docker-compose.yml      local Postgres 16 service
+docker-compose.yml      local Postgres 16 + Redis 7 services
 docker/postgres-init/   first-boot SQL (creates agent_loop_test DB)
 ```
 
@@ -157,7 +159,7 @@ Every tick, every tool call, every LLM call/response, every memory update → JS
 
 ### Testing — anything that spends money lives in `scripts/`
 
-**Tests live only for modules that talk to an external system** (provider HTTP, blockchain RPC). Pure-logic modules (env loader, constants, looper, factories) get no dedicated tests — they're exercised end-to-end by `npm start` and downstream integration tests.
+**Tests live only for modules that talk to an external system** (provider HTTP, blockchain RPC, Redis). Pure-logic modules (env loader, constants, scheduler, factories) get no dedicated tests — they're exercised end-to-end by `npm run start:worker` / `start:server` and downstream integration tests.
 
 - **File suffix:** `*.live.test.ts`.
 - **No mocked HTTP, no mocked external services.** Hit the real thing using UNI/USDC on Unichain (read-only RPC reads + provider GET calls).
@@ -180,14 +182,15 @@ Real or dry-run. Token in/out, gas (estimated for dry-run), status, block. Never
 
 ## Slice Order (impl)
 
-1. **Bootstrap** — project setup (package.json, tsconfig, vitest), `.gitignore`, `config/` env loader, `constants/`, all `providers/` with live UNI/USDC tests, empty `agent-looper/` that ticks but loads no agents
+1. **Bootstrap** — project setup (package.json, tsconfig, vitest), `.gitignore`, `config/` env loader, `constants/`, all `providers/` with live UNI/USDC tests, empty `agent-worker/` that ticks but loads no agents
 2. **Database + activity log** — `database/` (Database facade + repositories + PrismaDatabase + AgentActivityLog)
 3. **Wallet** — real + dry-run + factory with tests
-4. **Looper + AgentRunner skeleton** (mocked LLM, wires DB + wallet + log)
+4. **Worker + AgentRunner skeleton** (mocked LLM, wires DB + wallet + log)
 5. **AI integration** — 0G bootstrap, chat-model, real LLM in runner
 6. **AI tools surface** — Langchain wrappers around providers + wallet
 7. **Uniswap module + swap tools + risk enforcement**
 8. **Seed agent** — UNI MA trader, end-to-end dry-run
+9. **Worker/server split** — Redis queue + activity bus, two process entries
 
 Each slice = own implementation plan via writing-plans skill.
 
@@ -227,4 +230,4 @@ PRIVY_APP_ID=
 PRIVY_APP_SECRET=
 ```
 
-Service URL, secret, model — discovered at bootstrap, persisted to `./db/zerog-bootstrap.json`. Looper tick interval lives in `constants/`, not env.
+Service URL, secret, model — discovered at bootstrap, persisted to `./db/zerog-bootstrap.json`. Worker tick interval lives in `constants/`, not env.
