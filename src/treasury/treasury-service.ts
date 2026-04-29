@@ -14,7 +14,6 @@ import type { TreasuryWallet } from './treasury-wallet.js';
 import type { JaineSwapService } from './jaine-swap-service.js';
 import type { TreasuryTransferEvent } from './treasury-funds-watcher.js';
 
-const MIN_USDCE_FOR_SWAP = 10n * 1_000_000n;
 
 export class TreasuryService {
   private running = false;
@@ -102,9 +101,9 @@ export class TreasuryService {
     const zerogNetwork = ZEROG_NETWORKS[this.env.ZEROG_NETWORK];
 
     const usdceBalance = await this.treasuryWallet.getZerogUsdceBalance();
-    if (usdceBalance < swapInputAmount + MIN_USDCE_FOR_SWAP) {
+    if (usdceBalance < swapInputAmount) {
       throw new Error(
-        `Insufficient USDC.e on 0G chain: have ${usdceBalance}, need ${swapInputAmount + MIN_USDCE_FOR_SWAP}. Top up treasury wallet manually.`
+        `Insufficient USDC.e on 0G chain: have ${usdceBalance}, need ${swapInputAmount}. Top up treasury wallet manually.`
       );
     }
 
