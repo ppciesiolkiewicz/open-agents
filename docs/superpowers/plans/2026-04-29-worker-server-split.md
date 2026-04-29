@@ -220,16 +220,30 @@ volumes:
   agent-loop-redisdata:
 ```
 
-- [ ] **Step 2: Add `REDIS_URL` to `.env.example`**
+- [ ] **Step 2: Update `.env.example`**
 
-Append to `.env.example` (after the Postgres block):
+Two edits in `.env.example`:
+
+(a) Append a Redis block after the Postgres block:
 
 ```
 # Redis (queue + activity bus, used by both worker and server)
 REDIS_URL=redis://localhost:6379
 ```
 
-Also delete the implicit `MODE` line if present (there isn't one currently — confirm no change needed).
+(b) Update the Privy comment line. Replace:
+
+```
+# Privy (required when MODE=server or MODE=both)
+```
+
+with:
+
+```
+# Privy (required by the server process)
+```
+
+(Per CLAUDE.md "`.env.example` stays in sync with `config/env.ts`" — every zod schema change must update `.env.example` in the same commit.)
 
 - [ ] **Step 3: Add `REDIS_URL` to `src/config/env.ts`, drop `MODE`**
 
@@ -773,6 +787,8 @@ this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activity
 
 - [ ] **Step 7: Port `src/agent-worker/agent-orchestrator.live.test.ts` to the new shape**
 
+(Post-rebase the file uses plain `describe(...)` and `getTestPrisma()` throws on missing `TEST_DATABASE_URL` — no more `describeIfPostgres`.)
+
 Edit the test file. Key diffs:
 
 1. `AgentOrchestrator` constructor is now `(db, queue, clock)`, no `runner`, no `activityLog`.
@@ -1066,7 +1082,7 @@ git commit -m "refactor(activity-log): extract ActivityBus interface with InMemo
 - Create: `src/agent-runner/redis-tick-queue.live.test.ts`
 - Create: `src/redis/redis-activity-bus.live.test.ts`
 
-**Test policy reminder (from CLAUDE.md):** live tests skip if `REDIS_URL` is missing. They hit a real Redis (free), use a test-scoped key prefix, and clean up after themselves.
+**Test policy reminder (from CLAUDE.md):** live tests **fail loudly** when their dependencies are missing — no `skipIf` guards. Operators must have Redis running before `npm test`. Tests hit a real Redis (free), use a test-scoped key prefix, and clean up after themselves.
 
 - [ ] **Step 1: Shared Redis client factory**
 
@@ -1096,13 +1112,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { buildRedisClient } from '../redis/redis-client';
 import { RedisTickQueue } from './redis-tick-queue';
 
-const REDIS_URL = process.env.REDIS_URL;
-const describeIfRedis = REDIS_URL ? describe : describe.skip;
+function requireRedisUrl(): string {
+  const url = process.env.REDIS_URL;
+  if (!url) throw new Error('REDIS_URL is required to run live Redis tests');
+  return url;
+}
 
-describeIfRedis('RedisTickQueue (live)', () => {
+describe('RedisTickQueue (live)', () => {
+  const REDIS_URL = requireRedisUrl();
   const keyPrefix = `test:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  const producer = buildRedisClient(REDIS_URL!);
-  const subscriber = buildRedisClient(REDIS_URL!);
+  const producer = buildRedisClient(REDIS_URL);
+  const subscriber = buildRedisClient(REDIS_URL);
 
   let queue: RedisTickQueue;
 
@@ -1295,17 +1315,21 @@ import { buildRedisClient } from './redis-client';
 import { RedisActivityBus } from './redis-activity-bus';
 import type { AgentActivityEvent } from '../database/activity-bus';
 
-const REDIS_URL = process.env.REDIS_URL;
-const describeIfRedis = REDIS_URL ? describe : describe.skip;
+function requireRedisUrl(): string {
+  const url = process.env.REDIS_URL;
+  if (!url) throw new Error('REDIS_URL is required to run live Redis tests');
+  return url;
+}
 
-describeIfRedis('RedisActivityBus (live)', () => {
+describe('RedisActivityBus (live)', () => {
+  const REDIS_URL = requireRedisUrl();
   const channelPrefix = `test:bus:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   let publisher: RedisActivityBus;
   let subscriber: RedisActivityBus;
 
   beforeEach(() => {
-    publisher = new RedisActivityBus({ publisher: buildRedisClient(REDIS_URL!), subscriber: buildRedisClient(REDIS_URL!), channelPrefix });
-    subscriber = new RedisActivityBus({ publisher: buildRedisClient(REDIS_URL!), subscriber: buildRedisClient(REDIS_URL!), channelPrefix });
+    publisher = new RedisActivityBus({ publisher: buildRedisClient(REDIS_URL), subscriber: buildRedisClient(REDIS_URL), channelPrefix });
+    subscriber = new RedisActivityBus({ publisher: buildRedisClient(REDIS_URL), subscriber: buildRedisClient(REDIS_URL), channelPrefix });
   });
 
   afterEach(async () => {
