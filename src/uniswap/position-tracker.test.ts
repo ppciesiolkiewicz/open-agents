@@ -9,6 +9,7 @@ import type { AgentMemoryRepository } from '../database/repositories/agent-memor
 import type { ActivityLogRepository } from '../database/repositories/activity-log-repository';
 import type { UserRepository } from '../database/repositories/user-repository';
 import type { UserWalletRepository } from '../database/repositories/user-wallet-repository';
+import type { ZeroGPurchaseRepository } from '../database/repositories/zero-g-purchase-repository.js';
 import type { Position, TokenAmount } from '../database/types';
 
 class InMemoryPositionRepo implements PositionRepository {
@@ -39,6 +40,7 @@ function makeDb(positions: InMemoryPositionRepo): Database {
     activityLog: {} as ActivityLogRepository,
     users: {} as UserRepository,
     userWallets: {} as UserWalletRepository,
+    zeroGPurchases: {} as ZeroGPurchaseRepository,
   };
 }
 
