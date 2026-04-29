@@ -46,7 +46,7 @@ export class PrismaUserWalletRepository implements UserWalletRepository {
 
   async findByWalletAddress(address: string): Promise<UserWallet | null> {
     const row = await this.prisma.userWallet.findFirst({
-      where: { walletAddress: address },
+      where: { walletAddress: { equals: address, mode: 'insensitive' } },
     });
     return row ? userWalletRowToDomain(row) : null;
   }
