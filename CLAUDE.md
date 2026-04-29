@@ -33,6 +33,10 @@ Verb + what + qualifier. Names describe action.
 - env validated via `zod` in `config/`
 - DB schemas defined in TS interfaces (see spec)
 
+### .env.example stays in sync with `config/env.ts`
+
+Every change to the zod env schema MUST update `.env.example` in the same commit. New required vars get a placeholder line; new optional vars get a commented-out hint with the default behavior. Operators copy `.env.example` → `.env` on first clone — drift breaks onboarding silently.
+
 ### Constants module
 
 Single source for chain config (Unichain + 0G mainnet/testnet), token addresses, Uniswap fee tiers, looper tick interval. Never inline addresses, chainIds, RPC URLs, or magic numbers like polling intervals.
