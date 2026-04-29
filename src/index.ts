@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import { loadEnv, type Env } from './config/env';
 import { ApiServer } from './api-server/server';
+import { PrivyClient } from '@privy-io/server-auth';
+import { PrivyAuth } from './api-server/auth/privy-auth';
+import { WalletProvisioner } from './wallet/privy/wallet-provisioner';
 import { LOOPER } from './constants';
 import { Looper } from './agent-looper/looper';
 import { AgentOrchestrator } from './agent-looper/agent-orchestrator';
@@ -84,6 +87,20 @@ async function main(): Promise<void> {
   console.log(`[bootstrap] tool registry initialized (${toolRegistry.build().length} tools)`);
   console.log(`[bootstrap] agent runner initialized (LLM: ${llm.modelName()})`);
 
+  let privyAuth: PrivyAuth | null = null;
+  let walletProvisioner: WalletProvisioner | null = null;
+
+  if (env.MODE === 'server' || env.MODE === 'both') {
+    if (!env.PRIVY_APP_ID || !env.PRIVY_APP_SECRET) {
+      console.error('[bootstrap] PRIVY_APP_ID + PRIVY_APP_SECRET are required when MODE includes server');
+      process.exit(1);
+    }
+    const privy = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
+    privyAuth = new PrivyAuth(privy);
+    walletProvisioner = new WalletProvisioner(privy, db.userWallets);
+    console.log('[bootstrap] Privy auth + wallet provisioner initialized');
+  }
+
   const runLooper = env.MODE === 'looper' || env.MODE === 'both';
   const runServer = env.MODE === 'server' || env.MODE === 'both';
 
@@ -115,6 +132,8 @@ async function main(): Promise<void> {
       activityLog,
       runner,
       queue,
+      privyAuth: privyAuth!,
+      walletProvisioner: walletProvisioner!,
       port: env.PORT,
       ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
     });

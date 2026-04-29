@@ -8,7 +8,6 @@ import { PrivyServerWallet } from './privy-server-wallet';
 import { PrismaUserRepository } from '../../database/prisma-database/prisma-user-repository';
 import { PrismaUserWalletRepository } from '../../database/prisma-database/prisma-user-wallet-repository';
 import { truncateAll } from '../../database/prisma-database/test-helpers';
-import { UNICHAIN } from '../../constants';
 
 const APP_ID = process.env.PRIVY_APP_ID;
 const APP_SECRET = process.env.PRIVY_APP_SECRET;
@@ -22,7 +21,6 @@ describe.skipIf(!APP_ID || !APP_SECRET || !TEST_DB_URL || !ALCHEMY)('PrivyWallet
   const userWallets = new PrismaUserWalletRepository(prisma);
   const provisioner = new WalletProvisioner(privy, userWallets);
   const publicClient = createPublicClient({
-    chain: { id: UNICHAIN.chainId } as never,
     transport: http(`https://unichain-mainnet.g.alchemy.com/v2/${ALCHEMY}`),
   });
   const factory = new PrivyWalletFactory(privy, publicClient);
