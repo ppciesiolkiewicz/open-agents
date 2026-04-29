@@ -1,4 +1,4 @@
-import { JsonRpcProvider, Wallet } from 'ethers';
+import { JsonRpcProvider, Wallet, type AbstractSigner } from 'ethers';
 import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker';
 import { ZEROG_NETWORKS, type ZeroGNetworkName } from '../../constants';
 
@@ -21,4 +21,13 @@ export async function buildZeroGBroker(env: BrokerEnv): Promise<{
   const wallet = new Wallet(env.WALLET_PRIVATE_KEY, provider);
   const broker = await createZGComputeNetworkBroker(wallet);
   return { broker, walletAddress: wallet.address as `0x${string}` };
+}
+
+export class ZeroGBrokerFactory {
+  static async createBrokerFromSigner(
+    signer: AbstractSigner,
+    rpcUrl: string,
+  ): Promise<ZeroGBroker> {
+    return createZGComputeNetworkBroker(signer as any, rpcUrl);
+  }
 }
