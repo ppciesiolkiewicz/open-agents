@@ -2,7 +2,6 @@ import { Router } from 'express';
 import type { AgentActivityLog } from '../../database/agent-activity-log';
 import type { AgentActivityLogEntry } from '../../database/types';
 import type { Database } from '../../database/database';
-import { assertAgentOwnedBy } from '../middleware/auth';
 import { BadRequestError, NotFoundError } from '../middleware/error-handler';
 import { decodeCursor, encodeCursor } from '../pagination/cursor';
 import { PaginationQuerySchema } from '../openapi/schemas';
@@ -19,8 +18,7 @@ export function buildActivityRouter(deps: Deps): Router {
     try {
       const agentId = (req.params as { id: string }).id;
       const agent = await deps.db.agents.findById(agentId);
-      if (!agent) throw new NotFoundError();
-      assertAgentOwnedBy(agent, req.user!);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
 
       const q = PaginationQuerySchema.parse(req.query);
       let entries: AgentActivityLogEntry[] = await deps.activityLog.list(agentId);

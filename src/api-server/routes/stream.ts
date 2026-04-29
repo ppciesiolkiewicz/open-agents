@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import type { AgentActivityLog, AgentActivityEvent } from '../../database/agent-activity-log';
 import type { Database } from '../../database/database';
-import { assertAgentOwnedBy } from '../middleware/auth';
 import { NotFoundError } from '../middleware/error-handler';
 import { SseWriter } from '../sse/event-stream';
 
@@ -17,8 +16,7 @@ export function buildStreamRouter(deps: Deps): Router {
     try {
       const agentId = (req.params as { id: string }).id;
       const agent = await deps.db.agents.findById(agentId);
-      if (!agent) throw new NotFoundError();
-      assertAgentOwnedBy(agent, req.user!);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
 
       const sse = new SseWriter(res);
       const unsubscribe = deps.activityLog.on(agentId, (event: AgentActivityEvent) => {

@@ -1,25 +1,15 @@
-import type { NextFunction, Request, Response } from 'express';
-import type { AgentConfig } from '../../database/types';
-
-export interface ApiUser {
-  id: string;
-}
+import type { NextFunction, Request, Response, RequestHandler } from 'express';
+import type { AgentConfig, User } from '../../database/types';
+import type { UserRepository } from '../../database/repositories/user-repository';
+import type { PrivyAuth } from '../auth/privy-auth';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      user?: ApiUser;
+      user?: User;
     }
   }
-}
-
-const STUB_USER: ApiUser = { id: 'local-dev' };
-
-export function authMiddleware(req: Request, _res: Response, next: NextFunction): void {
-  // v1 stub: any request gets a fixed user; JWT decode lands here later.
-  req.user = STUB_USER;
-  next();
 }
 
 export class ForbiddenError extends Error {
@@ -29,7 +19,36 @@ export class ForbiddenError extends Error {
   }
 }
 
-export function assertAgentOwnedBy(agent: AgentConfig, _user: ApiUser): void {
-  // v1 noop. When AgentConfig gains userId, compare and throw ForbiddenError on mismatch.
-  void agent;
+export function buildAuthMiddleware(
+  privyAuth: PrivyAuth,
+  users: UserRepository,
+): RequestHandler {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const header = req.headers.authorization;
+    if (!header?.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'invalid_token' });
+      return;
+    }
+    const token = header.slice(7);
+    let did: string;
+    try {
+      const verified = await privyAuth.verifyToken(token);
+      did = verified.did;
+    } catch {
+      res.status(401).json({ error: 'invalid_token' });
+      return;
+    }
+    try {
+      const email = await privyAuth.getEmail(did);
+      const user = await users.findOrCreateByPrivyDid(did, { email });
+      req.user = user;
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+export function assertAgentOwnedBy(agent: AgentConfig, user: User): void {
+  if (agent.userId !== user.id) throw new ForbiddenError();
 }

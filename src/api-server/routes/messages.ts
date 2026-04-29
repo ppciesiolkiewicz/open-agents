@@ -8,7 +8,6 @@ import {
 } from '../../agent-runner/tick-strategies/chat-history-projection';
 import type { TickQueue } from '../../agent-runner/tick-queue';
 import type { Database } from '../../database/database';
-import { assertAgentOwnedBy } from '../middleware/auth';
 import { BadRequestError, NotFoundError } from '../middleware/error-handler';
 import { decodeCursor, encodeCursor } from '../pagination/cursor';
 import { PaginationQuerySchema, PostMessageBodySchema } from '../openapi/schemas';
@@ -27,8 +26,7 @@ export function buildMessagesRouter(deps: Deps): Router {
     try {
       const agentId = (req.params as { id: string }).id;
       const agent = await deps.db.agents.findById(agentId);
-      if (!agent) throw new NotFoundError();
-      assertAgentOwnedBy(agent, req.user!);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
 
       const q = PaginationQuerySchema.parse(req.query);
       const entries = await deps.activityLog.list(agentId);
@@ -76,8 +74,7 @@ export function buildMessagesRouter(deps: Deps): Router {
       const agentId = (req.params as { id: string }).id;
       const body = PostMessageBodySchema.parse(req.body);
       const agent = await deps.db.agents.findById(agentId);
-      if (!agent) throw new NotFoundError();
-      assertAgentOwnedBy(agent, req.user!);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
 
       const result = await deps.queue.enqueue({
         agentId,

@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { Database } from '../../database/database';
 import type { AgentConfig } from '../../database/types';
-import { assertAgentOwnedBy } from '../middleware/auth';
 import { NotFoundError } from '../middleware/error-handler';
 import {
   CreateAgentBodySchema,
@@ -53,8 +52,7 @@ export function buildAgentsRouter(deps: Deps): Router {
   r.get('/:id', async (req, res, next) => {
     try {
       const agent = await deps.db.agents.findById(req.params.id);
-      if (!agent) throw new NotFoundError();
-      assertAgentOwnedBy(agent, req.user!);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
       res.json(agent);
     } catch (err) {
       next(err);
@@ -65,8 +63,7 @@ export function buildAgentsRouter(deps: Deps): Router {
     try {
       const body = UpdateAgentBodySchema.parse(req.body);
       const agent = await deps.db.agents.findById(req.params.id);
-      if (!agent) throw new NotFoundError();
-      assertAgentOwnedBy(agent, req.user!);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
 
       const updated: AgentConfig = {
         ...agent,
@@ -85,8 +82,7 @@ export function buildAgentsRouter(deps: Deps): Router {
   r.delete('/:id', async (req, res, next) => {
     try {
       const agent = await deps.db.agents.findById(req.params.id);
-      if (!agent) throw new NotFoundError();
-      assertAgentOwnedBy(agent, req.user!);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
       await deps.db.agents.delete(req.params.id);
       res.status(204).end();
     } catch (err) {
@@ -97,8 +93,7 @@ export function buildAgentsRouter(deps: Deps): Router {
   r.post('/:id/start', async (req, res, next) => {
     try {
       const agent = await deps.db.agents.findById(req.params.id);
-      if (!agent) throw new NotFoundError();
-      assertAgentOwnedBy(agent, req.user!);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
       const updated: AgentConfig = { ...agent, running: true };
       await deps.db.agents.upsert(updated);
       res.json(updated);
@@ -110,8 +105,7 @@ export function buildAgentsRouter(deps: Deps): Router {
   r.post('/:id/stop', async (req, res, next) => {
     try {
       const agent = await deps.db.agents.findById(req.params.id);
-      if (!agent) throw new NotFoundError();
-      assertAgentOwnedBy(agent, req.user!);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
       const updated: AgentConfig = { ...agent, running: false };
       await deps.db.agents.upsert(updated);
       res.json(updated);
