@@ -144,28 +144,26 @@ export class TreasuryService {
     const state = await bootstrapStore.load();
     if (state) {
       // 0G broker hard-minimums: depositOG >= 3, transferOG >= 1.
-      // Skip top-up when the user's wallet can't cover them; native OG already arrived.
       const userOgBalance = await provider.getBalance(userWallet.walletAddress);
       const minRequired = ethers.parseEther('4.05'); // 3 deposit + 1 transfer + ~0.05 gas
       if (userOgBalance < minRequired) {
-        console.log(
-          `[TreasuryService] purchase ${purchase.id}: skipping broker top-up — user balance ${ethers.formatEther(userOgBalance)} OG < ${ethers.formatEther(minRequired)} OG required by broker minimums`,
+        throw new Error(
+          `User OG balance ${ethers.formatEther(userOgBalance)} below broker minimum ${ethers.formatEther(minRequired)} OG (3 deposit + 1 transfer + gas). Deposit was too small.`,
         );
-      } else {
-        const broker = await ZeroGBrokerFactory.createBrokerFromSigner(userSigner);
-        const brokerService = new ZeroGBrokerService(broker);
-        await brokerService.ensureLedgerBalance({ minOG: 0.5, depositOG: 3 });
-        await brokerService.fundAndAcknowledge({
-          providerAddress: state.providerAddress,
-          ledgerInitialOG: 3,
-          transferOG: 1,
-          topUpThresholdOG: 0.3,
-        });
-        await this.db.zeroGPurchases.update(purchase.id, {
-          ledgerTopUpTxHash: 'completed',
-          ledgerTopUpGasCostWei: '0',
-        });
       }
+      const broker = await ZeroGBrokerFactory.createBrokerFromSigner(userSigner);
+      const brokerService = new ZeroGBrokerService(broker);
+      await brokerService.ensureLedgerBalance({ minOG: 0.5, depositOG: 3 });
+      await brokerService.fundAndAcknowledge({
+        providerAddress: state.providerAddress,
+        ledgerInitialOG: 3,
+        transferOG: 1,
+        topUpThresholdOG: 0.3,
+      });
+      await this.db.zeroGPurchases.update(purchase.id, {
+        ledgerTopUpTxHash: 'completed',
+        ledgerTopUpGasCostWei: '0',
+      });
     }
 
     await this.db.zeroGPurchases.update(purchase.id, { status: 'completed' });
