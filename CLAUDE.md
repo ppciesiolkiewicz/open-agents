@@ -37,6 +37,15 @@ Verb + what + qualifier. Names describe action.
 
 Every change to the zod env schema MUST update `.env.example` in the same commit. New required vars get a placeholder line; new optional vars get a commented-out hint with the default behavior. Operators copy `.env.example` → `.env` on first clone — drift breaks onboarding silently.
 
+### OpenAPI spec stays in sync with API routes
+
+Every new HTTP route, every change to a request/response shape, and every change to status codes MUST be reflected in the OpenAPI spec in the same commit. There is no auto-discovery from Express — paths are registered manually in `src/api-server/openapi/spec-builder.ts` against zod schemas defined in `src/api-server/openapi/schemas.ts`. Drift means the generated spec lies to clients silently.
+
+Checklist when adding/changing a route:
+1. Add request/response zod schemas to `schemas.ts` with `.openapi('Name')`
+2. Import them in `spec-builder.ts`
+3. Add a `registry.registerPath({ method, path, request, responses })` block — one response entry per status code the route can return (incl. error cases routed through middleware)
+
 ### Constants module
 
 Single source for chain config (Unichain + 0G mainnet/testnet), token addresses, Uniswap fee tiers, worker tick interval. Never inline addresses, chainIds, RPC URLs, or magic numbers like polling intervals.
