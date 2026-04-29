@@ -7,6 +7,7 @@ import { WalletProvisioner } from './wallet/privy/wallet-provisioner';
 import { WORKER } from './constants';
 import { IntervalScheduler } from './agent-worker/interval-scheduler';
 import { AgentOrchestrator } from './agent-worker/agent-orchestrator';
+import { TickDispatcher } from './agent-worker/tick-dispatcher';
 import { PrismaClient } from '@prisma/client';
 import { PrismaDatabase } from './database/prisma-database/prisma-database';
 import { AgentActivityLog } from './database/agent-activity-log';
@@ -107,8 +108,11 @@ async function main(): Promise<void> {
   });
 
   let scheduler: IntervalScheduler | null = null;
+  let dispatcher: TickDispatcher | null = null;
   if (runLooper) {
-    const orchestrator = new AgentOrchestrator(db, runner, queue, undefined, activityLog);
+    const orchestrator = new AgentOrchestrator(db, queue);
+    dispatcher = new TickDispatcher({ db, runner, activityLog, queue });
+    dispatcher.start();
     scheduler = new IntervalScheduler({
       tickIntervalMs: WORKER.tickIntervalMs,
       onTick: async () => {
@@ -128,7 +132,6 @@ async function main(): Promise<void> {
     api = new ApiServer({
       db,
       activityLog,
-      runner,
       queue,
       privyAuth: privyAuth!,
       walletProvisioner: walletProvisioner!,
@@ -141,6 +144,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     console.log(`[bootstrap] received ${signal}, stopping`);
     if (scheduler) scheduler.stop();
+    if (dispatcher) await dispatcher.stop().catch(() => {});
     if (api) await api.stop().catch(() => {});
     await db.disconnect().catch(() => {});
     process.exit(0);

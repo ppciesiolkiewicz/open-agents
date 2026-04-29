@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll, afterEach } from 'vitest';
 import { PrismaDatabase } from '../database/prisma-database/prisma-database';
 import { getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
 import { AgentActivityLog } from '../database/agent-activity-log';
@@ -6,6 +6,7 @@ import { WalletFactory } from '../wallet/factory/wallet-factory';
 import { AgentRunner, type Clock } from '../agent-runner/agent-runner';
 import { StubLLMClient } from '../agent-runner/stub-llm-client';
 import { AgentOrchestrator } from './agent-orchestrator';
+import { TickDispatcher } from './tick-dispatcher';
 import { InMemoryTickQueue } from '../agent-runner/tick-queue';
 import { ToolRegistry } from '../ai-tools/tool-registry';
 import { CoingeckoService } from '../providers/coingecko/coingecko-service';
@@ -49,6 +50,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
   let runner: AgentRunner;
   let queue: InMemoryTickQueue;
   let orchestrator: AgentOrchestrator;
+  let dispatcher: TickDispatcher;
   let toolRegistry: ToolRegistry;
   let TEST_USER_ID: string;
 
@@ -77,14 +79,20 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     clock = new MutableClock(10_000);
     runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), toolRegistry, clock);
     queue = new InMemoryTickQueue(() => clock.now());
-    orchestrator = new AgentOrchestrator(db, runner, queue, clock);
+    orchestrator = new AgentOrchestrator(db, queue, clock);
+    dispatcher = new TickDispatcher({ db, runner, activityLog, queue });
+    dispatcher.start();
+  });
+
+  afterEach(async () => {
+    await dispatcher.stop();
   });
 
   it('runs an agent that has never ticked (lastTickAt = null)', async () => {
     await db.agents.upsert(makeAgent('a1', { intervalMs: 1_000, lastTickAt: null, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
-    await queue.drain();
+    await dispatcher.drain();
 
     const entries = await activityLog.list('a1');
     console.log('[orch] a1 first tick entries:', entries.map((e) => e.type));
@@ -96,7 +104,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     // clock is at 10_000; 10_000 - 9_000 = 1_000 < 5_000 → not due
 
     await orchestrator.tick();
-    await queue.drain();
+    await dispatcher.drain();
 
     expect(await activityLog.list('not-due')).toEqual([]);
   });
@@ -105,7 +113,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     await db.agents.upsert(makeAgent('off', { running: false, lastTickAt: null, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
-    await queue.drain();
+    await dispatcher.drain();
 
     expect(await activityLog.list('off')).toEqual([]);
   });
@@ -115,7 +123,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     await db.agents.upsert(makeAgent('catch-up', { intervalMs: 1_000, lastTickAt: 0, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
-    await queue.drain();
+    await dispatcher.drain();
 
     const entries = await activityLog.list('catch-up');
     const tickStarts = entries.filter((e) => e.type === 'tick_start');
@@ -124,7 +132,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
 
     // Subsequent orchestrator.tick at the same clock time runs zero (lastTickAt now = 10_000).
     await orchestrator.tick();
-    await queue.drain();
+    await dispatcher.drain();
     const after = await activityLog.list('catch-up');
     expect(after.filter((e) => e.type === 'tick_start')).toHaveLength(1);
   });
@@ -133,10 +141,10 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     await db.agents.upsert(makeAgent('a1', { intervalMs: 1_000, lastTickAt: null, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
-    await queue.drain();              // first tick at clock=10_000
+    await dispatcher.drain();              // first tick at clock=10_000
     clock.advance(1_500);                    // clock=11_500, > lastTickAt + 1_000
     await orchestrator.tick();
-    await queue.drain();              // second tick
+    await dispatcher.drain();              // second tick
 
     const tickStarts = (await activityLog.list('a1')).filter((e) => e.type === 'tick_start');
     expect(tickStarts).toHaveLength(2);
@@ -164,16 +172,21 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
 
     const failingRunner = new AgentRunner(db, activityLog, walletFactory, new SelectiveLLM(), toolRegistry, clock);
     const failingQueue = new InMemoryTickQueue(() => clock.now());
-    const failingOrch = new AgentOrchestrator(db, failingRunner, failingQueue, clock);
+    const failingOrch = new AgentOrchestrator(db, failingQueue, clock);
+    const failingDispatcher = new TickDispatcher({ db, runner: failingRunner, activityLog, queue: failingQueue });
+    failingDispatcher.start();
+    try {
+      await failingOrch.tick();
+      await failingDispatcher.drain();
 
-    await failingOrch.tick();
-    await failingQueue.drain();
-
-    const failsEntries = (await activityLog.list('fails')).map((e) => e.type);
-    const okEntries = (await activityLog.list('ok')).map((e) => e.type);
-    console.log('[orch] fails:', failsEntries, '| ok:', okEntries);
-    expect(failsEntries).toContain('error');
-    expect(okEntries).toContain('tick_end');
+      const failsEntries = (await activityLog.list('fails')).map((e) => e.type);
+      const okEntries = (await activityLog.list('ok')).map((e) => e.type);
+      console.log('[orch] fails:', failsEntries, '| ok:', okEntries);
+      expect(failsEntries).toContain('error');
+      expect(okEntries).toContain('tick_end');
+    } finally {
+      await failingDispatcher.stop();
+    }
   });
 
   it('runs agents sequentially (subsequent agent sees previous lastTickAt)', async () => {
@@ -183,7 +196,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     await db.agents.upsert(makeAgent('second', { intervalMs: 1_000, lastTickAt: null, userId: TEST_USER_ID }));
 
     await orchestrator.tick();
-    await queue.drain();
+    await dispatcher.drain();
 
     const firstEntries = await activityLog.list('first');
     const secondEntries = await activityLog.list('second');

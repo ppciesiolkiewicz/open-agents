@@ -1,7 +1,5 @@
 import { Router } from 'express';
 import type { AgentActivityLog } from '../../database/agent-activity-log';
-import type { AgentRunner } from '../../agent-runner/agent-runner';
-import { ChatTickStrategy } from '../../agent-runner/tick-strategies/chat-tick-strategy';
 import {
   projectChatMessages,
   type ChatMessageView,
@@ -15,7 +13,6 @@ import { PaginationQuerySchema, PostMessageBodySchema } from '../openapi/schemas
 interface Deps {
   db: Database;
   activityLog: AgentActivityLog;
-  runner: AgentRunner;
   queue: TickQueue;
 }
 
@@ -77,14 +74,9 @@ export function buildMessagesRouter(deps: Deps): Router {
       if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
 
       const result = await deps.queue.enqueue({
-        agentId,
         trigger: 'chat',
-        run: async () => {
-          const strategy = new ChatTickStrategy(deps.activityLog, body.content);
-          await deps.runner.run(agent, strategy, {
-            onToken: (text) => deps.activityLog.emitEphemeral(agentId, { type: 'token', text }),
-          });
-        },
+        agentId,
+        chatContent: body.content,
       });
       res.status(202).json({ position: result.position });
     } catch (err) {

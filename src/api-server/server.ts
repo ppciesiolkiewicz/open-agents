@@ -1,7 +1,6 @@
 import express, { type Express } from 'express';
 import type { Server } from 'node:http';
 import type { AgentActivityLog } from '../database/agent-activity-log';
-import type { AgentRunner } from '../agent-runner/agent-runner';
 import type { TickQueue } from '../agent-runner/tick-queue';
 import type { Database } from '../database/database';
 import type { PrivyAuth } from './auth/privy-auth';
@@ -19,7 +18,6 @@ import { buildOpenApiRouter } from './routes/openapi';
 export interface ApiServerDeps {
   db: Database;
   activityLog: AgentActivityLog;
-  runner: AgentRunner;
   queue: TickQueue;
   privyAuth: PrivyAuth;
   walletProvisioner: WalletProvisioner;
@@ -45,7 +43,7 @@ export class ApiServer {
     this.app.use('/users', buildUsersRouter({ db: deps.db, walletProvisioner: deps.walletProvisioner }));
     this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
-    this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, runner: deps.runner, queue: deps.queue }));
+    this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, queue: deps.queue }));
     this.app.use('/agents/:id/stream', buildStreamRouter({ db: deps.db, activityLog: deps.activityLog }));
 
     this.app.use(errorHandler);
