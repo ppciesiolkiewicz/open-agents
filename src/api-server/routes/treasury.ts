@@ -60,5 +60,29 @@ export function buildTreasuryRouter(deps: Deps): Router {
     }
   });
 
+  r.get('/purchases', async (req, res, next) => {
+    try {
+      const user = req.user!;
+      const purchases = await deps.db.zeroGPurchases.listByUser(user.id);
+      res.json({ items: purchases });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  r.get('/purchases/:id', async (req, res, next) => {
+    try {
+      const user = req.user!;
+      const purchase = await deps.db.zeroGPurchases.findById(req.params.id);
+      if (!purchase || purchase.userId !== user.id) {
+        res.status(404).json({ error: 'not_found' });
+        return;
+      }
+      res.json(purchase);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return r;
 }

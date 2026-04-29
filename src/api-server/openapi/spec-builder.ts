@@ -15,6 +15,8 @@ import {
   UsersMeResponseSchema,
   TreasuryDepositBodySchema,
   TreasuryDepositResponseSchema,
+  ZeroGPurchaseSchema,
+  ZeroGPurchaseListResponseSchema,
 } from './schemas';
 
 function registerPaths(): void {
@@ -37,6 +39,28 @@ function registerPaths(): void {
       201: { description: 'newly created primary wallet', content: { 'application/json': { schema: UserWalletSchema } } },
       401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
       502: { description: 'Privy wallet provisioning failed', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/users/me/treasury/purchases',
+    description: 'Lists all ZeroGPurchase rows for the authenticated user, most recent first. Use this to track the status of in-flight deposits.',
+    responses: {
+      200: { description: 'list of purchases', content: { 'application/json': { schema: ZeroGPurchaseListResponseSchema } } },
+      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/users/me/treasury/purchases/{id}',
+    description: 'Returns a single ZeroGPurchase by id. 404 if not found or owned by a different user.',
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: { description: 'purchase', content: { 'application/json': { schema: ZeroGPurchaseSchema } } },
+      404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
+      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });
 

@@ -122,3 +122,54 @@ export const TreasuryDepositResponseSchema = z.object({
   symbol: z.string(),
   decimals: z.number().int(),
 }).openapi('TreasuryDepositResponse');
+
+export const ZeroGPurchaseStatusSchema = z.enum([
+  'pending',
+  'bridging',
+  'swapping',
+  'sending',
+  'topping_up',
+  'completed',
+  'failed',
+]);
+
+export const ZeroGPurchaseSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  userWalletAddress: z.string(),
+
+  incomingTxHash: z.string(),
+  incomingUsdcAmount: z.string(),
+
+  serviceFeeUsdcAmount: z.string(),
+  swapInputUsdcAmount: z.string(),
+
+  bridgeTxHash: z.string().optional(),
+  bridgeGasCostWei: z.string().optional(),
+
+  swapTxHash: z.string().optional(),
+  swapInputUsdceAmount: z.string().optional(),
+  swapOutputW0gAmount: z.string().optional(),
+  swapGasCostWei: z.string().optional(),
+
+  unwrapTxHash: z.string().optional(),
+  unwrapGasCostWei: z.string().optional(),
+  unwrappedOgAmount: z.string().optional(),
+
+  sendTxHash: z.string().optional(),
+  sendGasCostWei: z.string().optional(),
+  ogAmountSentToUser: z.string().optional(),
+
+  ledgerTopUpTxHash: z.string().optional(),
+  ledgerTopUpGasCostWei: z.string().optional(),
+
+  status: ZeroGPurchaseStatusSchema,
+  errorMessage: z.string().optional(),
+
+  createdAt: z.number(),
+  updatedAt: z.number(),
+}).openapi('ZeroGPurchase');
+
+export const ZeroGPurchaseListResponseSchema = z.object({
+  items: z.array(ZeroGPurchaseSchema),
+}).openapi('ZeroGPurchaseListResponse');
