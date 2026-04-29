@@ -24,10 +24,7 @@ export async function buildZeroGBroker(env: BrokerEnv): Promise<{
 }
 
 export class ZeroGBrokerFactory {
-  static async createBrokerFromSigner(
-    signer: AbstractSigner,
-    rpcUrl: string,
-  ): Promise<ZeroGBroker> {
-    return createZGComputeNetworkBroker(signer as any, rpcUrl);
+  static async createBrokerFromSigner(signer: AbstractSigner): Promise<ZeroGBroker> {
+    return createZGComputeNetworkBroker(signer as any);
   }
 }

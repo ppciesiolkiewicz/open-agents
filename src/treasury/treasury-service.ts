@@ -144,7 +144,7 @@ export class TreasuryService {
     const bootstrapStore = new ZeroGBootstrapStore(this.env.DB_DIR);
     const state = await bootstrapStore.load();
     if (state) {
-      const broker = await ZeroGBrokerFactory.createBrokerFromSigner(userSigner, zerogNetwork.rpcUrl);
+      const broker = await ZeroGBrokerFactory.createBrokerFromSigner(userSigner);
       const brokerService = new ZeroGBrokerService(broker);
       await brokerService.ensureLedgerBalance({ minOG: 0.5, depositOG: 3 });
       await brokerService.fundAndAcknowledge({
