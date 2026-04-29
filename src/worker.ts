@@ -24,6 +24,11 @@ import { CoinMarketCapService } from './providers/coinmarketcap/coinmarketcap-se
 import { SerperService } from './providers/serper/serper-service';
 import { FirecrawlService } from './providers/firecrawl/firecrawl-service';
 import { UniswapService } from './uniswap/uniswap-service';
+import { PrivyClient } from '@privy-io/server-auth';
+import { TreasuryWallet } from './treasury/treasury-wallet';
+import { JaineSwapService } from './treasury/jaine-swap-service';
+import { TreasuryFundsWatcher } from './treasury/treasury-funds-watcher';
+import { TreasuryService } from './treasury/treasury-service';
 
 async function buildLLM(env: Env): Promise<LLMClient> {
   const store = new ZeroGBootstrapStore(env.DB_DIR);
@@ -95,6 +100,23 @@ async function main(): Promise<void> {
   const dispatcher = new TickDispatcher({ db, runner, activityLog, queue });
   dispatcher.start();
 
+  const privyClient = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
+  const treasuryWallet = new TreasuryWallet(env);
+  const jaineSwap = new JaineSwapService(treasuryWallet);
+  const treasuryWatcherRedis = RedisClient.build(env.REDIS_URL);
+  const treasuryServiceRedis = RedisClient.build(env.REDIS_URL);
+  const treasuryWatcher = new TreasuryFundsWatcher(env, treasuryWallet, treasuryWatcherRedis);
+  const treasuryService = new TreasuryService(
+    env,
+    db,
+    treasuryServiceRedis,
+    treasuryWallet,
+    jaineSwap,
+    privyClient,
+  );
+  treasuryWatcher.start();
+  treasuryService.start();
+
   const scheduler = new IntervalScheduler({
     tickIntervalMs: WORKER.tickIntervalMs,
     onTick: async () => {
@@ -110,6 +132,10 @@ async function main(): Promise<void> {
     console.log(`[bootstrap] received ${signal}, stopping`);
     scheduler.stop();
     await dispatcher.stop().catch(() => {});
+    treasuryWatcher.stop();
+    await treasuryService.stop();
+    await treasuryWatcherRedis.quit().catch(() => {});
+    await treasuryServiceRedis.quit().catch(() => {});
     await activityBus.close().catch(() => {});
     await queueProducer.quit().catch(() => {});
     await queueSubscriber.quit().catch(() => {});
