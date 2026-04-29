@@ -1,11 +1,13 @@
 import express, { type Express } from 'express';
 import type { Server } from 'node:http';
+import type { PrivyClient } from '@privy-io/server-auth';
 import type { AgentActivityLog } from '../database/agent-activity-log';
 import type { TickQueue } from '../agent-runner/tick-queue';
 import type { Database } from '../database/database';
 import type { PrivyAuth } from './auth/privy-auth';
 import type { WalletProvisioner } from '../wallet/privy/wallet-provisioner';
 import type { BalanceService } from '../balance/balance-service';
+import type { Env } from '../config/env';
 import { buildAuthMiddleware } from './middleware/auth';
 import { buildCorsMiddleware } from './middleware/cors';
 import { errorHandler } from './middleware/error-handler';
@@ -15,6 +17,7 @@ import { buildMessagesRouter } from './routes/messages';
 import { buildStreamRouter } from './routes/stream';
 import { buildUsersRouter } from './routes/users';
 import { buildOpenApiRouter } from './routes/openapi';
+import { buildTreasuryRouter } from './routes/treasury';
 
 export interface ApiServerDeps {
   db: Database;
@@ -23,6 +26,9 @@ export interface ApiServerDeps {
   privyAuth: PrivyAuth;
   walletProvisioner: WalletProvisioner;
   balanceService: BalanceService;
+  privy: PrivyClient;
+  env: Env;
+  treasuryAddress: `0x${string}`;
   port: number;
   corsOrigins?: string;
 }
@@ -43,6 +49,7 @@ export class ApiServer {
     this.app.use(buildAuthMiddleware(deps.privyAuth, deps.db.users));
 
     this.app.use('/users', buildUsersRouter({ db: deps.db, walletProvisioner: deps.walletProvisioner, balanceService: deps.balanceService }));
+    this.app.use('/users/me/treasury', buildTreasuryRouter({ db: deps.db, privy: deps.privy, env: deps.env, treasuryAddress: deps.treasuryAddress }));
     this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
     this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, queue: deps.queue }));

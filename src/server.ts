@@ -12,6 +12,7 @@ import { RedisTickQueue } from './agent-runner/redis-tick-queue';
 import { RedisClient } from './redis/redis-client';
 import { BalanceService } from './balance/balance-service';
 import { CoingeckoService } from './providers/coingecko/coingecko-service';
+import { privateKeyToAccount } from 'viem/accounts';
 
 async function main(): Promise<void> {
   let env: Env;
@@ -40,6 +41,8 @@ async function main(): Promise<void> {
   const coingecko = new CoingeckoService({ apiKey: env.COINGECKO_API_KEY });
   const balanceService = new BalanceService(env, coingecko);
 
+  const treasuryAddress = privateKeyToAccount(env.TREASURY_WALLET_PRIVATE_KEY as `0x${string}`).address;
+
   const api = new ApiServer({
     db,
     activityLog,
@@ -47,6 +50,9 @@ async function main(): Promise<void> {
     privyAuth,
     walletProvisioner,
     balanceService,
+    privy,
+    env,
+    treasuryAddress,
     port: env.PORT,
     ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
   });
