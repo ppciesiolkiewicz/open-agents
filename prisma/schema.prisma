@@ -146,7 +146,7 @@ model UserWallet {
 model ZeroGPurchase {
   id                    String   @id @default(uuid())
   userId                String
-  user                  User     @relation(fields: [userId], references: [id])
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userWalletAddress     String
 
   incomingTxHash        String   @unique
