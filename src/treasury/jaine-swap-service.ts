@@ -35,7 +35,6 @@ const W0G_ABI = [
   'function balanceOf(address) view returns (uint256)',
 ];
 
-const SLIPPAGE_BPS = 100n;
 
 export interface SwapResult {
   swapTxHash: string;
@@ -71,7 +70,10 @@ export class JaineSwapService {
     }
 
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 900);
-    const amountOutMinimum = (usdceAmount * (10000n - SLIPPAGE_BPS)) / 10000n;
+    // amountOutMinimum=0: no slippage guard for v1 — cross-token price ratio not available without an oracle
+    const amountOutMinimum = 0n;
+
+    const w0gBalanceBefore: bigint = await w0gBalanceOf(treasuryAddress);
 
     const swapTx = await routerExactInputSingle({
       tokenIn: USDCE_ON_ZEROG.address,
@@ -87,9 +89,10 @@ export class JaineSwapService {
     if (!swapReceipt) throw new Error('JaineSwapService: swap tx no receipt');
 
     const swapGasCostWei = swapReceipt.gasUsed * swapReceipt.gasPrice;
-    const w0gBalance: bigint = await w0gBalanceOf(treasuryAddress);
+    const w0gBalanceAfter: bigint = await w0gBalanceOf(treasuryAddress);
+    const swapOutputAmount = w0gBalanceAfter - w0gBalanceBefore;
 
-    const unwrapTx = await w0gWithdraw(w0gBalance);
+    const unwrapTx = await w0gWithdraw(w0gBalanceAfter);
     const unwrapReceipt = await unwrapTx.wait();
     if (!unwrapReceipt) throw new Error('JaineSwapService: unwrap tx no receipt');
 
@@ -98,11 +101,11 @@ export class JaineSwapService {
     return {
       swapTxHash: swapReceipt.hash,
       swapInputUsdceAmount: usdceAmount.toString(),
-      swapOutputW0gAmount: w0gBalance.toString(),
+      swapOutputW0gAmount: swapOutputAmount.toString(),
       swapGasCostWei: swapGasCostWei.toString(),
       unwrapTxHash: unwrapReceipt.hash,
       unwrapGasCostWei: unwrapGasCostWei.toString(),
-      unwrappedOgAmount: w0gBalance.toString(),
+      unwrappedOgAmount: w0gBalanceAfter.toString(),
     };
   }
 }
