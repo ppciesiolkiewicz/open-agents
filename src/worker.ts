@@ -111,6 +111,7 @@ async function main(): Promise<void> {
     await dispatcher.stop().catch(() => {});
     await activityBus.close().catch(() => {});
     await queueProducer.quit().catch(() => {});
+    await queueSubscriber.quit().catch(() => {});
     await db.disconnect().catch(() => {});
     process.exit(0);
   };
