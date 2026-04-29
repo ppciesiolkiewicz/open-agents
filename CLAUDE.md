@@ -55,7 +55,7 @@ Split by domain. Each module has one purpose, well-defined interface, testable i
 
 ```
 src/
-  agent-looper/         tick scheduler, gate logic
+  agent-worker/         tick scheduler, orchestrator, dispatcher
   agent-runner/         single-tick execution (callable, worker-ready)
   ai/
     zerog-broker/       0G bootstrap (provider, fund subaccount, secret)
@@ -78,7 +78,7 @@ src/
     types.ts            domain types (incl. AgentActivityLogEntry)
   constants/            chain config, token addresses, pool keys
   config/               env loader + zod validation
-  index.ts              bootstrap → Looper.start()
+  index.ts              bootstrap → IntervalScheduler.start()
 prisma/
   schema.prisma         Postgres schema
   migrations/           Prisma-generated SQL
@@ -91,7 +91,7 @@ docker/postgres-init/   first-boot SQL (creates agent_loop_test DB)
 
 v1 = one Node process, sequential agent execution. `AgentRunner.run()` is a callable taking config + deps so it can move to a worker later with no refactor.
 
-### Looper gate logic
+### Scheduler gate logic
 
 Skip backlog. If N intervals missed (downtime), execute **once**, not N times. Update `lastTickAt = now` after run.
 

@@ -1,14 +1,14 @@
-export interface LooperOptions {
+export interface IntervalSchedulerOptions {
   tickIntervalMs: number;
   onTick: () => Promise<void>;
 }
 
-export class Looper {
+export class IntervalScheduler {
   private readonly tickIntervalMs: number;
   private readonly onTick: () => Promise<void>;
   private timer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(opts: LooperOptions) {
+  constructor(opts: IntervalSchedulerOptions) {
     this.tickIntervalMs = opts.tickIntervalMs;
     this.onTick = opts.onTick;
   }
@@ -17,7 +17,7 @@ export class Looper {
     if (this.timer !== null) return;
     this.timer = setInterval(() => {
       void this.onTick().catch((err) => {
-        console.error('[Looper] tick error:', err);
+        console.error('[scheduler] tick error:', err);
       });
     }, this.tickIntervalMs);
   }

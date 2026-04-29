@@ -23,7 +23,7 @@ export class AgentOrchestrator {
 
     for (const agent of due) {
       if (this.queue.hasScheduledFor(agent.id)) continue;
-      // optimistic lastTickAt bump prevents the next looper iteration from
+      // optimistic lastTickAt bump prevents the next scheduler iteration from
       // re-enqueuing the same agent while this scheduled tick is still pending.
       await this.db.agents.upsert({ ...agent, lastTickAt: now });
       const agentId = agent.id;

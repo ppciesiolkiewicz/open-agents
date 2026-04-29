@@ -4,9 +4,9 @@ import { ApiServer } from './api-server/server';
 import { PrivyClient } from '@privy-io/server-auth';
 import { PrivyAuth } from './api-server/auth/privy-auth';
 import { WalletProvisioner } from './wallet/privy/wallet-provisioner';
-import { LOOPER } from './constants';
-import { Looper } from './agent-looper/looper';
-import { AgentOrchestrator } from './agent-looper/agent-orchestrator';
+import { WORKER } from './constants';
+import { IntervalScheduler } from './agent-worker/interval-scheduler';
+import { AgentOrchestrator } from './agent-worker/agent-orchestrator';
 import { PrismaClient } from '@prisma/client';
 import { PrismaDatabase } from './database/prisma-database/prisma-database';
 import { AgentActivityLog } from './database/agent-activity-log';
@@ -108,21 +108,21 @@ async function main(): Promise<void> {
     notify: (agentId, payload) => activityLog.emitEphemeral(agentId, payload),
   });
 
-  let looper: Looper | null = null;
+  let scheduler: IntervalScheduler | null = null;
   if (runLooper) {
     const orchestrator = new AgentOrchestrator(db, runner, queue, undefined, activityLog);
-    looper = new Looper({
-      tickIntervalMs: LOOPER.tickIntervalMs,
+    scheduler = new IntervalScheduler({
+      tickIntervalMs: WORKER.tickIntervalMs,
       onTick: async () => {
         const agents = await db.agents.list();
         console.log(
-          `[looper] tick @ ${new Date().toISOString()} — ${agents.length} agent(s) loaded`,
+          `[worker] tick @ ${new Date().toISOString()} — ${agents.length} agent(s) loaded`,
         );
         await orchestrator.tick();
       },
     });
-    looper.start();
-    console.log(`[bootstrap] looper started, ticking every ${LOOPER.tickIntervalMs}ms`);
+    scheduler.start();
+    console.log(`[bootstrap] scheduler started, ticking every ${WORKER.tickIntervalMs}ms`);
   }
 
   let api: ApiServer | null = null;
@@ -142,7 +142,7 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string) => {
     console.log(`[bootstrap] received ${signal}, stopping`);
-    if (looper) looper.stop();
+    if (scheduler) scheduler.stop();
     if (api) await api.stop().catch(() => {});
     await db.disconnect().catch(() => {});
     process.exit(0);
