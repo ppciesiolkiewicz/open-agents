@@ -21,3 +21,9 @@ export const TOKENS = {
 } as const satisfies Record<string, TokenInfo>;
 
 export type TokenSymbol = keyof typeof TOKENS;
+
+export const ZEROG_NATIVE_TOKEN = {
+  symbol: 'OG',
+  decimals: 18,
+  coingeckoId: 'zero-gravity',
+} as const;

@@ -75,8 +75,9 @@ async function main(): Promise<void> {
   const walletFactory = new WalletFactory(env, db.transactions);
   const uniswap = new UniswapService(env, db);
   const llm = await buildLLM(env);
+  const coingecko = new CoingeckoService({ apiKey: env.COINGECKO_API_KEY });
   const toolRegistry = new ToolRegistry({
-    coingecko: new CoingeckoService({ apiKey: env.COINGECKO_API_KEY }),
+    coingecko,
     coinmarketcap: new CoinMarketCapService({ apiKey: env.COINMARKETCAP_API_KEY }),
     serper: new SerperService({ apiKey: env.SERPER_API_KEY }),
     firecrawl: new FirecrawlService({ apiKey: env.FIRECRAWL_API_KEY }),

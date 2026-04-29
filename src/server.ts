@@ -10,6 +10,8 @@ import { AgentActivityLog } from './database/agent-activity-log';
 import { RedisActivityBus } from './redis/redis-activity-bus';
 import { RedisTickQueue } from './agent-runner/redis-tick-queue';
 import { RedisClient } from './redis/redis-client';
+import { BalanceService } from './balance/balance-service';
+import { CoingeckoService } from './providers/coingecko/coingecko-service';
 
 async function main(): Promise<void> {
   let env: Env;
@@ -40,6 +42,8 @@ async function main(): Promise<void> {
   const privy = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
   const privyAuth = new PrivyAuth(privy);
   const walletProvisioner = new WalletProvisioner(privy, db.userWallets);
+  const coingecko = new CoingeckoService({ apiKey: env.COINGECKO_API_KEY });
+  const balanceService = new BalanceService(env, coingecko);
 
   const api = new ApiServer({
     db,
@@ -47,6 +51,7 @@ async function main(): Promise<void> {
     queue,
     privyAuth,
     walletProvisioner,
+    balanceService,
     port: env.PORT,
     ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
   });
