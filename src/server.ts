@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { loadEnv } from './config/env';
+import { loadEnv, type Env } from './config/env';
 import { ApiServer } from './api-server/server';
 import { PrivyClient } from '@privy-io/server-auth';
 import { PrivyAuth } from './api-server/auth/privy-auth';
@@ -12,7 +12,7 @@ import { RedisTickQueue } from './agent-runner/redis-tick-queue';
 import { RedisClient } from './redis/redis-client';
 
 async function main(): Promise<void> {
-  let env;
+  let env: Env;
   try {
     env = loadEnv();
   } catch (err) {
