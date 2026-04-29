@@ -3,8 +3,17 @@ import { z } from 'zod';
 import { encodeFunctionData, erc20Abi, parseUnits } from 'viem';
 import type { PrivyClient } from '@privy-io/server-auth';
 import type { Database } from '../../database/database.js';
+import type { ZeroGPurchaseStatus } from '../../database/types.js';
 import { TOKENS } from '../../constants/index.js';
 import type { Env } from '../../config/env.js';
+
+const ZEROG_PURCHASE_STATUSES: readonly ZeroGPurchaseStatus[] = [
+  'pending', 'bridging', 'swapping', 'sending', 'topping_up', 'completed', 'failed',
+];
+
+const PurchasesQuerySchema = z.object({
+  status: z.string().optional(),
+});
 
 interface Deps {
   db: Database;
@@ -63,7 +72,21 @@ export function buildTreasuryRouter(deps: Deps): Router {
   r.get('/purchases', async (req, res, next) => {
     try {
       const user = req.user!;
-      const purchases = await deps.db.zeroGPurchases.listByUser(user.id);
+      const query = PurchasesQuerySchema.parse(req.query);
+      let statuses: ZeroGPurchaseStatus[] | undefined;
+      if (query.status) {
+        const requested = query.status.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+        const invalid = requested.filter((s) => !ZEROG_PURCHASE_STATUSES.includes(s as ZeroGPurchaseStatus));
+        if (invalid.length > 0) {
+          res.status(400).json({
+            error: 'invalid_status',
+            message: `Unknown status values: ${invalid.join(', ')}. Allowed: ${ZEROG_PURCHASE_STATUSES.join(', ')}`,
+          });
+          return;
+        }
+        statuses = requested as ZeroGPurchaseStatus[];
+      }
+      const purchases = await deps.db.zeroGPurchases.listByUser(user.id, { statuses });
       res.json({ items: purchases });
     } catch (err) {
       next(err);

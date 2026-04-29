@@ -62,9 +62,13 @@ export class PrismaZeroGPurchaseRepository implements ZeroGPurchaseRepository {
     return row ? rowToDomain(row) : null;
   }
 
-  async listByUser(userId: string): Promise<ZeroGPurchase[]> {
+  async listByUser(userId: string, filter?: { statuses?: ZeroGPurchaseStatus[] }): Promise<ZeroGPurchase[]> {
+    const where: Record<string, unknown> = { userId };
+    if (filter?.statuses && filter.statuses.length > 0) {
+      where.status = { in: filter.statuses };
+    }
     const rows = await this.prisma.zeroGPurchase.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
     });
     return rows.map(rowToDomain);

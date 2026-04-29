@@ -45,9 +45,15 @@ function registerPaths(): void {
   registry.registerPath({
     method: 'get',
     path: '/users/me/treasury/purchases',
-    description: 'Lists all ZeroGPurchase rows for the authenticated user, most recent first. Use this to track the status of in-flight deposits.',
+    description: 'Lists ZeroGPurchase rows for the authenticated user, most recent first. Optional `status` query is a comma-separated list (e.g. `?status=pending,swapping,sending,topping_up` for in-progress only). Use this to track the status of in-flight deposits.',
+    request: {
+      query: z.object({
+        status: z.string().optional().openapi({ description: 'Comma-separated list of statuses to filter by. Allowed: pending, bridging, swapping, sending, topping_up, completed, failed.' }),
+      }),
+    },
     responses: {
       200: { description: 'list of purchases', content: { 'application/json': { schema: ZeroGPurchaseListResponseSchema } } },
+      400: { description: 'invalid status value', content: { 'application/json': { schema: ErrorResponseSchema } } },
       401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });
