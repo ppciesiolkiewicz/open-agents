@@ -1,11 +1,11 @@
-import { it, expect, beforeEach } from 'vitest';
-import { describeIfPostgres, getTestPrisma, truncateAll } from './test-helpers';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { getTestPrisma, truncateAll } from './test-helpers';
 import { PrismaAgentRepository } from './prisma-agent-repository';
 import { PrismaActivityLogRepository } from './prisma-activity-log-repository';
 import { PrismaUserRepository } from './prisma-user-repository';
 
-describeIfPostgres('PrismaActivityLogRepository', () => {
-  const prisma = getTestPrisma()!;
+describe('PrismaActivityLogRepository', () => {
+  const prisma = getTestPrisma();
   const agents = new PrismaAgentRepository(prisma);
   const log = new PrismaActivityLogRepository(prisma);
   const userRepo = new PrismaUserRepository(prisma);

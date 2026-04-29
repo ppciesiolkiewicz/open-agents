@@ -1,6 +1,6 @@
-import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { PrismaDatabase } from '../database/prisma-database/prisma-database';
-import { describeIfPostgres, getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
+import { getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
 import { AgentActivityLog } from '../database/agent-activity-log';
 import { WalletFactory } from '../wallet/factory/wallet-factory';
 import { AgentRunner, type Clock } from '../agent-runner/agent-runner';
@@ -40,8 +40,8 @@ class MutableClock implements Clock {
   advance(ms: number): void { this.current += ms; }
 }
 
-describeIfPostgres('AgentOrchestrator (live, real db + runner)', () => {
-  const prisma = getTestPrisma()!;
+describe('AgentOrchestrator (live, real db + runner)', () => {
+  const prisma = getTestPrisma();
   let db: PrismaDatabase;
   let activityLog: AgentActivityLog;
   let walletFactory: WalletFactory;

@@ -2,11 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { SwapQuoter } from './swap-quoter';
 import { TOKENS } from '../constants';
 
-const ALCHEMY = process.env.ALCHEMY_API_KEY;
-
-describe.skipIf(!ALCHEMY)('SwapQuoter (live, Unichain)', () => {
+describe('SwapQuoter (live, Unichain)', () => {
   const quoter = new SwapQuoter({
-    ALCHEMY_API_KEY: ALCHEMY!,
+    ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY!,
     UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL,
   });
 

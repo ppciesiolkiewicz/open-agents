@@ -3,11 +3,9 @@ import { PoolStateReader } from './pool-state-reader';
 import { buildPoolKey } from './pool-key-builder';
 import { TOKENS } from '../constants';
 
-const ALCHEMY = process.env.ALCHEMY_API_KEY;
-
-describe.skipIf(!ALCHEMY)('PoolStateReader (live, Unichain)', () => {
+describe('PoolStateReader (live, Unichain)', () => {
   const reader = new PoolStateReader({
-    ALCHEMY_API_KEY: ALCHEMY!,
+    ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY!,
     UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL,
   });
 

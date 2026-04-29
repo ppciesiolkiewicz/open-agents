@@ -1,8 +1,8 @@
-import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { DryRunWallet } from './dry-run-wallet';
 import { DRY_RUN_HASH_REGEX } from './dry-run-hash';
 import { PrismaTransactionRepository } from '../../database/prisma-database/prisma-transaction-repository';
-import { describeIfPostgres, getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
+import { getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
 import { PrismaAgentRepository } from '../../database/prisma-database/prisma-agent-repository';
 import { PrismaUserRepository } from '../../database/prisma-database/prisma-user-repository';
 import { TOKENS } from '../../constants';
@@ -65,8 +65,8 @@ function makeSwapTx(id: string, agentId: string, tokenIn: TokenAmount, tokenOut:
   };
 }
 
-describeIfPostgres('DryRunWallet (live, real PrismaTransactionRepository)', () => {
-  const prisma = getTestPrisma()!;
+describe('DryRunWallet (live, real PrismaTransactionRepository)', () => {
+  const prisma = getTestPrisma();
   const agentRepo = new PrismaAgentRepository(prisma);
   const userRepo = new PrismaUserRepository(prisma);
   let txRepo: PrismaTransactionRepository;

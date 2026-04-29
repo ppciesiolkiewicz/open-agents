@@ -8,19 +8,14 @@ import { PrismaUserRepository } from '../../database/prisma-database/prisma-user
 import { PrismaUserWalletRepository } from '../../database/prisma-database/prisma-user-wallet-repository';
 import { truncateAll } from '../../database/prisma-database/test-helpers';
 
-const APP_ID = process.env.PRIVY_APP_ID;
-const APP_SECRET = process.env.PRIVY_APP_SECRET;
-const TEST_DB_URL = process.env.TEST_DATABASE_URL;
-const ALCHEMY = process.env.ALCHEMY_API_KEY;
-
-describe.skipIf(!APP_ID || !APP_SECRET || !TEST_DB_URL || !ALCHEMY)('PrivyServerWallet (live, read-only)', () => {
-  const prisma = new PrismaClient({ datasources: { db: { url: TEST_DB_URL! } } });
-  const privy = new PrivyClient(APP_ID!, APP_SECRET!);
+describe('PrivyServerWallet (live, read-only)', () => {
+  const prisma = new PrismaClient({ datasources: { db: { url: process.env.TEST_DATABASE_URL! } } });
+  const privy = new PrivyClient(process.env.PRIVY_APP_ID!, process.env.PRIVY_APP_SECRET!);
   const users = new PrismaUserRepository(prisma);
   const userWallets = new PrismaUserWalletRepository(prisma);
   const provisioner = new WalletProvisioner(privy, userWallets);
   const publicClient = createPublicClient({
-    transport: http(`https://unichain-mainnet.g.alchemy.com/v2/${ALCHEMY}`),
+    transport: http(`https://unichain-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`),
   });
 
   beforeAll(async () => { await prisma.$connect(); });

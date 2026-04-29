@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { FirecrawlService } from './firecrawl-service';
 
-const apiKey = process.env.FIRECRAWL_API_KEY;
-
-describe.skipIf(!apiKey)('FirecrawlService (live)', () => {
-  const svc = new FirecrawlService({ apiKey: apiKey! });
+describe('FirecrawlService (live)', () => {
+  const svc = new FirecrawlService({ apiKey: process.env.FIRECRAWL_API_KEY! });
 
   it('scrapes uniswap.org and returns markdown', async () => {
     const md = await svc.scrapeUrlMarkdown('https://uniswap.org');

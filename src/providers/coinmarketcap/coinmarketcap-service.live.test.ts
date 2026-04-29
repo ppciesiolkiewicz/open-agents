@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { CoinMarketCapService } from './coinmarketcap-service';
 
-const apiKey = process.env.COINMARKETCAP_API_KEY;
-
-describe.skipIf(!apiKey)('CoinMarketCapService (live, UNI/USDC)', () => {
-  const svc = new CoinMarketCapService({ apiKey: apiKey! });
+describe('CoinMarketCapService (live, UNI/USDC)', () => {
+  const svc = new CoinMarketCapService({ apiKey: process.env.COINMARKETCAP_API_KEY! });
 
   it('fetches metadata for UNI', async () => {
     const info = await svc.fetchTokenInfoBySymbol('UNI');

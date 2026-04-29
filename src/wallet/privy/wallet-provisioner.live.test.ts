@@ -6,13 +6,9 @@ import { PrismaUserWalletRepository } from '../../database/prisma-database/prism
 import { PrismaUserRepository } from '../../database/prisma-database/prisma-user-repository';
 import { truncateAll } from '../../database/prisma-database/test-helpers';
 
-const APP_ID = process.env.PRIVY_APP_ID;
-const APP_SECRET = process.env.PRIVY_APP_SECRET;
-const TEST_DB_URL = process.env.TEST_DATABASE_URL;
-
-describe.skipIf(!APP_ID || !APP_SECRET || !TEST_DB_URL)('WalletProvisioner (live)', () => {
-  const prisma = new PrismaClient({ datasources: { db: { url: TEST_DB_URL! } } });
-  const privy = new PrivyClient(APP_ID!, APP_SECRET!);
+describe('WalletProvisioner (live)', () => {
+  const prisma = new PrismaClient({ datasources: { db: { url: process.env.TEST_DATABASE_URL! } } });
+  const privy = new PrivyClient(process.env.PRIVY_APP_ID!, process.env.PRIVY_APP_SECRET!);
   const userWallets = new PrismaUserWalletRepository(prisma);
   const users = new PrismaUserRepository(prisma);
   const provisioner = new WalletProvisioner(privy, userWallets);

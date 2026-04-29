@@ -1,11 +1,11 @@
-import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { ToolRegistry } from './tool-registry';
 import { CoingeckoService } from '../providers/coingecko/coingecko-service';
 import { CoinMarketCapService } from '../providers/coinmarketcap/coinmarketcap-service';
 import { SerperService } from '../providers/serper/serper-service';
 import { FirecrawlService } from '../providers/firecrawl/firecrawl-service';
 import { PrismaDatabase } from '../database/prisma-database/prisma-database';
-import { describeIfPostgres, getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
+import { getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
 import { UniswapService } from '../uniswap/uniswap-service';
 import { DryRunWallet } from '../wallet/dry-run/dry-run-wallet';
 import { TOKENS } from '../constants';
@@ -13,7 +13,6 @@ import type { AgentConfig } from '../database/types';
 import type { AgentToolContext } from './tool';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
-const COINGECKO = process.env.COINGECKO_API_KEY;
 
 function makeAgent(id: string, userId = 'user-placeholder'): AgentConfig {
   return {
@@ -31,8 +30,8 @@ function makeAgent(id: string, userId = 'user-placeholder'): AgentConfig {
   };
 }
 
-describeIfPostgres('ToolRegistry tools (live, real services + postgres)', () => {
-  const prisma = getTestPrisma()!;
+describe('ToolRegistry tools (live, real services + postgres)', () => {
+  const prisma = getTestPrisma();
   let registry: ToolRegistry;
   let agent: AgentConfig;
   let ctx: AgentToolContext;
@@ -53,20 +52,19 @@ describeIfPostgres('ToolRegistry tools (live, real services + postgres)', () => 
     await db.agents.upsert(agent);
     const wallet = new DryRunWallet(agent, db.transactions, { WALLET_PRIVATE_KEY: TEST_KEY });
     ctx = { agent, wallet, tickId: 'tick-test-1' };
-    const ALCHEMY = process.env.ALCHEMY_API_KEY;
     registry = new ToolRegistry({
-      coingecko: new CoingeckoService({ apiKey: COINGECKO ?? 'dummy' }),
+      coingecko: new CoingeckoService({ apiKey: process.env.COINGECKO_API_KEY ?? 'dummy' }),
       coinmarketcap: new CoinMarketCapService({ apiKey: process.env.COINMARKETCAP_API_KEY ?? 'dummy' }),
       serper: new SerperService({ apiKey: process.env.SERPER_API_KEY ?? 'dummy' }),
       firecrawl: new FirecrawlService({ apiKey: process.env.FIRECRAWL_API_KEY ?? 'dummy' }),
       db,
-      uniswap: ALCHEMY
-        ? new UniswapService({ ALCHEMY_API_KEY: ALCHEMY, UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL }, db)
+      uniswap: process.env.ALCHEMY_API_KEY
+        ? new UniswapService({ ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY, UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL }, db)
         : ({} as UniswapService),
     });
   });
 
-  it.skipIf(!COINGECKO)('fetchTokenPriceUSD returns a sensible UNI price', async () => {
+  it('fetchTokenPriceUSD returns a sensible UNI price', async () => {
     const tool = registry.build().find((t) => t.name === 'fetchTokenPriceUSD');
     if (!tool) throw new Error('tool missing');
     const result = (await tool.invoke({ symbol: 'UNI' }, ctx)) as { symbol: string; priceUSD: number };
@@ -134,7 +132,7 @@ describeIfPostgres('ToolRegistry tools (live, real services + postgres)', () => 
     expect(result.recentEntries[0]!.content).toBe('price=7.42');
   });
 
-  it.skipIf(!process.env.ALCHEMY_API_KEY)('getUniswapQuoteExactIn returns a positive amountOut for 1 USDC → UNI', async () => {
+  it('getUniswapQuoteExactIn returns a positive amountOut for 1 USDC → UNI', async () => {
     const tool = registry.build().find((t) => t.name === 'getUniswapQuoteExactIn');
     if (!tool) throw new Error('quote tool missing');
     const result = (await tool.invoke({

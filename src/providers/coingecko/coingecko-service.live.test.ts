@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { CoingeckoService } from './coingecko-service';
 
-const apiKey = process.env.COINGECKO_API_KEY;
-
-describe.skipIf(!apiKey)('CoingeckoService (live, UNI/USDC)', () => {
-  const svc = new CoingeckoService({ apiKey: apiKey! });
+describe('CoingeckoService (live, UNI/USDC)', () => {
+  const svc = new CoingeckoService({ apiKey: process.env.COINGECKO_API_KEY! });
 
   it('fetches a UNI price', async () => {
     const price = await svc.fetchTokenPriceUSD('uniswap');

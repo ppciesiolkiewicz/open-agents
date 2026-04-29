@@ -1,11 +1,10 @@
 import { PrismaClient } from '@prisma/client';
-import { describe } from 'vitest';
 
 let cached: PrismaClient | null = null;
 
-export function getTestPrisma(): PrismaClient | null {
+export function getTestPrisma(): PrismaClient {
   const url = process.env.TEST_DATABASE_URL;
-  if (!url) return null;
+  if (!url) throw new Error('TEST_DATABASE_URL is required to run live DB tests');
   if (!cached) {
     cached = new PrismaClient({ datasources: { db: { url } } });
   }
@@ -25,14 +24,4 @@ export async function truncateAll(prisma: PrismaClient): Promise<void> {
       "User"
     RESTART IDENTITY CASCADE
   `);
-}
-
-export function describeIfPostgres(name: string, fn: () => void): void {
-  const url = process.env.TEST_DATABASE_URL;
-  if (!url) {
-    // eslint-disable-next-line no-console
-    console.log(`[skip] ${name} — TEST_DATABASE_URL not set`);
-    return;
-  }
-  describe(name, fn);
 }

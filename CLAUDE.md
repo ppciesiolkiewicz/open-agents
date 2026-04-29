@@ -110,7 +110,7 @@ Local dev:
 
 `zerog-bootstrap.json` (0G provider state) stays in `./db/` as a file — it is a singleton paid asset (3 OG to recreate) that gets its own migration cycle in a future spec.
 
-Schema in `prisma/schema.prisma`. Tests against a separate `agent_loop_test` database controlled by `TEST_DATABASE_URL`; live tests skip when the env var is missing so `npm test` is always safe to run.
+Schema in `prisma/schema.prisma`. Tests against a separate `agent_loop_test` database controlled by `TEST_DATABASE_URL`; DB live tests require `TEST_DATABASE_URL` to be set and will fail loudly if it is absent.
 
 ### Users + auth
 
@@ -154,19 +154,19 @@ Every agent gets every tool. Per-agent allowlist deferred until manual experimen
 
 Every tick, every tool call, every LLM call/response, every memory update → JSON log entry. Designed for later UI render.
 
-### Testing — `npm test` is safe to run frequently; anything that spends money lives in `scripts/`
+### Testing — anything that spends money lives in `scripts/`
 
 **Tests live only for modules that talk to an external system** (provider HTTP, blockchain RPC). Pure-logic modules (env loader, constants, looper, factories) get no dedicated tests — they're exercised end-to-end by `npm start` and downstream integration tests.
 
 - **File suffix:** `*.live.test.ts`.
 - **No mocked HTTP, no mocked external services.** Hit the real thing using UNI/USDC on Unichain (read-only RPC reads + provider GET calls).
-- Tests skip themselves when the relevant API key / RPC is missing from `.env`.
+- Live tests require their dependencies (API keys, Postgres, etc.) to be present — they fail loudly otherwise so missing env never silently hides bugs.
 - **Test style:** assert "we got something sensible", then `console.log` the payload so a human can eyeball it. Smoke checks + living usage examples. Avoid brittle assertions on exact response shapes.
 - Only acceptable fake: **time** (vitest fake timers), and only when the module has no external dependency.
 
 **Policy:** anything that costs OG, ETH gas, or other paid credits goes in `scripts/`, NOT in `*.live.test.ts`. This way `npm test` never silently burns money no matter how often it runs.
 
-- `npm test` — read-only live tests + unit tests. Safe to run any time. Runs in CI when keys present.
+- `npm test` — read-only live tests + unit tests. Runs in CI when keys present.
 - `scripts/` — manual one-off operations with explicit y/n prompts via `confirmContinue` from `src/test-lib/interactive-prompt.ts`:
   - `npm run zerog-bootstrap` — list 0G providers, optionally fund a sub-account (3 OG ledger + 1 OG transfer)
   - `npm run llm:probe` — send one trivial inference request through the configured 0G provider (~tiny fee)

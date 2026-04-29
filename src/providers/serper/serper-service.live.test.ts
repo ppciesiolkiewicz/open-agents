@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { SerperService } from './serper-service';
 
-const apiKey = process.env.SERPER_API_KEY;
-
-describe.skipIf(!apiKey)('SerperService (live)', () => {
-  const svc = new SerperService({ apiKey: apiKey! });
+describe('SerperService (live)', () => {
+  const svc = new SerperService({ apiKey: process.env.SERPER_API_KEY! });
 
   it('searches for "UNI token Uniswap"', async () => {
     const results = await svc.searchWeb('UNI token Uniswap');

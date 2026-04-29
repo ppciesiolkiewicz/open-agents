@@ -1,6 +1,6 @@
-import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { PrismaDatabase } from '../database/prisma-database/prisma-database';
-import { describeIfPostgres, getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
+import { getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
 import { AgentActivityLog } from '../database/agent-activity-log';
 import { WalletFactory } from '../wallet/factory/wallet-factory';
 import { ToolRegistry } from '../ai-tools/tool-registry';
@@ -85,8 +85,8 @@ class ScriptedLLMClient implements LLMClient {
   }
 }
 
-describeIfPostgres('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
-  const prisma = getTestPrisma()!;
+describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
+  const prisma = getTestPrisma();
   let db: PrismaDatabase;
   let activityLog: AgentActivityLog;
   let walletFactory: WalletFactory;

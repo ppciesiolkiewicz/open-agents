@@ -1,9 +1,9 @@
-import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { WalletFactory } from './wallet-factory';
 import { RealWallet } from '../real/real-wallet';
 import { DryRunWallet } from '../dry-run/dry-run-wallet';
 import { PrismaTransactionRepository } from '../../database/prisma-database/prisma-transaction-repository';
-import { describeIfPostgres, getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
+import { getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
 import type { AgentConfig } from '../../database/types';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
@@ -28,8 +28,8 @@ function makeAgent(id: string, dryRun: boolean): AgentConfig {
   };
 }
 
-describeIfPostgres('WalletFactory (live)', () => {
-  const prisma = getTestPrisma()!;
+describe('WalletFactory (live)', () => {
+  const prisma = getTestPrisma();
   let txRepo: PrismaTransactionRepository;
   let factory: WalletFactory;
 

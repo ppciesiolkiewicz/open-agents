@@ -1,6 +1,6 @@
-import { it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { describeIfPostgres, getTestPrisma, truncateAll } from './test-helpers';
+import { getTestPrisma, truncateAll } from './test-helpers';
 import { PrismaAgentRepository } from './prisma-agent-repository';
 import { PrismaTransactionRepository } from './prisma-transaction-repository';
 import { PrismaPositionRepository } from './prisma-position-repository';
@@ -9,8 +9,8 @@ import { PrismaUserRepository } from './prisma-user-repository';
 import { PrismaUserWalletRepository } from './prisma-user-wallet-repository';
 import type { AgentConfig, Transaction, TokenAmount, Position, AgentMemory, User, UserWallet } from '../types';
 
-describeIfPostgres('PrismaAgentRepository', () => {
-  const prisma = getTestPrisma()!;
+describe('PrismaAgentRepository', () => {
+  const prisma = getTestPrisma();
   const repo = new PrismaAgentRepository(prisma);
   const userRepo = new PrismaUserRepository(prisma);
   let TEST_USER_ID: string;
@@ -82,8 +82,8 @@ describeIfPostgres('PrismaAgentRepository', () => {
   });
 });
 
-describeIfPostgres('PrismaTransactionRepository', () => {
-  const prisma = getTestPrisma()!;
+describe('PrismaTransactionRepository', () => {
+  const prisma = getTestPrisma();
   const agents = new PrismaAgentRepository(prisma);
   const txs = new PrismaTransactionRepository(prisma);
   const userRepo = new PrismaUserRepository(prisma);
@@ -153,8 +153,8 @@ describeIfPostgres('PrismaTransactionRepository', () => {
   });
 });
 
-describeIfPostgres('PrismaPositionRepository', () => {
-  const prisma = getTestPrisma()!;
+describe('PrismaPositionRepository', () => {
+  const prisma = getTestPrisma();
   const agents = new PrismaAgentRepository(prisma);
   const positions = new PrismaPositionRepository(prisma);
   const userRepo = new PrismaUserRepository(prisma);
@@ -220,8 +220,8 @@ describeIfPostgres('PrismaPositionRepository', () => {
   });
 });
 
-describeIfPostgres('PrismaAgentMemoryRepository', () => {
-  const prisma = getTestPrisma()!;
+describe('PrismaAgentMemoryRepository', () => {
+  const prisma = getTestPrisma();
   const agents = new PrismaAgentRepository(prisma);
   const memory = new PrismaAgentMemoryRepository(prisma);
   const userRepo = new PrismaUserRepository(prisma);
@@ -274,8 +274,8 @@ describeIfPostgres('PrismaAgentMemoryRepository', () => {
   });
 });
 
-describeIfPostgres('PrismaUserRepository', () => {
-  const prisma = getTestPrisma()!;
+describe('PrismaUserRepository', () => {
+  const prisma = getTestPrisma();
   const users = new PrismaUserRepository(prisma);
 
   beforeAll(async () => { await prisma.$connect(); });
@@ -311,8 +311,8 @@ describeIfPostgres('PrismaUserRepository', () => {
   });
 });
 
-describeIfPostgres('PrismaUserWalletRepository', () => {
-  const prisma = getTestPrisma()!;
+describe('PrismaUserWalletRepository', () => {
+  const prisma = getTestPrisma();
   const users = new PrismaUserRepository(prisma);
   const wallets = new PrismaUserWalletRepository(prisma);
 
