@@ -9,7 +9,7 @@ import { TREASURY_REDIS_QUEUE, TREASURY_SERVICE_FEE_BPS, ZEROG_NETWORKS } from '
 import { ZeroGBrokerFactory } from '../ai/zerog-broker/zerog-broker-factory.js';
 import { ZeroGBrokerService } from '../ai/zerog-broker/zerog-broker-service.js';
 import { ZeroGBootstrapStore } from '../ai/zerog-broker/zerog-bootstrap-store.js';
-import { PrivyZeroGSigner } from '../wallet/privy/privy-zerog-signer.js';
+import { PrivySigner } from '../wallet/privy/privy-signer.js';
 import type { TreasuryWallet } from './treasury-wallet.js';
 import type { JaineSwapService } from './jaine-swap-service.js';
 import type { TreasuryTransferEvent } from './treasury-funds-watcher.js';
@@ -133,7 +133,7 @@ export class TreasuryService {
 
     await this.db.zeroGPurchases.update(purchase.id, { status: 'topping_up' });
     const provider = new ethers.JsonRpcProvider(zerogNetwork.rpcUrl);
-    const userSigner = new PrivyZeroGSigner(
+    const userSigner = new PrivySigner(
       this.privy,
       userWallet.privyWalletId,
       userWallet.walletAddress,

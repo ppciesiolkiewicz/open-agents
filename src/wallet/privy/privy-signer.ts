@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import type { PrivyClient } from '@privy-io/server-auth';
 
-export class PrivyZeroGSigner extends ethers.AbstractSigner {
+export class PrivySigner extends ethers.AbstractSigner {
   constructor(
     private readonly privy: PrivyClient,
     private readonly walletId: string,
@@ -17,11 +17,11 @@ export class PrivyZeroGSigner extends ethers.AbstractSigner {
   }
 
   async signTransaction(_tx: ethers.TransactionRequest): Promise<string> {
-    throw new Error('PrivyZeroGSigner: use sendTransaction instead of signTransaction');
+    throw new Error('PrivySigner: use sendTransaction instead of signTransaction');
   }
 
   async signMessage(_message: string | Uint8Array): Promise<string> {
-    throw new Error('PrivyZeroGSigner: signMessage not supported');
+    throw new Error('PrivySigner: signMessage not supported');
   }
 
   async signTypedData(
@@ -29,7 +29,7 @@ export class PrivyZeroGSigner extends ethers.AbstractSigner {
     _types: Record<string, ethers.TypedDataField[]>,
     _value: Record<string, unknown>,
   ): Promise<string> {
-    throw new Error('PrivyZeroGSigner: signTypedData not supported');
+    throw new Error('PrivySigner: signTypedData not supported');
   }
 
   override async sendTransaction(tx: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
@@ -45,11 +45,11 @@ export class PrivyZeroGSigner extends ethers.AbstractSigner {
       },
     });
     const response = await this.provider!.getTransaction(hash);
-    if (!response) throw new Error(`PrivyZeroGSigner: tx ${hash} not found after send`);
+    if (!response) throw new Error(`PrivySigner: tx ${hash} not found after send`);
     return response;
   }
 
-  connect(provider: ethers.Provider): PrivyZeroGSigner {
-    return new PrivyZeroGSigner(this.privy, this.walletId, this.walletAddress, this.chainId, provider);
+  connect(provider: ethers.Provider): PrivySigner {
+    return new PrivySigner(this.privy, this.walletId, this.walletAddress, this.chainId, provider);
   }
 }
