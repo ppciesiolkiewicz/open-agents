@@ -32,8 +32,8 @@ export class ZeroGBalancesService {
 
     const providerBalances: ProviderBalance[] = providers.map((p) => ({
       address: p.providerAddress,
-      balanceRaw: p.subAccountBalanceWei.toString(),
-      balanceFormatted: ethers.formatEther(p.subAccountBalanceWei),
+      balanceRaw: (p.subAccountBalanceWei ?? 0n).toString(),
+      balanceFormatted: ethers.formatEther(p.subAccountBalanceWei ?? 0n),
     }));
 
     return {
