@@ -100,9 +100,10 @@ The worker's `TickDispatcher` `BRPOP`s the list and runs payloads sequentially v
 The agent shape changed: `type`, `enabled`, and `lastMessageAt` fields are dropped; `enabled` is now `running`. There is no in-place migration — wipe and re-seed:
 
 ```bash
-npm run reset-db          # preserves zerog-bootstrap.json
-npm run seed-agent        # re-install canonical agent
+npm run db:reset          # drops + re-migrates + re-seeds (preserves zerog-bootstrap.json)
 ```
+
+`db:reset` runs Prisma `migrate reset`, which wipes the DB, re-applies migrations, and invokes the seed (`prisma/seed.ts`) automatically. To re-seed without wiping, run `npm run db:seed`.
 
 ### Frontend SDK generation
 
