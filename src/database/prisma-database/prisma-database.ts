@@ -8,6 +8,7 @@ import type { ActivityLogRepository } from '../repositories/activity-log-reposit
 import type { UserRepository } from '../repositories/user-repository';
 import type { UserWalletRepository } from '../repositories/user-wallet-repository';
 import type { ZeroGPurchaseRepository } from '../repositories/zero-g-purchase-repository';
+import type { TokenRepository } from '../repositories/token-repository';
 import { PrismaAgentRepository } from './prisma-agent-repository';
 import { PrismaTransactionRepository } from './prisma-transaction-repository';
 import { PrismaPositionRepository } from './prisma-position-repository';
@@ -16,6 +17,7 @@ import { PrismaActivityLogRepository } from './prisma-activity-log-repository';
 import { PrismaUserRepository } from './prisma-user-repository';
 import { PrismaUserWalletRepository } from './prisma-user-wallet-repository';
 import { PrismaZeroGPurchaseRepository } from './prisma-zero-g-purchase-repository';
+import { PrismaTokenRepository } from './prisma-token-repository';
 
 export class PrismaDatabase implements Database {
   readonly agents: AgentRepository;
@@ -26,6 +28,7 @@ export class PrismaDatabase implements Database {
   readonly users: UserRepository;
   readonly userWallets: UserWalletRepository;
   readonly zeroGPurchases: ZeroGPurchaseRepository;
+  readonly tokens: TokenRepository;
 
   constructor(private readonly prisma: PrismaClient) {
     this.agents = new PrismaAgentRepository(prisma);
@@ -36,6 +39,7 @@ export class PrismaDatabase implements Database {
     this.users = new PrismaUserRepository(prisma);
     this.userWallets = new PrismaUserWalletRepository(prisma);
     this.zeroGPurchases = new PrismaZeroGPurchaseRepository(prisma);
+    this.tokens = new PrismaTokenRepository(prisma);
   }
 
   async disconnect(): Promise<void> {
