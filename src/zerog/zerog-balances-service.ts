@@ -3,6 +3,8 @@ import type { ZeroGBrokerService } from '../ai/zerog-broker/zerog-broker-service
 
 export interface ProviderBalance {
   address: `0x${string}`;
+  model: string;
+  serviceType: string;
   balanceRaw: string;
   balanceFormatted: string;
 }
@@ -32,6 +34,8 @@ export class ZeroGBalancesService {
 
     const providerBalances: ProviderBalance[] = providers.map((p) => ({
       address: p.providerAddress,
+      model: p.model,
+      serviceType: p.serviceType,
       balanceRaw: (p.subAccountBalanceWei ?? 0n).toString(),
       balanceFormatted: ethers.formatEther(p.subAccountBalanceWei ?? 0n),
     }));

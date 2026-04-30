@@ -35,6 +35,7 @@ export class ZeroGBrokerService {
         providerAddress,
         serviceUrl,
         model,
+        serviceType: serviceType ?? '',
         inputPricePerToken: pickBigInt(svc, ['inputPrice', 'inputPricePerToken']),
         outputPricePerToken: pickBigInt(svc, ['outputPrice', 'outputPricePerToken']),
         subAccountBalanceWei: balanceMap.get(providerAddress.toLowerCase()) ?? 0n,

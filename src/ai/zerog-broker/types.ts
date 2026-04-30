@@ -17,6 +17,7 @@ export interface ProviderListing {
   providerAddress: `0x${string}`;
   serviceUrl: string;
   model: string;
+  serviceType: string;
   inputPricePerToken?: bigint;  // wei per token
   outputPricePerToken?: bigint; // wei per token
   subAccountBalanceWei?: bigint; // best-effort; undefined if the SDK does not expose it
