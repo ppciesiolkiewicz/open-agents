@@ -19,6 +19,7 @@ model Agent {
   intervalMs          Int?
   lastTickAt          BigInt?
   userId              String
+  allowedTokens       String[]  @default([])
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   transactions        Transaction[]
@@ -112,6 +113,7 @@ model Token {
   name      String
   decimals  Int
   logoUri   String?
+  coingeckoId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
