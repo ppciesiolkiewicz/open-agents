@@ -189,9 +189,27 @@ export const LedgerBalanceSchema = z.object({
   lockedFormatted: z.string(),
 }).openapi('LedgerBalance');
 
+export const TokenBalanceWithPriceSchema = z.object({
+  chainId: z.number().int(),
+  address: z.string(),
+  symbol: z.string(),
+  decimals: z.number().int(),
+  balanceRaw: z.string(),
+  balanceFormatted: z.string(),
+  priceUsd: z.number(),
+  valueUsd: z.number(),
+}).openapi('TokenBalanceWithPrice');
+
+export const OnChainOGBalanceSchema = z.object({
+  raw: z.string(),
+  formatted: z.string(),
+  priceUsd: z.number(),
+  valueUsd: z.number(),
+}).openapi('OnChainOGBalance');
+
 export const ZeroGBalancesResponseSchema = z.object({
   providers: z.array(ProviderBalanceSchema),
   ledger: LedgerBalanceSchema,
-  onChainWalletRaw: z.string(),
-  onChainWalletFormatted: z.string(),
+  onChainOG: OnChainOGBalanceSchema,
+  tokens: z.array(TokenBalanceWithPriceSchema),
 }).openapi('ZeroGBalancesResponse');
