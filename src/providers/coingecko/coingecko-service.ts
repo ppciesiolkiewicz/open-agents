@@ -28,4 +28,28 @@ export class CoingeckoService {
     }
     return price;
   }
+
+  async fetchTokenPricesByContract(
+    platform: string,
+    addresses: string[],
+  ): Promise<Record<string, number>> {
+    if (addresses.length === 0) return {};
+    const lower = addresses.map((a) => a.toLowerCase());
+    const url =
+      `${this.baseUrl}/simple/token_price/${encodeURIComponent(platform)}` +
+      `?contract_addresses=${lower.join(',')}&vs_currencies=usd`;
+    const res = await fetch(url, {
+      headers: { 'x-cg-demo-api-key': this.apiKey, accept: 'application/json' },
+    });
+    if (!res.ok) {
+      throw new Error(`Coingecko request failed: ${res.status} ${res.statusText}`);
+    }
+    const body = (await res.json()) as Record<string, { usd?: number }>;
+    const out: Record<string, number> = {};
+    for (const addr of lower) {
+      const price = body[addr]?.usd;
+      if (typeof price === 'number') out[addr] = price;
+    }
+    return out;
+  }
 }
