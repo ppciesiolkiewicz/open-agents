@@ -115,6 +115,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
       firecrawl: new FirecrawlService({ apiKey: 'dummy' }),
       db,
       uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
+      env: { ALCHEMY_API_KEY: 'unused', UNICHAIN_RPC_URL: undefined } as any,
     });
   });
 

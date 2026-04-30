@@ -88,6 +88,7 @@ async function main(): Promise<void> {
     firecrawl: new FirecrawlService({ apiKey: env.FIRECRAWL_API_KEY }),
     db,
     uniswap,
+    env,
   });
   const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
 
