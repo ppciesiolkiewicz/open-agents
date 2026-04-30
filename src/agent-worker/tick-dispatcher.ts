@@ -2,7 +2,6 @@ import type { Database } from '../database/database';
 import type { AgentRunner } from '../agent-runner/agent-runner';
 import type { AgentActivityLog } from '../database/agent-activity-log';
 import type { TickQueue, TickQueueConsumer } from '../agent-runner/tick-queue';
-import { ChatTickStrategy } from '../agent-runner/tick-strategies/chat-tick-strategy';
 import type { TickPayload } from '../agent-runner/tick-queue-payload';
 
 export interface TickDispatcherDeps {
@@ -79,11 +78,7 @@ export class TickDispatcher {
     }
     const log = this.deps.activityLog;
     const onToken = (text: string) => log.emitEphemeral(payload.agentId, { type: 'token', text });
-    if (payload.trigger === 'chat') {
-      const strategy = new ChatTickStrategy(log, payload.chatContent);
-      await this.deps.runner.run(agent, strategy, { onToken });
-    } else {
-      await this.deps.runner.run(agent, undefined, { onToken });
-    }
+    const userMessage = payload.trigger === 'chat' ? payload.chatContent : undefined;
+    await this.deps.runner.run(agent, userMessage, { onToken });
   }
 }

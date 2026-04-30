@@ -7,8 +7,7 @@ import type { AgentTool, AgentToolContext } from '../ai-tools/tool';
 import { toToolDefinition } from '../ai-tools/zod-to-openai';
 import { AGENT_RUNNER } from '../constants';
 import type { ChatMessage, InvokeOptions, LLMClient, ToolCall, ToolDefinition } from './llm-client';
-import type { TickStrategy } from './tick-strategies/tick-strategy';
-import { ScheduledTickStrategy } from './tick-strategies/scheduled-tick-strategy';
+import { projectChatMessagesAsLLMMessages } from './tick-strategies/chat-history-projection';
 
 export interface Clock {
   now(): number;
@@ -17,8 +16,6 @@ export interface Clock {
 const SYSTEM_CLOCK: Clock = { now: () => Date.now() };
 
 export class AgentRunner {
-  private readonly defaultStrategy: TickStrategy;
-
   constructor(
     private readonly db: Database,
     private readonly activityLog: AgentActivityLog,
@@ -26,23 +23,18 @@ export class AgentRunner {
     private readonly llm: LLMClient,
     private readonly toolRegistry: ToolRegistry,
     private readonly clock: Clock = SYSTEM_CLOCK,
-    defaultStrategy: TickStrategy = new ScheduledTickStrategy(),
-  ) {
-    this.defaultStrategy = defaultStrategy;
-  }
+  ) {}
 
   async run(
     agent: AgentConfig,
-    strategy: TickStrategy = this.defaultStrategy,
+    userMessage?: string,
     options: InvokeOptions = {},
   ): Promise<void> {
     const tickId = `${agent.id}-${this.clock.now()}`;
     try {
       const memory = await this.loadOrInitMemory(agent.id);
       const systemPrompt = this.buildSystemPrompt(agent, memory);
-      const initialMessages = await strategy.buildInitialMessages({
-        agent, memory, systemPrompt, tickId,
-      });
+      const initialMessages = await this.buildInitialMessages(agent.id, tickId, systemPrompt, userMessage);
 
       await this.activityLog.tickStart(agent.id, tickId);
       this.logStdout(agent.id, `tick start (tickId=${tickId})`);
@@ -223,6 +215,23 @@ export class AgentRunner {
         `memory_update saveMemoryEntry type=${e?.type} content="${truncate(e?.content ?? '', 200)}"`,
       );
     }
+  }
+
+  private async buildInitialMessages(
+    agentId: string,
+    tickId: string,
+    systemPrompt: string,
+    userMessage?: string,
+  ): Promise<ChatMessage[]> {
+    if (!userMessage) return [{ role: 'system', content: systemPrompt }];
+    const entries = await this.activityLog.list(agentId, { limit: AGENT_RUNNER.chatHistoryLimit });
+    const history = projectChatMessagesAsLLMMessages(entries);
+    await this.activityLog.userMessage(agentId, tickId, { content: userMessage });
+    return [
+      { role: 'system', content: systemPrompt },
+      ...history,
+      { role: 'user', content: userMessage },
+    ];
   }
 
   private buildSystemPrompt(agent: AgentConfig, memory: AgentMemory): string {
