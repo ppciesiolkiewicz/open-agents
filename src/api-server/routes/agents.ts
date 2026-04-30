@@ -36,6 +36,7 @@ export function buildAgentsRouter(deps: Deps): Router {
         prompt: body.prompt,
         dryRun: body.dryRun,
         ...(body.dryRunSeedBalances ? { dryRunSeedBalances: body.dryRunSeedBalances } : {}),
+        allowedTokens: body.allowedTokens,
         riskLimits: body.riskLimits,
         createdAt: now(),
         running: false,
@@ -69,6 +70,7 @@ export function buildAgentsRouter(deps: Deps): Router {
         ...agent,
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.prompt !== undefined ? { prompt: body.prompt } : {}),
+        ...(body.allowedTokens !== undefined ? { allowedTokens: body.allowedTokens } : {}),
         ...(body.riskLimits !== undefined ? { riskLimits: body.riskLimits } : {}),
         ...(body.intervalMs !== undefined ? { intervalMs: body.intervalMs } : {}),
       };

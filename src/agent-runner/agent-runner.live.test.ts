@@ -31,6 +31,7 @@ function makeAgent(id: string, userId = 'user-placeholder'): AgentConfig {
     prompt: `You are ${id}. Respond briefly.`,
     dryRun: true,
     dryRunSeedBalances: { native: '1000000000000000000' },
+    allowedTokens: [],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
     lastTickAt: null,
     createdAt: 1000,

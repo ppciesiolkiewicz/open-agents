@@ -49,6 +49,7 @@ export function buildSeedAgentConfig(opts: SeedAgentOptions): AgentConfig {
       [TOKENS.USDC.address]: '1000000000',
       [TOKENS.UNI.address]: '0',
     },
+    allowedTokens: [TOKENS.USDC.address, TOKENS.UNI.address],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 200 },
     lastTickAt: null,
     createdAt: now,

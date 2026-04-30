@@ -22,6 +22,7 @@ function makeAgent(id: string, dryRun: boolean): AgentConfig {
     prompt: 'test',
     dryRun,
     dryRunSeedBalances: dryRun ? { native: '0' } : undefined,
+    allowedTokens: [],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
     lastTickAt: null,
     createdAt: Date.now(),

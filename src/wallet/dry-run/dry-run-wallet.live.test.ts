@@ -40,6 +40,7 @@ function makeAgent(id: string, userId = 'user-test'): AgentConfig {
       [TOKENS.USDC.address]: '1000000000',            // 1000 USDC
       [TOKENS.UNI.address]: '0',
     },
+    allowedTokens: [TOKENS.USDC.address, TOKENS.UNI.address],
     riskLimits: { maxTradeUSD: 1_000, maxSlippageBps: 100 },
     lastTickAt: null,
     createdAt: Date.now(),

@@ -29,6 +29,7 @@ function makeAgent(id: string, opts: { running?: boolean; intervalMs?: number; l
     prompt: `agent ${id}`,
     dryRun: true,
     dryRunSeedBalances: { native: '0' },
+    allowedTokens: [],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
     lastTickAt: opts.lastTickAt ?? null,
     createdAt: 0,

@@ -17,6 +17,7 @@ export const AgentConfigSchema = z.object({
   prompt: z.string(),
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
+  allowedTokens: z.array(z.string()),
   riskLimits: RiskLimitsSchema,
   createdAt: z.number(),
   running: z.boolean().optional(),
@@ -29,6 +30,7 @@ export const CreateAgentBodySchema = z.object({
   prompt: z.string().min(1),
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
+  allowedTokens: z.array(z.string()).default([]),
   riskLimits: RiskLimitsSchema,
   intervalMs: z.number().int().min(1000).optional(),
 }).openapi('CreateAgentBody');
@@ -36,6 +38,7 @@ export const CreateAgentBodySchema = z.object({
 export const UpdateAgentBodySchema = z.object({
   name: z.string().min(1).optional(),
   prompt: z.string().min(1).optional(),
+  allowedTokens: z.array(z.string()).optional(),
   riskLimits: RiskLimitsSchema.optional(),
   intervalMs: z.number().int().min(1000).optional(),
 }).openapi('UpdateAgentBody');

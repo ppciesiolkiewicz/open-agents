@@ -24,6 +24,7 @@ function makeAgent(id: string, userId = 'user-placeholder'): AgentConfig {
     prompt: 'test',
     dryRun: true,
     dryRunSeedBalances: { native: '0', [TOKENS.USDC.address]: '5000000' },
+    allowedTokens: [TOKENS.USDC.address],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
     lastTickAt: null,
     createdAt: 0,
