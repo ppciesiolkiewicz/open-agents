@@ -13,6 +13,42 @@ async function main(): Promise<void> {
     const users = new PrismaUserRepository(prisma);
     const agents = new PrismaAgentRepository(prisma);
 
+    const unichainTokens = [
+      {
+        chainId: 130,
+        chain: 'unichain',
+        address: '0x078D782b760474a361dDA0AF3839290b0EF57AD6',
+        symbol: 'USDC',
+        name: 'USD Coin',
+        decimals: 6,
+        logoUri: null,
+      },
+      {
+        chainId: 130,
+        chain: 'unichain',
+        address: '0x8f187aA05619a017077f5308904739877ce9eA21',
+        symbol: 'UNI',
+        name: 'Uniswap',
+        decimals: 18,
+        logoUri: null,
+      },
+    ];
+
+    for (const t of unichainTokens) {
+      await prisma.token.upsert({
+        where: { address_chainId: { address: t.address, chainId: t.chainId } },
+        update: {
+          symbol: t.symbol,
+          name: t.name,
+          decimals: t.decimals,
+          chain: t.chain,
+          logoUri: t.logoUri,
+        },
+        create: t,
+      });
+    }
+    console.log(`[seed] upserted ${unichainTokens.length} Unichain tokens`);
+
     const existing = await agents.findById(SEED_AGENT_ID);
     if (existing) {
       console.error(`[seed] agent id "${SEED_AGENT_ID}" already exists in DB.`);
