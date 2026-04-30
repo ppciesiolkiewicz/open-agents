@@ -157,3 +157,16 @@ export interface ZeroGPurchase {
   createdAt: number;
   updatedAt: number;
 }
+
+export interface Token {
+  id: number;
+  chainId: number;
+  chain: string;
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  logoUri: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
