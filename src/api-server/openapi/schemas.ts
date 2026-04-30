@@ -215,19 +215,6 @@ export const ZeroGBalancesResponseSchema = z.object({
   onChainOG: OnChainOGBalanceSchema,
 }).openapi('ZeroGBalancesResponse');
 
-export const ZeroGProviderListingSchema = z.object({
-  providerAddress: z.string(),
-  serviceUrl: z.string(),
-  model: z.string(),
-  inputPricePerToken: z.string().optional(),
-  outputPricePerToken: z.string().optional(),
-  subAccountBalanceWei: z.string().optional(),
-}).openapi('ZeroGProviderListing');
-
-export const ZeroGProvidersListResponseSchema = z.object({
-  providers: z.array(ZeroGProviderListingSchema),
-}).openapi('ZeroGProvidersListResponse');
-
 export const ChainBalanceSchema = z.object({
   chainId: z.number().int(),
   tokens: z.array(TokenBalanceWithPriceSchema),

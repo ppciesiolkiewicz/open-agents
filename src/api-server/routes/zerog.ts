@@ -13,24 +13,6 @@ interface Deps {
 export function buildZeroGRouter(deps: Deps): Router {
   const r = Router();
 
-  r.get('/providers', async (req, res, next) => {
-    try {
-      const listings = await deps.brokerService.listProviders();
-      res.json({
-        providers: listings.map((p) => ({
-          providerAddress: p.providerAddress,
-          serviceUrl: p.serviceUrl,
-          model: p.model,
-          inputPricePerToken: p.inputPricePerToken !== undefined ? String(p.inputPricePerToken) : undefined,
-          outputPricePerToken: p.outputPricePerToken !== undefined ? String(p.outputPricePerToken) : undefined,
-          subAccountBalanceWei: p.subAccountBalanceWei !== undefined ? String(p.subAccountBalanceWei) : undefined,
-        })),
-      });
-    } catch (err) {
-      next(err);
-    }
-  });
-
   r.get('/balances', async (req, res, next) => {
     try {
       const user = req.user!;

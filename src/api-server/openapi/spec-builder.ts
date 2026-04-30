@@ -18,7 +18,6 @@ import {
   ZeroGPurchaseSchema,
   ZeroGPurchaseListResponseSchema,
   ZeroGBalancesResponseSchema,
-  ZeroGProvidersListResponseSchema,
   WalletBalancesResponseSchema,
 } from './schemas';
 
@@ -82,17 +81,6 @@ function registerPaths(): void {
       201: { description: 'transfer submitted', content: { 'application/json': { schema: TreasuryDepositResponseSchema } } },
       400: { description: 'no primary wallet', content: { 'application/json': { schema: ErrorResponseSchema } } },
       401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
-    },
-  });
-
-  registry.registerPath({
-    method: 'get',
-    path: '/users/me/zerog/providers',
-    description: 'Lists all chat/inference providers on the 0G network, with per-provider sub-account balance (bigint values serialized as strings).',
-    responses: {
-      200: { description: 'provider list', content: { 'application/json': { schema: ZeroGProvidersListResponseSchema } } },
-      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
-      500: { description: 'broker unavailable', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });
 
