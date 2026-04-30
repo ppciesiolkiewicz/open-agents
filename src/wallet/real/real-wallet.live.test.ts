@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { RealWallet } from './real-wallet';
-import { TOKENS } from '../../constants';
+import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../../constants';
 
 describe('RealWallet (live, Unichain)', () => {
   const wallet = new RealWallet({
@@ -23,14 +23,14 @@ describe('RealWallet (live, Unichain)', () => {
   });
 
   it('reads USDC balance on Unichain', async () => {
-    const bal = await wallet.getTokenBalance(TOKENS.USDC.address);
+    const bal = await wallet.getTokenBalance(USDC_ON_UNICHAIN.address);
     console.log('[real-wallet] USDC balance (raw):', bal.toString());
     expect(typeof bal).toBe('bigint');
     expect(bal).toBeGreaterThanOrEqual(0n);
   });
 
   it('reads UNI balance on Unichain', async () => {
-    const bal = await wallet.getTokenBalance(TOKENS.UNI.address);
+    const bal = await wallet.getTokenBalance(UNI_ON_UNICHAIN.address);
     console.log('[real-wallet] UNI balance (raw):', bal.toString());
     expect(typeof bal).toBe('bigint');
     expect(bal).toBeGreaterThanOrEqual(0n);

@@ -4,7 +4,7 @@ import { encodeFunctionData, erc20Abi, parseUnits } from 'viem';
 import type { PrivyClient } from '@privy-io/server-auth';
 import type { Database } from '../../database/database.js';
 import type { ZeroGPurchaseStatus } from '../../database/types.js';
-import { TOKENS } from '../../constants/index.js';
+import { USDC_ON_UNICHAIN } from '../../constants/index.js';
 import type { Env } from '../../config/env.js';
 
 const ZEROG_PURCHASE_STATUSES: readonly ZeroGPurchaseStatus[] = [
@@ -40,7 +40,7 @@ export function buildTreasuryRouter(deps: Deps): Router {
         return;
       }
 
-      const amountRaw = parseUnits(body.amount, TOKENS.USDC.decimals);
+      const amountRaw = parseUnits(body.amount, USDC_ON_UNICHAIN.decimals);
 
       const data = encodeFunctionData({
         abi: erc20Abi,
@@ -52,7 +52,7 @@ export function buildTreasuryRouter(deps: Deps): Router {
         walletId: userWallet.privyWalletId,
         caip2: 'eip155:130',
         transaction: {
-          to: TOKENS.USDC.address,
+          to: USDC_ON_UNICHAIN.address,
           data,
           chainId: 130,
         },
@@ -61,8 +61,8 @@ export function buildTreasuryRouter(deps: Deps): Router {
       res.status(201).json({
         txHash: hash,
         amount: body.amount,
-        symbol: TOKENS.USDC.symbol,
-        decimals: TOKENS.USDC.decimals,
+        symbol: USDC_ON_UNICHAIN.symbol,
+        decimals: USDC_ON_UNICHAIN.decimals,
       });
     } catch (err) {
       next(err);

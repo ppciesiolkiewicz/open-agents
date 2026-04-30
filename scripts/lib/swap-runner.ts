@@ -66,6 +66,7 @@ export async function runSwap(args: RunSwapArgs): Promise<void> {
     intervalMs: 1_000,
     prompt: 'interactive script',
     dryRun: false,
+    allowedTokens: [args.tokenIn.address, args.tokenOut.address],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: Number(args.slippageBps) },
     lastTickAt: null,
     createdAt: Date.now(),

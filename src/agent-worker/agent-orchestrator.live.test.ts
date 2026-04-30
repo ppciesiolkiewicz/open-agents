@@ -29,6 +29,7 @@ function makeAgent(id: string, opts: { running?: boolean; intervalMs?: number; l
     prompt: `agent ${id}`,
     dryRun: true,
     dryRunSeedBalances: { native: '0' },
+    allowedTokens: [],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
     lastTickAt: opts.lastTickAt ?? null,
     createdAt: 0,
@@ -75,6 +76,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
       firecrawl: new FirecrawlService({ apiKey: 'dummy' }),
       db,
       uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
+      env: { ALCHEMY_API_KEY: 'unused', UNICHAIN_RPC_URL: undefined } as any,
     });
     clock = new MutableClock(10_000);
     runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), toolRegistry, clock);

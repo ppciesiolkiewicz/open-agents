@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SwapQuoter } from './swap-quoter';
-import { TOKENS } from '../constants';
+import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../constants';
 
 describe('SwapQuoter (live, Unichain)', () => {
   const quoter = new SwapQuoter({
@@ -10,8 +10,8 @@ describe('SwapQuoter (live, Unichain)', () => {
 
   it('quotes 1 USDC → UNI', async () => {
     const quote = await quoter.quoteExactInputSingle({
-      tokenIn: TOKENS.USDC.address,
-      tokenOut: TOKENS.UNI.address,
+      tokenIn: USDC_ON_UNICHAIN.address,
+      tokenOut: UNI_ON_UNICHAIN.address,
       amountIn: 1_000_000n,
       feeTier: 3_000,
     });
@@ -21,8 +21,8 @@ describe('SwapQuoter (live, Unichain)', () => {
 
   it('quotes 0.1 UNI → USDC', async () => {
     const quote = await quoter.quoteExactInputSingle({
-      tokenIn: TOKENS.UNI.address,
-      tokenOut: TOKENS.USDC.address,
+      tokenIn: UNI_ON_UNICHAIN.address,
+      tokenOut: USDC_ON_UNICHAIN.address,
       amountIn: 100_000_000_000_000_000n,
       feeTier: 3_000,
     });

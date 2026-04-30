@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PositionTracker } from './position-tracker';
-import { TOKENS } from '../constants';
+import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../constants';
 import type { Database } from '../database/database';
 import type { AgentRepository } from '../database/repositories/agent-repository';
 import type { TransactionRepository } from '../database/repositories/transaction-repository';
@@ -10,6 +10,7 @@ import type { ActivityLogRepository } from '../database/repositories/activity-lo
 import type { UserRepository } from '../database/repositories/user-repository';
 import type { UserWalletRepository } from '../database/repositories/user-wallet-repository';
 import type { ZeroGPurchaseRepository } from '../database/repositories/zero-g-purchase-repository.js';
+import type { TokenRepository } from '../database/repositories/token-repository';
 import type { Position, TokenAmount } from '../database/types';
 
 class InMemoryPositionRepo implements PositionRepository {
@@ -41,17 +42,18 @@ function makeDb(positions: InMemoryPositionRepo): Database {
     users: {} as UserRepository,
     userWallets: {} as UserWalletRepository,
     zeroGPurchases: {} as ZeroGPurchaseRepository,
+    tokens: {} as unknown as TokenRepository,
   };
 }
 
 const usdcAmount = (raw: string): TokenAmount => ({
-  tokenAddress: TOKENS.USDC.address,
+  tokenAddress: USDC_ON_UNICHAIN.address,
   symbol: 'USDC',
   amountRaw: raw,
   decimals: 6,
 });
 const uniAmount = (raw: string): TokenAmount => ({
-  tokenAddress: TOKENS.UNI.address,
+  tokenAddress: UNI_ON_UNICHAIN.address,
   symbol: 'UNI',
   amountRaw: raw,
   decimals: 18,

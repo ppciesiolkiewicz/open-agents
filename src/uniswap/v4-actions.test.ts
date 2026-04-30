@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { buildUniversalRouterV4Swap } from './v4-actions';
 import { buildPoolKey } from './pool-key-builder';
-import { TOKENS } from '../constants';
+import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../constants';
 
 describe('buildUniversalRouterV4Swap', () => {
   it('produces a single command byte 0x10 (V4_SWAP)', () => {
-    const poolKey = buildPoolKey(TOKENS.USDC.address, TOKENS.UNI.address, 3_000);
+    const poolKey = buildPoolKey(USDC_ON_UNICHAIN.address, UNI_ON_UNICHAIN.address, 3_000);
     const { commands } = buildUniversalRouterV4Swap({
       poolKey,
       zeroForOne: true,
@@ -18,7 +18,7 @@ describe('buildUniversalRouterV4Swap', () => {
   });
 
   it('produces a non-empty input blob with the expected three actions packed', () => {
-    const poolKey = buildPoolKey(TOKENS.USDC.address, TOKENS.UNI.address, 3_000);
+    const poolKey = buildPoolKey(USDC_ON_UNICHAIN.address, UNI_ON_UNICHAIN.address, 3_000);
     const { inputs } = buildUniversalRouterV4Swap({
       poolKey,
       zeroForOne: true,

@@ -7,6 +7,7 @@ import {
   CreateAgentBodySchema,
   UpdateAgentBodySchema,
 } from '../openapi/schemas';
+import { UNICHAIN } from '../../constants';
 
 interface Deps {
   db: Database;
@@ -16,6 +17,21 @@ interface Deps {
 export function buildAgentsRouter(deps: Deps): Router {
   const r = Router();
   const now = () => (deps.clock ? deps.clock() : Date.now());
+
+  async function validateAndNormalizeAllowedTokens(addresses: string[]): Promise<string[]> {
+    const lowered = Array.from(new Set(addresses.map((a) => a.toLowerCase())));
+    if (lowered.length === 0) return [];
+    const found = await deps.db.tokens.findManyByAddresses(lowered, UNICHAIN.chainId);
+    const foundSet = new Set(found.map((t) => t.address));
+    const unknown = lowered.filter((a) => !foundSet.has(a));
+    if (unknown.length > 0) {
+      const err = new Error('unknown tokens') as Error & { code?: string; unknownAddresses?: string[] };
+      err.code = 'unknown_tokens';
+      err.unknownAddresses = unknown;
+      throw err;
+    }
+    return lowered;
+  }
 
   r.get('/', async (req, res, next) => {
     try {
@@ -29,6 +45,9 @@ export function buildAgentsRouter(deps: Deps): Router {
   r.post('/', async (req, res, next) => {
     try {
       const body = CreateAgentBodySchema.parse(req.body);
+      const allowedTokens = body.allowedTokens
+        ? await validateAndNormalizeAllowedTokens(body.allowedTokens)
+        : [];
       const agent: AgentConfig = {
         id: randomUUID(),
         userId: req.user!.id,
@@ -36,6 +55,7 @@ export function buildAgentsRouter(deps: Deps): Router {
         prompt: body.prompt,
         dryRun: body.dryRun,
         ...(body.dryRunSeedBalances ? { dryRunSeedBalances: body.dryRunSeedBalances } : {}),
+        allowedTokens,
         riskLimits: body.riskLimits,
         createdAt: now(),
         running: false,
@@ -45,6 +65,13 @@ export function buildAgentsRouter(deps: Deps): Router {
       await deps.db.agents.upsert(agent);
       res.status(201).json(agent);
     } catch (err) {
+      if ((err as { code?: string }).code === 'unknown_tokens') {
+        res.status(400).json({
+          error: 'unknown_tokens',
+          unknownAddresses: (err as Error & { unknownAddresses?: string[] }).unknownAddresses ?? [],
+        });
+        return;
+      }
       next(err);
     }
   });
@@ -65,16 +92,29 @@ export function buildAgentsRouter(deps: Deps): Router {
       const agent = await deps.db.agents.findById(req.params.id);
       if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
 
+      let allowedTokensPatch: string[] | undefined;
+      if (body.allowedTokens !== undefined) {
+        allowedTokensPatch = await validateAndNormalizeAllowedTokens(body.allowedTokens);
+      }
+
       const updated: AgentConfig = {
         ...agent,
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.prompt !== undefined ? { prompt: body.prompt } : {}),
         ...(body.riskLimits !== undefined ? { riskLimits: body.riskLimits } : {}),
         ...(body.intervalMs !== undefined ? { intervalMs: body.intervalMs } : {}),
+        ...(allowedTokensPatch !== undefined ? { allowedTokens: allowedTokensPatch } : {}),
       };
       await deps.db.agents.upsert(updated);
       res.json(updated);
     } catch (err) {
+      if ((err as { code?: string }).code === 'unknown_tokens') {
+        res.status(400).json({
+          error: 'unknown_tokens',
+          unknownAddresses: (err as Error & { unknownAddresses?: string[] }).unknownAddresses ?? [],
+        });
+        return;
+      }
       next(err);
     }
   });
@@ -109,6 +149,20 @@ export function buildAgentsRouter(deps: Deps): Router {
       const updated: AgentConfig = { ...agent, running: false };
       await deps.db.agents.upsert(updated);
       res.json(updated);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  r.get('/:id/allowed-tokens', async (req, res, next) => {
+    try {
+      const agent = await deps.db.agents.findById(req.params.id);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
+      const tokens = await deps.db.tokens.findManyByAddresses(
+        agent.allowedTokens,
+        UNICHAIN.chainId,
+      );
+      res.json({ tokens });
     } catch (err) {
       next(err);
     }

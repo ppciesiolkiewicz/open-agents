@@ -35,6 +35,7 @@ describe('PrismaAgentRepository', () => {
       prompt: 'do the thing',
       dryRun: true,
       dryRunSeedBalances: { native: '1000' },
+      allowedTokens: [],
       riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 },
       createdAt: Date.now(),
       running: true,
@@ -95,6 +96,7 @@ describe('PrismaTransactionRepository', () => {
     const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
     await agents.upsert({
       id: 'a1', userId: u.id, name: 'a1', prompt: '', dryRun: true,
+      allowedTokens: [],
       riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
     });
   });
@@ -166,6 +168,7 @@ describe('PrismaPositionRepository', () => {
     const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
     await agents.upsert({
       id: 'a1', userId: u.id, name: 'a1', prompt: '', dryRun: true,
+      allowedTokens: [],
       riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
     });
   });
@@ -233,6 +236,7 @@ describe('PrismaAgentMemoryRepository', () => {
     const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
     await agents.upsert({
       id: 'a1', userId: u.id, name: 'a1', prompt: '', dryRun: true,
+      allowedTokens: [],
       riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
     });
   });

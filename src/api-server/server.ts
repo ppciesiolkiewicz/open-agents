@@ -23,6 +23,7 @@ import { buildOpenApiRouter } from './routes/openapi';
 import { buildTreasuryRouter } from './routes/treasury';
 import { buildZeroGRouter } from './routes/zerog';
 import { buildWalletRouter } from './routes/wallet';
+import { buildTokensRouter } from './routes/tokens';
 
 export interface ApiServerDeps {
   db: Database;
@@ -68,6 +69,7 @@ export class ApiServer {
       balanceService: deps.balanceService,
       coingecko: deps.coingecko,
     }));
+    this.app.use('/tokens', buildTokensRouter({ db: deps.db }));
     this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
     this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, queue: deps.queue }));

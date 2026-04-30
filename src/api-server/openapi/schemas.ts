@@ -17,6 +17,7 @@ export const AgentConfigSchema = z.object({
   prompt: z.string(),
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
+  allowedTokens: z.array(z.string()),
   riskLimits: RiskLimitsSchema,
   createdAt: z.number(),
   running: z.boolean().optional(),
@@ -29,6 +30,7 @@ export const CreateAgentBodySchema = z.object({
   prompt: z.string().min(1),
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
+  allowedTokens: z.array(z.string()).default([]),
   riskLimits: RiskLimitsSchema,
   intervalMs: z.number().int().min(1000).optional(),
 }).openapi('CreateAgentBody');
@@ -36,6 +38,7 @@ export const CreateAgentBodySchema = z.object({
 export const UpdateAgentBodySchema = z.object({
   name: z.string().min(1).optional(),
   prompt: z.string().min(1).optional(),
+  allowedTokens: z.array(z.string()).optional(),
   riskLimits: RiskLimitsSchema.optional(),
   intervalMs: z.number().int().min(1000).optional(),
 }).openapi('UpdateAgentBody');
@@ -111,6 +114,32 @@ export const UsersMeResponseSchema = z.object({
   user: UserSchema,
   wallets: z.array(UserWalletSchema),
 }).openapi('UsersMeResponse');
+
+export const TokenViewSchema = z.object({
+  id: z.number().int(),
+  chainId: z.number().int(),
+  chain: z.string(),
+  address: z.string(),
+  symbol: z.string(),
+  name: z.string(),
+  decimals: z.number().int(),
+  logoUri: z.string().nullable(),
+  coingeckoId: z.string().nullable(),
+}).openapi('TokenView');
+
+export const TokensListResponseSchema = z.object({
+  tokens: z.array(TokenViewSchema),
+  nextCursor: z.string().nullable(),
+}).openapi('TokensListResponse');
+
+export const AllowedTokensResponseSchema = z.object({
+  tokens: z.array(TokenViewSchema),
+}).openapi('AllowedTokensResponse');
+
+export const UnknownTokensErrorSchema = z.object({
+  error: z.literal('unknown_tokens'),
+  unknownAddresses: z.array(z.string()),
+}).openapi('UnknownTokensError');
 
 export const TreasuryDepositBodySchema = z.object({
   amount: z.string().min(1),

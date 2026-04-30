@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { privateKeyToAccount } from 'viem/accounts';
 import { Permit2Allowance } from './permit2-allowance';
-import { TOKENS } from '../constants';
+import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../constants';
 
 describe('Permit2Allowance (live, Unichain)', () => {
   const reader = new Permit2Allowance({
@@ -11,13 +11,13 @@ describe('Permit2Allowance (live, Unichain)', () => {
   const account = privateKeyToAccount(process.env.WALLET_PRIVATE_KEY! as `0x${string}`);
 
   it('reads ERC20 allowance from wallet to Permit2 (USDC)', async () => {
-    const allowance = await reader.readErc20ToPermit2(TOKENS.USDC.address, account.address);
+    const allowance = await reader.readErc20ToPermit2(USDC_ON_UNICHAIN.address, account.address);
     console.log('[permit2-allowance] USDC → Permit2:', allowance.toString());
     expect(allowance).toBeGreaterThanOrEqual(0n);
   });
 
   it('reads Permit2 allowance to UniversalRouter (UNI)', async () => {
-    const granted = await reader.readPermit2ToRouter(TOKENS.UNI.address, account.address);
+    const granted = await reader.readPermit2ToRouter(UNI_ON_UNICHAIN.address, account.address);
     console.log('[permit2-allowance] UNI Permit2→Router:', {
       amount: granted.amount.toString(),
       expiration: granted.expiration,

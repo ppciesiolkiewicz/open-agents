@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PoolStateReader } from './pool-state-reader';
 import { buildPoolKey } from './pool-key-builder';
-import { TOKENS } from '../constants';
+import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../constants';
 
 describe('PoolStateReader (live, Unichain)', () => {
   const reader = new PoolStateReader({
@@ -10,7 +10,7 @@ describe('PoolStateReader (live, Unichain)', () => {
   });
 
   it('reads slot0 for the UNI/USDC 3000-fee pool', async () => {
-    const key = buildPoolKey(TOKENS.USDC.address, TOKENS.UNI.address, 3_000);
+    const key = buildPoolKey(USDC_ON_UNICHAIN.address, UNI_ON_UNICHAIN.address, 3_000);
     const slot0 = await reader.readSlot0(key);
     console.log('[pool-state-reader] slot0:', {
       sqrtPriceX96: slot0.sqrtPriceX96.toString(),
@@ -22,7 +22,7 @@ describe('PoolStateReader (live, Unichain)', () => {
   });
 
   it('reads liquidity for the UNI/USDC 3000-fee pool', async () => {
-    const key = buildPoolKey(TOKENS.USDC.address, TOKENS.UNI.address, 3_000);
+    const key = buildPoolKey(USDC_ON_UNICHAIN.address, UNI_ON_UNICHAIN.address, 3_000);
     const liquidity = await reader.readLiquidity(key);
     console.log('[pool-state-reader] liquidity:', liquidity.toString());
     expect(liquidity).toBeGreaterThanOrEqual(0n);

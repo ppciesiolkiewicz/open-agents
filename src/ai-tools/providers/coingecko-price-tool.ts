@@ -1,24 +1,36 @@
 import { z } from 'zod';
 import type { AgentTool } from '../tool';
 import type { CoingeckoService } from '../../providers/coingecko/coingecko-service';
-import { TOKENS } from '../../constants';
+import type { Database } from '../../database/database';
+import { UNICHAIN } from '../../constants';
 
 const inputSchema = z.object({
-  symbol: z.string().describe('Token symbol like USDC or UNI'),
+  coingeckoId: z.string().optional().describe('CoinGecko coin id, e.g. "usd-coin". Pass either this OR tokenAddress.'),
+  tokenAddress: z.string().optional().describe('0x-prefixed Unichain token address. Resolved to coingeckoId via the catalog. Pass either this OR coingeckoId.'),
 });
 
-export function buildCoingeckoPriceTool(svc: CoingeckoService): AgentTool<typeof inputSchema> {
+export function buildCoingeckoPriceTool(
+  coingecko: CoingeckoService,
+  db: Database,
+): AgentTool<typeof inputSchema> {
   return {
     name: 'fetchTokenPriceUSD',
     description:
-      'Fetch the current USD price for a token symbol (e.g. "USDC", "UNI"). Returns JSON {symbol, priceUSD}.',
+      'Fetch a token\'s current USD price from CoinGecko. Pass either coingeckoId (preferred) or tokenAddress (Unichain). Returns JSON {price, currency, source, coingeckoId}.',
     inputSchema,
-    async invoke({ symbol }) {
-      const upper = symbol.toUpperCase();
-      const known = (TOKENS as Record<string, { coingeckoId: string }>)[upper];
-      const id = known?.coingeckoId ?? symbol.toLowerCase();
-      const price = await svc.fetchTokenPriceUSD(id);
-      return { symbol: upper, priceUSD: price };
+    async invoke({ coingeckoId, tokenAddress }) {
+      let id = coingeckoId;
+      if (!id) {
+        if (!tokenAddress) {
+          throw new Error('one of coingeckoId or tokenAddress is required');
+        }
+        const tok = await db.tokens.findByAddress(tokenAddress, UNICHAIN.chainId);
+        if (!tok) throw new Error(`token not in catalog: ${tokenAddress}`);
+        if (!tok.coingeckoId) throw new Error(`token has no coingeckoId: ${tokenAddress}`);
+        id = tok.coingeckoId;
+      }
+      const price = await coingecko.fetchTokenPriceUSD(id);
+      return { price, currency: 'USD', source: 'coingecko', coingeckoId: id };
     },
   };
 }

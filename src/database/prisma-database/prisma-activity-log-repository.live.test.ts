@@ -15,6 +15,7 @@ describe('PrismaActivityLogRepository', () => {
     const u = await userRepo.findOrCreateByPrivyDid('did:privy:test', {});
     await agents.upsert({
       id: 'a1', userId: u.id, name: 'a1', prompt: '', dryRun: true,
+      allowedTokens: [],
       riskLimits: { maxTradeUSD: 100, maxSlippageBps: 50 }, createdAt: Date.now(),
     });
   });
