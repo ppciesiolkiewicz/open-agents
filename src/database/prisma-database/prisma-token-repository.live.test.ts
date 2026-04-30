@@ -80,7 +80,9 @@ describe('PrismaTokenRepository (live)', () => {
 
     const page2 = await repo.list({ chainId: UNICHAIN, limit: 1, cursor: page1.nextCursor! });
     expect(page2.tokens).toHaveLength(1);
-    expect(page2.tokens[0].id).not.toBe(page1.tokens[0].id);
+    const t1 = page1.tokens[0]!;
+    const t2 = page2.tokens[0]!;
+    expect(t2.id).not.toBe(t1.id);
   });
 
   it('list with search matches symbol and name (case-insensitive)', async () => {
