@@ -58,6 +58,7 @@ async function main(): Promise<void> {
     privyAuth,
     walletProvisioner,
     balanceService,
+    coingecko,
     brokerService,
     privy,
     env,

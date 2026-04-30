@@ -7,6 +7,7 @@ import type { Database } from '../database/database';
 import type { PrivyAuth } from './auth/privy-auth';
 import type { WalletProvisioner } from '../wallet/privy/wallet-provisioner';
 import type { BalanceService } from '../balance/balance-service';
+import type { CoingeckoService } from '../providers/coingecko/coingecko-service';
 import type { ZeroGBrokerService } from '../ai/zerog-broker/zerog-broker-service';
 import type { Env } from '../config/env';
 import { buildAuthMiddleware } from './middleware/auth';
@@ -29,6 +30,7 @@ export interface ApiServerDeps {
   privyAuth: PrivyAuth;
   walletProvisioner: WalletProvisioner;
   balanceService: BalanceService;
+  coingecko: CoingeckoService;
   brokerService: ZeroGBrokerService;
   privy: PrivyClient;
   env: Env;
@@ -55,7 +57,12 @@ export class ApiServer {
 
     this.app.use('/users', buildUsersRouter({ db: deps.db, walletProvisioner: deps.walletProvisioner, balanceService: deps.balanceService }));
     this.app.use('/users/me/treasury', buildTreasuryRouter({ db: deps.db, privy: deps.privy, env: deps.env, treasuryAddress: deps.treasuryAddress }));
-    this.app.use('/users/me/zerog', buildZeroGRouter({ db: deps.db, balanceService: deps.balanceService, brokerService: deps.brokerService }));
+    this.app.use('/users/me/zerog', buildZeroGRouter({
+      db: deps.db,
+      balanceService: deps.balanceService,
+      brokerService: deps.brokerService,
+      coingecko: deps.coingecko,
+    }));
     this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
     this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, queue: deps.queue }));
