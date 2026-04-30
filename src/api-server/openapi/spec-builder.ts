@@ -19,6 +19,7 @@ import {
   ZeroGPurchaseListResponseSchema,
   ZeroGBalancesResponseSchema,
   ZeroGProvidersListResponseSchema,
+  WalletBalancesResponseSchema,
 } from './schemas';
 
 function registerPaths(): void {
@@ -114,6 +115,30 @@ function registerPaths(): void {
       },
       500: {
         description: 'Server error (broker unavailable, RPC timeout, etc.)',
+        content: { 'application/json': { schema: ErrorResponseSchema } },
+      },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/users/me/wallet/balances',
+    description: 'Get per-chain token balances with USD prices for the authenticated user',
+    responses: {
+      200: {
+        description: 'Success',
+        content: { 'application/json': { schema: WalletBalancesResponseSchema } },
+      },
+      400: {
+        description: 'No wallet provisioned',
+        content: { 'application/json': { schema: ErrorResponseSchema } },
+      },
+      401: {
+        description: 'invalid or missing token',
+        content: { 'application/json': { schema: ErrorResponseSchema } },
+      },
+      500: {
+        description: 'Server error (RPC timeout, Coingecko unavailable, etc.)',
         content: { 'application/json': { schema: ErrorResponseSchema } },
       },
     },
