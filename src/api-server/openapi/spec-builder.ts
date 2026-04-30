@@ -86,20 +86,19 @@ function registerPaths(): void {
   registry.registerPath({
     method: 'get',
     path: '/users/me/zerog/balances',
-    tags: ['0G'],
     description: 'Get 0G balance across providers, ledger, and on-chain wallet',
     responses: {
-      '200': {
+      200: {
         description: 'Success',
         content: { 'application/json': { schema: ZeroGBalancesResponseSchema } },
       },
-      '400': {
+      400: {
         description: 'No wallet provisioned',
-        content: { 'application/json': { schema: z.object({ error: z.string(), message: z.string() }) } },
+        content: { 'application/json': { schema: ErrorResponseSchema } },
       },
-      '500': {
+      500: {
         description: 'Server error (broker unavailable, RPC timeout, etc.)',
-        content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+        content: { 'application/json': { schema: ErrorResponseSchema } },
       },
     },
   });
