@@ -96,6 +96,10 @@ function registerPaths(): void {
         description: 'No wallet provisioned',
         content: { 'application/json': { schema: ErrorResponseSchema } },
       },
+      401: {
+        description: 'invalid or missing token',
+        content: { 'application/json': { schema: ErrorResponseSchema } },
+      },
       500: {
         description: 'Server error (broker unavailable, RPC timeout, etc.)',
         content: { 'application/json': { schema: ErrorResponseSchema } },
