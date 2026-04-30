@@ -40,3 +40,6 @@ export const W0G_ON_ZEROG = {
   decimals: 18,
   symbol: 'W0G',
 } as const;
+
+export const USDC_ON_UNICHAIN = TOKENS.USDC;
+export const UNI_ON_UNICHAIN = TOKENS.UNI;
