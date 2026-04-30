@@ -6,6 +6,7 @@ import type { ActivityLogRepository } from './repositories/activity-log-reposito
 import type { UserRepository } from './repositories/user-repository';
 import type { UserWalletRepository } from './repositories/user-wallet-repository';
 import type { ZeroGPurchaseRepository } from './repositories/zero-g-purchase-repository';
+import type { TokenRepository } from './repositories/token-repository';
 
 export interface Database {
   readonly agents: AgentRepository;
@@ -16,4 +17,5 @@ export interface Database {
   readonly users: UserRepository;
   readonly userWallets: UserWalletRepository;
   readonly zeroGPurchases: ZeroGPurchaseRepository;
+  readonly tokens: TokenRepository;
 }
