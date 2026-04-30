@@ -213,3 +213,16 @@ export const ZeroGBalancesResponseSchema = z.object({
   onChainOG: OnChainOGBalanceSchema,
   tokens: z.array(TokenBalanceWithPriceSchema),
 }).openapi('ZeroGBalancesResponse');
+
+export const ZeroGProviderListingSchema = z.object({
+  providerAddress: z.string(),
+  serviceUrl: z.string(),
+  model: z.string(),
+  inputPricePerToken: z.string().optional(),
+  outputPricePerToken: z.string().optional(),
+  subAccountBalanceWei: z.string().optional(),
+}).openapi('ZeroGProviderListing');
+
+export const ZeroGProvidersListResponseSchema = z.object({
+  providers: z.array(ZeroGProviderListingSchema),
+}).openapi('ZeroGProvidersListResponse');
