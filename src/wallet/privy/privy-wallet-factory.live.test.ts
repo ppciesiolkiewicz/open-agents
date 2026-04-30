@@ -26,7 +26,7 @@ describe('PrivyWalletFactory (live)', () => {
 
   it('forUserWallet returns a PrivyServerWallet whose address matches the row', async () => {
     const u = await users.findOrCreateByPrivyDid(`did:privy:test-${Date.now()}`, {});
-    const uw = await provisioner.provisionPrimary(u.id);
+    const uw = await provisioner.provisionPrimary(u);
     const wallet = factory.forUserWallet(uw);
     expect(wallet).toBeInstanceOf(PrivyServerWallet);
     expect(wallet.getAddress()).toBe(uw.walletAddress);

@@ -19,7 +19,7 @@ describe('WalletProvisioner (live)', () => {
 
   it('provisionPrimary creates a Privy wallet + inserts UserWallet', async () => {
     const u = await users.findOrCreateByPrivyDid(`did:privy:test-${Date.now()}`, {});
-    const uw = await provisioner.provisionPrimary(u.id);
+    const uw = await provisioner.provisionPrimary(u);
     expect(uw.userId).toBe(u.id);
     expect(uw.privyWalletId).toBeTruthy();
     expect(uw.walletAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
@@ -29,9 +29,19 @@ describe('WalletProvisioner (live)', () => {
 
   it('provisionPrimary is idempotent — returns existing primary', async () => {
     const u = await users.findOrCreateByPrivyDid(`did:privy:test-${Date.now()}`, {});
-    const first = await provisioner.provisionPrimary(u.id);
-    const second = await provisioner.provisionPrimary(u.id);
+    const first = await provisioner.provisionPrimary(u);
+    const second = await provisioner.provisionPrimary(u);
     expect(second.id).toBe(first.id);
     expect(second.privyWalletId).toBe(first.privyWalletId);
+  });
+
+  it('provisionPrimary reuses the existing Privy server wallet when DB row is missing', async () => {
+    const u = await users.findOrCreateByPrivyDid(`did:privy:test-${Date.now()}`, {});
+    const first = await provisioner.provisionPrimary(u);
+    await prisma.userWallet.deleteMany({ where: { userId: u.id } });
+    const second = await provisioner.provisionPrimary(u);
+    expect(second.privyWalletId).toBe(first.privyWalletId);
+    expect(second.walletAddress).toBe(first.walletAddress);
+    expect(second.isPrimary).toBe(true);
   });
 });

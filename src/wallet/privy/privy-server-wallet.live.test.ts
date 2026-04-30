@@ -24,14 +24,14 @@ describe('PrivyServerWallet (live, read-only)', () => {
 
   it('getAddress returns the UserWallet.walletAddress', async () => {
     const u = await users.findOrCreateByPrivyDid(`did:privy:test-${Date.now()}`, {});
-    const uw = await provisioner.provisionPrimary(u.id);
+    const uw = await provisioner.provisionPrimary(u);
     const wallet = new PrivyServerWallet(privy, uw, publicClient);
     expect(wallet.getAddress()).toBe(uw.walletAddress);
   });
 
   it('getNativeBalance reads on-chain balance via viem (returns >= 0n)', async () => {
     const u = await users.findOrCreateByPrivyDid(`did:privy:test-${Date.now()}`, {});
-    const uw = await provisioner.provisionPrimary(u.id);
+    const uw = await provisioner.provisionPrimary(u);
     const wallet = new PrivyServerWallet(privy, uw, publicClient);
     const balance = await wallet.getNativeBalance();
     expect(balance).toBeGreaterThanOrEqual(0n);

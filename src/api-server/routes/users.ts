@@ -57,7 +57,7 @@ export function buildUsersRouter(deps: Deps): Router {
         return;
       }
       try {
-        const uw = await deps.walletProvisioner.provisionPrimary(user.id);
+        const uw = await deps.walletProvisioner.provisionPrimary(user);
         res.status(201).json(await buildPublicWallet(uw, deps.balanceService));
       } catch (err) {
         console.error('[users] wallet provisioning failed:', err);
