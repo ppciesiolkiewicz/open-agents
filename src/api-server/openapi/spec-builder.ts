@@ -17,6 +17,7 @@ import {
   TreasuryDepositResponseSchema,
   ZeroGPurchaseSchema,
   ZeroGPurchaseListResponseSchema,
+  ZeroGBalancesResponseSchema,
 } from './schemas';
 
 function registerPaths(): void {
@@ -79,6 +80,27 @@ function registerPaths(): void {
       201: { description: 'transfer submitted', content: { 'application/json': { schema: TreasuryDepositResponseSchema } } },
       400: { description: 'no primary wallet', content: { 'application/json': { schema: ErrorResponseSchema } } },
       401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/users/me/zerog/balances',
+    tags: ['0G'],
+    description: 'Get 0G balance across providers, ledger, and on-chain wallet',
+    responses: {
+      '200': {
+        description: 'Success',
+        content: { 'application/json': { schema: ZeroGBalancesResponseSchema } },
+      },
+      '400': {
+        description: 'No wallet provisioned',
+        content: { 'application/json': { schema: z.object({ error: z.string(), message: z.string() }) } },
+      },
+      '500': {
+        description: 'Server error (broker unavailable, RPC timeout, etc.)',
+        content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+      },
     },
   });
 
