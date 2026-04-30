@@ -176,6 +176,8 @@ export const ZeroGPurchaseListResponseSchema = z.object({
 
 export const ProviderBalanceSchema = z.object({
   address: z.string(),
+  model: z.string(),
+  serviceType: z.string(),
   balanceRaw: z.string(),
   balanceFormatted: z.string(),
 }).openapi('ProviderBalance');
@@ -211,7 +213,6 @@ export const ZeroGBalancesResponseSchema = z.object({
   providers: z.array(ProviderBalanceSchema),
   ledger: LedgerBalanceSchema,
   onChainOG: OnChainOGBalanceSchema,
-  tokens: z.array(TokenBalanceWithPriceSchema),
 }).openapi('ZeroGBalancesResponse');
 
 export const ZeroGProviderListingSchema = z.object({
@@ -226,3 +227,16 @@ export const ZeroGProviderListingSchema = z.object({
 export const ZeroGProvidersListResponseSchema = z.object({
   providers: z.array(ZeroGProviderListingSchema),
 }).openapi('ZeroGProvidersListResponse');
+
+export const ChainBalanceSchema = z.object({
+  chainId: z.number().int(),
+  tokens: z.array(TokenBalanceWithPriceSchema),
+  totalValueUsd: z.number(),
+}).openapi('ChainBalance');
+
+export const WalletBalancesResponseSchema = z.object({
+  chains: z.object({
+    unichain: ChainBalanceSchema,
+  }),
+  totalValueUsd: z.number(),
+}).openapi('WalletBalancesResponse');
