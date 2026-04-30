@@ -9,7 +9,7 @@ import type { Database } from '../database/database';
 // Pure-logic test: verifies the canonical tool list is what the LLM sees.
 // No I/O — services and DB are constructed but never called.
 describe('ToolRegistry.build', () => {
-  it('returns the expected 17 tools in order', () => {
+  it('returns the expected 18 tools in order', () => {
     const registry = new ToolRegistry({
       coingecko: new CoingeckoService({ apiKey: 'unused' }),
       coinmarketcap: new CoinMarketCapService({ apiKey: 'unused' }),
@@ -25,6 +25,7 @@ describe('ToolRegistry.build', () => {
       'fetchTokenInfoBySymbol',
       'searchWeb',
       'scrapeUrlMarkdown',
+      'getWalletAddress',
       'getNativeBalance',
       'getTokenBalance',
       'readMemory',

@@ -12,8 +12,19 @@ const tokenInput = z.object({
 
 export function buildWalletBalanceTools(db: Database, env: Env): [
   AgentTool<typeof nativeInput>,
+  AgentTool<typeof nativeInput>,
   AgentTool<typeof tokenInput>,
 ] {
+  const walletAddress: AgentTool<typeof nativeInput> = {
+    name: 'getWalletAddress',
+    description:
+      'Read the active wallet address for this agent. Returns JSON {address}.',
+    inputSchema: nativeInput,
+    async invoke(_input, ctx) {
+      return { address: ctx.wallet.getAddress() };
+    },
+  };
+
   const nativeBalance: AgentTool<typeof nativeInput> = {
     name: 'getNativeBalance',
     description:
@@ -67,5 +78,5 @@ export function buildWalletBalanceTools(db: Database, env: Env): [
     },
   };
 
-  return [nativeBalance, tokenBalance];
+  return [walletAddress, nativeBalance, tokenBalance];
 }

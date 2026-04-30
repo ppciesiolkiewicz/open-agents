@@ -102,6 +102,14 @@ describe('ToolRegistry tools (live, real services + postgres)', () => {
     expect(result.price).toBeGreaterThan(0);
   });
 
+  it('getWalletAddress returns the current agent wallet address', async () => {
+    const tool = registry.build().find((t) => t.name === 'getWalletAddress');
+    if (!tool) throw new Error('tool missing');
+    const result = (await tool.invoke({}, ctx)) as { address: string };
+    console.log('[tool-registry] wallet address:', result);
+    expect(result.address).toBe(ctx.wallet.getAddress());
+  });
+
   it('getTokenBalance reflects the dry-run seed (USDC 5) with enriched shape', async () => {
     const tool = registry.build().find((t) => t.name === 'getTokenBalance');
     if (!tool) throw new Error('tool missing');

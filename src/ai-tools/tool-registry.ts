@@ -37,12 +37,13 @@ export class ToolRegistry {
   constructor(private readonly deps: ToolRegistryDeps) {}
 
   build(): AgentTool[] {
-    const [nativeBalance, tokenBalance] = buildWalletBalanceTools(this.deps.db, this.deps.env);
+    const [walletAddress, nativeBalance, tokenBalance] = buildWalletBalanceTools(this.deps.db, this.deps.env);
     return [
       buildCoingeckoPriceTool(this.deps.coingecko, this.deps.db),
       buildCoinMarketCapInfoTool(this.deps.coinmarketcap),
       buildSerperSearchTool(this.deps.serper),
       buildFirecrawlScrapeTool(this.deps.firecrawl),
+      walletAddress,
       nativeBalance,
       tokenBalance,
       buildReadMemoryTool(this.deps.db),
