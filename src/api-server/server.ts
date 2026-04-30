@@ -18,6 +18,7 @@ import { buildStreamRouter } from './routes/stream';
 import { buildUsersRouter } from './routes/users';
 import { buildOpenApiRouter } from './routes/openapi';
 import { buildTreasuryRouter } from './routes/treasury';
+import { buildTokensRouter } from './routes/tokens';
 
 export interface ApiServerDeps {
   db: Database;
@@ -50,6 +51,7 @@ export class ApiServer {
 
     this.app.use('/users', buildUsersRouter({ db: deps.db, walletProvisioner: deps.walletProvisioner, balanceService: deps.balanceService }));
     this.app.use('/users/me/treasury', buildTreasuryRouter({ db: deps.db, privy: deps.privy, env: deps.env, treasuryAddress: deps.treasuryAddress }));
+    this.app.use('/tokens', buildTokensRouter({ db: deps.db }));
     this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
     this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, queue: deps.queue }));
