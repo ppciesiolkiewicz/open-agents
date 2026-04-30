@@ -3,7 +3,7 @@ import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { unichain } from 'viem/chains';
 import { ethers } from 'ethers';
 import type { Env } from '../config/env.js';
-import { TOKENS, USDCE_ON_ZEROG, ZEROG_NETWORKS } from '../constants/index.js';
+import { USDC_ON_UNICHAIN, USDCE_ON_ZEROG, ZEROG_NETWORKS } from '../constants/index.js';
 import { resolveUnichainRpcUrl } from '../constants/unichain.js';
 
 export class TreasuryWallet {
@@ -38,7 +38,7 @@ export class TreasuryWallet {
 
   async getUnichainUsdcBalance(): Promise<bigint> {
     return this.unichainPublicClient.readContract({
-      address: TOKENS.USDC.address,
+      address: USDC_ON_UNICHAIN.address,
       abi: erc20Abi,
       functionName: 'balanceOf',
       args: [this.account.address],

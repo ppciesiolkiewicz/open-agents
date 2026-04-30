@@ -2,7 +2,7 @@ import { createPublicClient, webSocket, parseAbi } from 'viem';
 import { unichain } from 'viem/chains';
 import type { Redis } from 'ioredis';
 import type { Env } from '../config/env.js';
-import { TOKENS, TREASURY_REDIS_QUEUE } from '../constants/index.js';
+import { USDC_ON_UNICHAIN, TREASURY_REDIS_QUEUE } from '../constants/index.js';
 import type { TreasuryWallet } from './treasury-wallet.js';
 
 export interface TreasuryTransferEvent {
@@ -32,7 +32,7 @@ export class TreasuryFundsWatcher {
     const treasuryAddress = this.treasuryWallet.getAddress().toLowerCase() as `0x${string}`;
 
     this.unwatch = client.watchContractEvent({
-      address: TOKENS.USDC.address,
+      address: USDC_ON_UNICHAIN.address,
       abi: parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)']),
       eventName: 'Transfer',
       args: { to: treasuryAddress },

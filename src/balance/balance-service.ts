@@ -1,7 +1,7 @@
 import { createPublicClient, http, erc20Abi, defineChain } from 'viem';
 import { unichain } from 'viem/chains';
 import type { CoingeckoService } from '../providers/coingecko/coingecko-service';
-import { TOKENS, ZEROG_NETWORKS, ZEROG_NATIVE_TOKEN, resolveUnichainRpcUrl } from '../constants';
+import { USDC_ON_UNICHAIN, ZEROG_NETWORKS, ZEROG_NATIVE_TOKEN, resolveUnichainRpcUrl } from '../constants';
 
 export interface WalletBalanceItem {
   raw: string;
@@ -48,7 +48,7 @@ export class BalanceService {
   async fetchWalletBalances(address: `0x${string}`): Promise<WalletBalances> {
     const [usdcRaw, ogRaw, ogPrice] = await Promise.all([
       this.unichainClient.readContract({
-        address: TOKENS.USDC.address,
+        address: USDC_ON_UNICHAIN.address,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: [address],
@@ -57,7 +57,7 @@ export class BalanceService {
       this.coingecko.fetchTokenPriceUSD(ZEROG_NATIVE_TOKEN.coingeckoId),
     ]);
 
-    const usdcFormatted = formatTokenAmount(usdcRaw, TOKENS.USDC.decimals);
+    const usdcFormatted = formatTokenAmount(usdcRaw, USDC_ON_UNICHAIN.decimals);
     const ogFormatted = formatTokenAmount(ogRaw, ZEROG_NATIVE_TOKEN.decimals);
     const ogValue = parseFloat(ogFormatted) * ogPrice;
 

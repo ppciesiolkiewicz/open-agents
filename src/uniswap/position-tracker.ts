@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { Database } from '../database/database';
 import type { Position, TokenAmount } from '../database/types';
-import { TOKENS } from '../constants';
+import { USDC_ON_UNICHAIN } from '../constants';
 
-const STABLE_TOKEN_ADDRESSES = new Set<string>([TOKENS.USDC.address.toLowerCase()]);
+const STABLE_TOKEN_ADDRESSES = new Set<string>([USDC_ON_UNICHAIN.address.toLowerCase()]);
 
 export interface SwapResult {
   agentId: string;
