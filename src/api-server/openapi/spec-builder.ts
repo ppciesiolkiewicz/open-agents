@@ -17,6 +17,10 @@ import {
   TreasuryDepositResponseSchema,
   ZeroGPurchaseSchema,
   ZeroGPurchaseListResponseSchema,
+  TokenViewSchema,
+  TokensListResponseSchema,
+  AllowedTokensResponseSchema,
+  UnknownTokensErrorSchema,
 } from './schemas';
 
 function registerPaths(): void {
@@ -84,6 +88,25 @@ function registerPaths(): void {
 
   registry.registerPath({
     method: 'get',
+    path: '/tokens',
+    description: 'Catalog of supported tokens, paginated. Filter by chainId, symbol, or search (matches symbol or name, case-insensitive).',
+    request: {
+      query: z.object({
+        chainId: z.coerce.number().int().optional(),
+        symbol: z.string().optional(),
+        search: z.string().optional(),
+        cursor: z.string().optional(),
+        limit: z.coerce.number().int().min(1).max(500).default(100),
+      }),
+    },
+    responses: {
+      200: { description: 'page of tokens', content: { 'application/json': { schema: TokensListResponseSchema } } },
+      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
     path: '/agents',
     responses: {
       200: { description: 'list of agents', content: { 'application/json': { schema: z.array(AgentConfigSchema) } } },
@@ -96,7 +119,7 @@ function registerPaths(): void {
     request: { body: { content: { 'application/json': { schema: CreateAgentBodySchema } } } },
     responses: {
       201: { description: 'created', content: { 'application/json': { schema: AgentConfigSchema } } },
-      400: { description: 'invalid input', content: { 'application/json': { schema: ErrorResponseSchema } } },
+      400: { description: 'invalid input or unknown tokens in allowlist', content: { 'application/json': { schema: UnknownTokensErrorSchema } } },
     },
   });
 
@@ -119,6 +142,19 @@ function registerPaths(): void {
     },
     responses: {
       200: { description: 'updated', content: { 'application/json': { schema: AgentConfigSchema } } },
+      400: { description: 'invalid input or unknown tokens in allowlist', content: { 'application/json': { schema: UnknownTokensErrorSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/agents/{id}/allowed-tokens',
+    description: 'Returns the resolved Token rows in the agent\'s allowlist.',
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: { description: 'allowed tokens', content: { 'application/json': { schema: AllowedTokensResponseSchema } } },
+      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
+      404: { description: 'agent not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });
 
