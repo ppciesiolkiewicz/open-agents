@@ -14,3 +14,5 @@ export function resolveUnichainRpcUrl(env: {
 }): string {
   return env.UNICHAIN_RPC_URL ?? `https://unichain-mainnet.g.alchemy.com/v2/${env.ALCHEMY_API_KEY}`;
 }
+
+export const UNICHAIN_COINGECKO_PLATFORM = 'unichain';
