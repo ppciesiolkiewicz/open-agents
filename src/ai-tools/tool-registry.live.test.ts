@@ -8,11 +8,12 @@ import { PrismaDatabase } from '../database/prisma-database/prisma-database';
 import { getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
 import { UniswapService } from '../uniswap/uniswap-service';
 import { DryRunWallet } from '../wallet/dry-run/dry-run-wallet';
-import { TOKENS } from '../constants';
+import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../constants';
 import type { AgentConfig } from '../database/types';
 import type { AgentToolContext } from './tool';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
+const UNICHAIN_CHAIN_ID = 130;
 
 function makeAgent(id: string, userId = 'user-placeholder'): AgentConfig {
   return {
@@ -23,8 +24,8 @@ function makeAgent(id: string, userId = 'user-placeholder'): AgentConfig {
     intervalMs: 60_000,
     prompt: 'test',
     dryRun: true,
-    dryRunSeedBalances: { native: '0', [TOKENS.USDC.address]: '5000000' },
-    allowedTokens: [TOKENS.USDC.address],
+    dryRunSeedBalances: { native: '0', [USDC_ON_UNICHAIN.address]: '5000000' },
+    allowedTokens: [USDC_ON_UNICHAIN.address],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
     lastTickAt: null,
     createdAt: 0,
@@ -47,6 +48,29 @@ describe('ToolRegistry tools (live, real services + postgres)', () => {
 
   beforeEach(async () => {
     await truncateAll(prisma);
+    await prisma.token.deleteMany({ where: { chainId: UNICHAIN_CHAIN_ID } });
+    await prisma.token.createMany({
+      data: [
+        {
+          chainId: UNICHAIN_CHAIN_ID,
+          chain: 'unichain',
+          address: USDC_ON_UNICHAIN.address.toLowerCase(),
+          symbol: 'USDC',
+          name: 'USD Coin',
+          decimals: 6,
+          coingeckoId: 'usd-coin',
+        },
+        {
+          chainId: UNICHAIN_CHAIN_ID,
+          chain: 'unichain',
+          address: UNI_ON_UNICHAIN.address.toLowerCase(),
+          symbol: 'UNI',
+          name: 'Uniswap',
+          decimals: 18,
+          coingeckoId: 'uniswap',
+        },
+      ],
+    });
     db = new PrismaDatabase(prisma);
     const u = await db.users.findOrCreateByPrivyDid('did:privy:test', {});
     agent = makeAgent('a1', u.id);
@@ -62,25 +86,38 @@ describe('ToolRegistry tools (live, real services + postgres)', () => {
       uniswap: process.env.ALCHEMY_API_KEY
         ? new UniswapService({ ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY, UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL }, db)
         : ({} as UniswapService),
+      env: {
+        ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY ?? 'dummy',
+        UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL,
+      } as any,
     });
   });
 
   it('fetchTokenPriceUSD returns a sensible UNI price', async () => {
     const tool = registry.build().find((t) => t.name === 'fetchTokenPriceUSD');
     if (!tool) throw new Error('tool missing');
-    const result = (await tool.invoke({ symbol: 'UNI' }, ctx)) as { symbol: string; priceUSD: number };
+    const result = (await tool.invoke({ coingeckoId: 'uniswap' }, ctx)) as { price: number; currency: string; coingeckoId: string };
     console.log('[tool-registry] price:', result);
-    expect(result.symbol).toBe('UNI');
-    expect(result.priceUSD).toBeGreaterThan(0);
+    expect(result.coingeckoId).toBe('uniswap');
+    expect(result.price).toBeGreaterThan(0);
   });
 
-  it('getTokenBalance reflects the dry-run seed (USDC 5)', async () => {
+  it('getTokenBalance reflects the dry-run seed (USDC 5) with enriched shape', async () => {
     const tool = registry.build().find((t) => t.name === 'getTokenBalance');
     if (!tool) throw new Error('tool missing');
-    const result = (await tool.invoke({ tokenAddress: TOKENS.USDC.address }, ctx)) as { tokenAddress: string; raw: string };
+    const result = (await tool.invoke({ tokenAddress: USDC_ON_UNICHAIN.address }, ctx)) as {
+      tokenAddress: string;
+      raw: string;
+      formatted: string;
+      decimals: number;
+      symbol: string;
+    };
     console.log('[tool-registry] USDC balance:', result);
-    expect(result.tokenAddress).toBe(TOKENS.USDC.address);
+    expect(result.tokenAddress).toBe(USDC_ON_UNICHAIN.address.toLowerCase());
     expect(result.raw).toBe('5000000');
+    expect(result.formatted).toBe('5');
+    expect(result.decimals).toBe(6);
+    expect(result.symbol).toBe('USDC');
   });
 
   it('updateMemory persists state and notes for the right agent', async () => {
@@ -137,9 +174,9 @@ describe('ToolRegistry tools (live, real services + postgres)', () => {
     const tool = registry.build().find((t) => t.name === 'getUniswapQuoteExactIn');
     if (!tool) throw new Error('quote tool missing');
     const result = (await tool.invoke({
-      tokenIn: 'USDC',
-      tokenOut: 'UNI',
-      amountIn: '1000000',
+      tokenInAddress: USDC_ON_UNICHAIN.address,
+      tokenOutAddress: UNI_ON_UNICHAIN.address,
+      amountIn: '1',
     }, ctx)) as { amountOut: string; feeTier: number };
     console.log('[tool-registry] uniswap quote:', result);
     expect(BigInt(result.amountOut)).toBeGreaterThan(0n);
