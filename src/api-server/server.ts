@@ -11,6 +11,7 @@ import type { Env } from '../config/env';
 import { buildAuthMiddleware } from './middleware/auth';
 import { buildCorsMiddleware } from './middleware/cors';
 import { errorHandler } from './middleware/error-handler';
+import { buildRequestLoggerMiddleware } from './middleware/request-logger';
 import { buildAgentsRouter } from './routes/agents';
 import { buildActivityRouter } from './routes/activity';
 import { buildMessagesRouter } from './routes/messages';
@@ -41,6 +42,7 @@ export class ApiServer {
     this.app = express();
     this.app.use(buildCorsMiddleware(deps.corsOrigins));
     this.app.use(express.json({ limit: '1mb' }));
+    this.app.use(buildRequestLoggerMiddleware());
 
     // OpenAPI docs are public.
     this.app.use('/', buildOpenApiRouter());
