@@ -12,6 +12,7 @@ export interface AgentConfig {
   prompt: string;
   dryRun: boolean;
   dryRunSeedBalances?: Record<string, string>;  // tokenAddr (or "native") → raw bigint string
+  allowedTokens: string[];
   riskLimits: {
     maxTradeUSD: number;
     maxSlippageBps: number;
@@ -156,4 +157,16 @@ export interface ZeroGPurchase {
 
   createdAt: number;
   updatedAt: number;
+}
+
+export interface Token {
+  id: number;
+  chainId: number;
+  chain: string;
+  address: string;          // lowercased
+  symbol: string;
+  name: string;
+  decimals: number;
+  logoUri: string | null;
+  coingeckoId: string | null;
 }

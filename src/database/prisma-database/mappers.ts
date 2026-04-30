@@ -7,6 +7,7 @@ import type {
   ActivityEvent as PrismaActivityEvent,
   User as PrismaUser,
   UserWallet as PrismaUserWallet,
+  Token as PrismaToken,
 } from '@prisma/client';
 import type {
   AgentConfig,
@@ -18,6 +19,7 @@ import type {
   AgentActivityLogEntry,
   User,
   UserWallet,
+  Token,
 } from '../types';
 
 const num = (v: bigint | null | undefined): number | null =>
@@ -35,6 +37,7 @@ export function agentRowToDomain(row: PrismaAgent): AgentConfig {
     dryRunSeedBalances: (row.dryRunSeedBalances ?? undefined) as
       | Record<string, string>
       | undefined,
+    allowedTokens: row.allowedTokens,
     riskLimits: row.riskLimits as AgentConfig['riskLimits'],
     createdAt: numReq(row.createdAt),
     running: row.running ?? undefined,
@@ -160,5 +163,19 @@ export function userWalletRowToDomain(row: PrismaUserWallet): UserWallet {
     walletAddress: row.walletAddress,
     isPrimary: row.isPrimary,
     createdAt: numReq(row.createdAt),
+  };
+}
+
+export function tokenRowToDomain(row: PrismaToken): Token {
+  return {
+    id: row.id,
+    chainId: row.chainId,
+    chain: row.chain,
+    address: row.address.toLowerCase(),
+    symbol: row.symbol,
+    name: row.name,
+    decimals: row.decimals,
+    logoUri: row.logoUri,
+    coingeckoId: row.coingeckoId,
   };
 }
