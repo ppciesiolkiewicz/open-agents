@@ -18,6 +18,22 @@ export interface WalletBalances {
   ogOnZerog: OgBalance;
 }
 
+export interface TokenForBalance {
+  address: `0x${string}`;
+  symbol: string;
+  decimals: number;
+  chainId: number;
+}
+
+export interface TokenBalanceItem {
+  chainId: number;
+  address: string;
+  symbol: string;
+  decimals: number;
+  raw: string;
+  formatted: string;
+}
+
 export interface BalanceServiceEnv {
   ALCHEMY_API_KEY: string;
   UNICHAIN_RPC_URL?: string;
@@ -73,6 +89,34 @@ export class BalanceService {
         valueUsd: Math.round(ogValue * 1e6) / 1e6,
       },
     };
+  }
+
+  async fetchTokenBalancesOnUnichain(
+    wallet: `0x${string}`,
+    tokens: TokenForBalance[],
+  ): Promise<TokenBalanceItem[]> {
+    if (tokens.length === 0) return [];
+    const results = await this.unichainClient.multicall({
+      contracts: tokens.map((t) => ({
+        address: t.address,
+        abi: erc20Abi,
+        functionName: 'balanceOf' as const,
+        args: [wallet] as const,
+      })),
+      allowFailure: true,
+    });
+    return tokens.map((t, i) => {
+      const r = results[i];
+      const raw = r && r.status === 'success' ? (r.result as bigint) : 0n;
+      return {
+        chainId: t.chainId,
+        address: t.address,
+        symbol: t.symbol,
+        decimals: t.decimals,
+        raw: raw.toString(),
+        formatted: formatTokenAmount(raw, t.decimals),
+      };
+    });
   }
 }
 
