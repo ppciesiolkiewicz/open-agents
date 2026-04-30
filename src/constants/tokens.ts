@@ -5,22 +5,19 @@ export interface TokenInfo {
   coingeckoId: string;
 }
 
-export const TOKENS = {
-  USDC: {
-    address: '0x078D782b760474a361dDA0AF3839290b0EF57AD6',
-    decimals: 6,
-    symbol: 'USDC',
-    coingeckoId: 'usd-coin',
-  },
-  UNI: {
-    address: '0x8f187aA05619a017077f5308904739877ce9eA21',
-    decimals: 18,
-    symbol: 'UNI',
-    coingeckoId: 'uniswap',
-  },
-} as const satisfies Record<string, TokenInfo>;
+export const USDC_ON_UNICHAIN = {
+  address: '0x078D782b760474a361dDA0AF3839290b0EF57AD6',
+  decimals: 6,
+  symbol: 'USDC',
+  coingeckoId: 'usd-coin',
+} as const satisfies TokenInfo;
 
-export type TokenSymbol = keyof typeof TOKENS;
+export const UNI_ON_UNICHAIN = {
+  address: '0x8f187aA05619a017077f5308904739877ce9eA21',
+  decimals: 18,
+  symbol: 'UNI',
+  coingeckoId: 'uniswap',
+} as const satisfies TokenInfo;
 
 export const ZEROG_NATIVE_TOKEN = {
   symbol: 'OG',
@@ -40,6 +37,3 @@ export const W0G_ON_ZEROG = {
   decimals: 18,
   symbol: 'W0G',
 } as const;
-
-export const USDC_ON_UNICHAIN = TOKENS.USDC;
-export const UNI_ON_UNICHAIN = TOKENS.UNI;
