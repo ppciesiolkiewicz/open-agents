@@ -5,7 +5,7 @@ import { PrismaTransactionRepository } from '../../database/prisma-database/pris
 import { getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
 import { PrismaAgentRepository } from '../../database/prisma-database/prisma-agent-repository';
 import { PrismaUserRepository } from '../../database/prisma-database/prisma-user-repository';
-import { TOKENS } from '../../constants';
+import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../../constants';
 import type { AgentConfig, Transaction, TokenAmount } from '../../database/types';
 
 // A throwaway wallet key — only used to derive an address; no private-key
@@ -13,14 +13,14 @@ import type { AgentConfig, Transaction, TokenAmount } from '../../database/types
 const TEST_KEY = '0x' + '11'.repeat(32);
 
 const usdc: TokenAmount = {
-  tokenAddress: TOKENS.USDC.address,
+  tokenAddress: USDC_ON_UNICHAIN.address,
   symbol: 'USDC',
   amountRaw: '100000000',           // 100 USDC (6 decimals)
   decimals: 6,
 };
 
 const uni: TokenAmount = {
-  tokenAddress: TOKENS.UNI.address,
+  tokenAddress: UNI_ON_UNICHAIN.address,
   symbol: 'UNI',
   amountRaw: '50000000000000000000', // 50 UNI (18 decimals)
   decimals: 18,
@@ -37,10 +37,10 @@ function makeAgent(id: string, userId = 'user-test'): AgentConfig {
     dryRun: true,
     dryRunSeedBalances: {
       native: '1000000000000000000',                  // 1 ETH
-      [TOKENS.USDC.address]: '1000000000',            // 1000 USDC
-      [TOKENS.UNI.address]: '0',
+      [USDC_ON_UNICHAIN.address]: '1000000000',            // 1000 USDC
+      [UNI_ON_UNICHAIN.address]: '0',
     },
-    allowedTokens: [TOKENS.USDC.address, TOKENS.UNI.address],
+    allowedTokens: [USDC_ON_UNICHAIN.address, UNI_ON_UNICHAIN.address],
     riskLimits: { maxTradeUSD: 1_000, maxSlippageBps: 100 },
     lastTickAt: null,
     createdAt: Date.now(),
@@ -100,8 +100,8 @@ describe('DryRunWallet (live, real PrismaTransactionRepository)', () => {
 
   it('returns seeded balances when there are no transactions', async () => {
     const eth = await wallet.getNativeBalance();
-    const usdcBal = await wallet.getTokenBalance(TOKENS.USDC.address);
-    const uniBal = await wallet.getTokenBalance(TOKENS.UNI.address);
+    const usdcBal = await wallet.getTokenBalance(USDC_ON_UNICHAIN.address);
+    const uniBal = await wallet.getTokenBalance(UNI_ON_UNICHAIN.address);
     console.log('[dry-run-wallet] seed balances — ETH:', eth, 'USDC:', usdcBal, 'UNI:', uniBal);
     expect(eth).toBe(1_000_000_000_000_000_000n);
     expect(usdcBal).toBe(1_000_000_000n);
@@ -126,8 +126,8 @@ describe('DryRunWallet (live, real PrismaTransactionRepository)', () => {
   it('updates token balances per tx (USDC out, UNI in)', async () => {
     await txRepo.insert(makeSwapTx('1', 'a1', usdc, uni));    // 100 USDC → 50 UNI
 
-    const usdcBal = await wallet.getTokenBalance(TOKENS.USDC.address);
-    const uniBal = await wallet.getTokenBalance(TOKENS.UNI.address);
+    const usdcBal = await wallet.getTokenBalance(USDC_ON_UNICHAIN.address);
+    const uniBal = await wallet.getTokenBalance(UNI_ON_UNICHAIN.address);
     expect(usdcBal).toBe(1_000_000_000n - 100_000_000n);              // 900 USDC
     expect(uniBal).toBe(50_000_000_000_000_000_000n);                 // 50 UNI
     console.log('[dry-run-wallet] after 100 USDC → 50 UNI:', { usdcBal, uniBal });
@@ -137,7 +137,7 @@ describe('DryRunWallet (live, real PrismaTransactionRepository)', () => {
     const other = makeAgent('someone-else', TEST_USER_ID);
     await agentRepo.upsert(other);
     await txRepo.insert(makeSwapTx('1', 'someone-else', usdc, uni));
-    const usdcBal = await wallet.getTokenBalance(TOKENS.USDC.address);
+    const usdcBal = await wallet.getTokenBalance(USDC_ON_UNICHAIN.address);
     expect(usdcBal).toBe(1_000_000_000n);  // unchanged
   });
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PositionTracker } from './position-tracker';
-import { TOKENS } from '../constants';
+import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../constants';
 import type { Database } from '../database/database';
 import type { AgentRepository } from '../database/repositories/agent-repository';
 import type { TransactionRepository } from '../database/repositories/transaction-repository';
@@ -45,13 +45,13 @@ function makeDb(positions: InMemoryPositionRepo): Database {
 }
 
 const usdcAmount = (raw: string): TokenAmount => ({
-  tokenAddress: TOKENS.USDC.address,
+  tokenAddress: USDC_ON_UNICHAIN.address,
   symbol: 'USDC',
   amountRaw: raw,
   decimals: 6,
 });
 const uniAmount = (raw: string): TokenAmount => ({
-  tokenAddress: TOKENS.UNI.address,
+  tokenAddress: UNI_ON_UNICHAIN.address,
   symbol: 'UNI',
   amountRaw: raw,
   decimals: 18,
