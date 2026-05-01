@@ -192,4 +192,27 @@ describe('ToolRegistry tools (live, real services + postgres)', () => {
     expect(BigInt(result.amountOut)).toBeGreaterThan(0n);
     expect(result.feeTier).toBe(3_000);
   });
+
+  it('sendMessageToChannel enqueues to channel peers', async () => {
+    const peer = makeAgent('a2', agent.userId);
+    await db.agents.upsert(peer);
+    const channel = await db.agents.createAxlChannel({
+      id: 'channel-test-1',
+      userId: agent.userId,
+      name: 'alpha',
+      createdAt: Date.now(),
+    });
+    await db.agents.addAgentToAxlChannel(agent.id, channel.id);
+    await db.agents.addAgentToAxlChannel(peer.id, channel.id);
+
+    const tool = registry.build().find((t) => t.name === 'sendMessageToChannel');
+    if (!tool) throw new Error('channel tool missing');
+    const result = (await tool.invoke({
+      channelId: channel.id,
+      message: 'hello channel',
+    }, ctx)) as { delivered: boolean; deliveredCount: number };
+    console.log('[tool-registry] sendMessageToChannel:', result);
+    expect(result.delivered).toBe(true);
+    expect(result.deliveredCount).toBe(1);
+  });
 });

@@ -27,6 +27,8 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
   { id: 'tokens.list-allowed', name: 'List allowed tokens', callableName: 'listAllowedTokens', description: 'List this agent allowed token set', category: 'tokens' },
   { id: 'agents.message.help', name: 'Agent messaging help', callableName: 'sendMessageToAgentHelp', description: 'Explain agent-to-agent messaging usage', category: 'agents' },
   { id: 'agents.message.send', name: 'Send message to agent', callableName: 'sendMessageToAgent', description: 'Send a message to another connected agent', category: 'agents' },
+  { id: 'agents.channel-message.help', name: 'Channel messaging help', callableName: 'sendMessageToChannelHelp', description: 'Explain channel messaging usage', category: 'agents' },
+  { id: 'agents.channel-message.send', name: 'Send message to channel', callableName: 'sendMessageToChannel', description: 'Send a message to all other agents in a connected channel', category: 'agents' },
   { id: 'utility.token-amount.format', name: 'Format token amount', callableName: 'formatTokenAmount', description: 'Format raw token amount using decimals', category: 'utility' },
   { id: 'utility.token-amount.parse', name: 'Parse token amount', callableName: 'parseTokenAmount', description: 'Parse human token amount into raw units', category: 'utility' },
 ];

@@ -15,6 +15,7 @@ export interface AgentConfig {
   allowedTokens: string[];
   toolIds?: string[];
   connectedAgentIds?: string[];
+  connectedChannelIds?: string[];
   riskLimits: {
     maxTradeUSD: number;
     maxSlippageBps: number;
@@ -25,6 +26,14 @@ export interface AgentConfig {
   running?: boolean;
   intervalMs?: number;
   lastTickAt?: number | null;
+}
+
+export interface AxlChannel {
+  id: string;
+  userId: string;
+  name: string;
+  createdAt: number;
+  memberAgentIds: string[];
 }
 
 export interface Transaction {

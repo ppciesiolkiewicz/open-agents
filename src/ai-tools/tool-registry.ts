@@ -25,6 +25,8 @@ import { buildFormatTokenAmountTool } from './utility/format-token-amount-tool';
 import { buildParseTokenAmountTool } from './utility/parse-token-amount-tool';
 import { buildSendMessageToAgentTool } from './axl/send-message-to-agent-tool';
 import { buildSendMessageToAgentHelpTool } from './axl/send-message-to-agent-help-tool';
+import { buildSendMessageToChannelTool } from './axl/send-message-to-channel-tool';
+import { buildSendMessageToChannelHelpTool } from './axl/send-message-to-channel-help-tool';
 import { assertToolCatalogMatchesBuiltTools } from './tool-catalog';
 
 export interface ToolRegistryDeps {
@@ -62,6 +64,8 @@ export class ToolRegistry {
       buildListAllowedTokensTool(this.deps.db),
       buildSendMessageToAgentHelpTool(this.deps.db),
       buildSendMessageToAgentTool(this.deps.db, this.deps.tickQueue),
+      buildSendMessageToChannelHelpTool(this.deps.db),
+      buildSendMessageToChannelTool(this.deps.db, this.deps.tickQueue),
       buildFormatTokenAmountTool(),
       buildParseTokenAmountTool(),
     ];

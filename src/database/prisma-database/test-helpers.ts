@@ -19,6 +19,8 @@ export async function truncateAll(prisma: PrismaClient): Promise<void> {
       "AgentMemory",
       "Position",
       "Transaction",
+      "AxlChannelMembership",
+      "AxlChannel",
       "Agent",
       "UserWallet",
       "User"

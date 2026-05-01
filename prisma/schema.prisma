@@ -29,6 +29,7 @@ model Agent {
   events              ActivityEvent[]
   axlConnectionsAsA   AxlAgentConnection[] @relation("AxlConnectionA")
   axlConnectionsAsB   AxlAgentConnection[] @relation("AxlConnectionB")
+  axlChannelMemberships AxlChannelMembership[]
 
   @@index([userId])
 }
@@ -43,6 +44,28 @@ model AxlAgentConnection {
   @@id([agentAId, agentBId])
   @@index([agentAId])
   @@index([agentBId])
+}
+
+model AxlChannel {
+  id          String   @id
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  createdAt   BigInt
+  memberships AxlChannelMembership[]
+
+  @@index([userId])
+}
+
+model AxlChannelMembership {
+  channelId String
+  channel   AxlChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt BigInt
+
+  @@id([channelId, agentId])
+  @@index([agentId])
 }
 
 model Transaction {
@@ -145,6 +168,7 @@ model User {
   wallets          UserWallet[]
   agents           Agent[]
   zeroGPurchases   ZeroGPurchase[]
+  axlChannels      AxlChannel[]
 }
 
 model UserWallet {

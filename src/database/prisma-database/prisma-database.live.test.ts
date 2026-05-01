@@ -88,6 +88,19 @@ describe('PrismaAgentRepository', () => {
     expect(a2?.connectedAgentIds).toEqual(['agent-1']);
   });
 
+  it('agent channel membership appears in connectedChannelIds', async () => {
+    await repo.upsert(makeAgent('agent-1'));
+    const channel = await repo.createAxlChannel({
+      id: randomUUID(),
+      userId: TEST_USER_ID,
+      name: 'ops',
+      createdAt: Date.now(),
+    });
+    await repo.addAgentToAxlChannel('agent-1', channel.id);
+    const a1 = await repo.findById('agent-1');
+    expect(a1?.connectedChannelIds).toEqual([channel.id]);
+  });
+
   it('findById returns null for missing agent', async () => {
     expect(await repo.findById('nope')).toBeNull();
   });

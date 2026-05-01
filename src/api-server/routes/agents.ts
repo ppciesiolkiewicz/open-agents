@@ -6,6 +6,7 @@ import { NotFoundError } from '../middleware/error-handler';
 import {
   CreateAgentBodySchema,
   ManageAgentConnectionBodySchema,
+  ManageAgentChannelBodySchema,
   UpdateAgentBodySchema,
 } from '../openapi/schemas';
 import { UNICHAIN } from '../../constants';
@@ -83,6 +84,7 @@ export function buildAgentsRouter(deps: Deps): Router {
         agentId,
         body.connectedAgentIds ?? [],
       );
+      const connectedChannelIds = body.connectedChannelIds ?? [];
       const agent: AgentConfig = {
         id: agentId,
         userId: req.user!.id,
@@ -93,6 +95,7 @@ export function buildAgentsRouter(deps: Deps): Router {
         allowedTokens,
         toolIds: normalizedToolIds,
         connectedAgentIds: [],
+        connectedChannelIds: [],
         riskLimits: body.riskLimits,
         createdAt: now(),
         running: false,
@@ -101,8 +104,13 @@ export function buildAgentsRouter(deps: Deps): Router {
       };
       await deps.db.agents.upsert(agent);
       await deps.db.agents.setAxlConnections(agent.id, connectedAgentIds);
+      for (const channelId of connectedChannelIds) {
+        const channel = await deps.db.agents.findAxlChannelById(channelId);
+        if (!channel || channel.userId !== req.user!.id) continue;
+        await deps.db.agents.addAgentToAxlChannel(agent.id, channel.id);
+      }
       const created = await deps.db.agents.findById(agent.id);
-      res.status(201).json(created ?? { ...agent, connectedAgentIds });
+      res.status(201).json(created ?? { ...agent, connectedAgentIds, connectedChannelIds });
     } catch (err) {
       if ((err as { code?: string }).code === 'unknown_tokens') {
         res.status(400).json({
@@ -161,6 +169,17 @@ export function buildAgentsRouter(deps: Deps): Router {
           body.connectedAgentIds,
         );
       }
+      let connectedChannelIdsPatch: string[] | undefined;
+      if (body.connectedChannelIds !== undefined) {
+        const nextConnectedChannelIds: string[] = [];
+        for (const channelId of body.connectedChannelIds) {
+          const channel = await deps.db.agents.findAxlChannelById(channelId);
+          if (!channel || channel.userId !== req.user!.id) continue;
+          if (nextConnectedChannelIds.includes(channel.id)) continue;
+          nextConnectedChannelIds.push(channel.id);
+        }
+        connectedChannelIdsPatch = nextConnectedChannelIds;
+      }
 
       const updated: AgentConfig = {
         ...agent,
@@ -175,8 +194,24 @@ export function buildAgentsRouter(deps: Deps): Router {
       if (connectedAgentIdsPatch !== undefined) {
         await deps.db.agents.setAxlConnections(agent.id, connectedAgentIdsPatch);
       }
+      if (connectedChannelIdsPatch !== undefined) {
+        const prevChannelIds = new Set(agent.connectedChannelIds ?? []);
+        const nextChannelIds = new Set(connectedChannelIdsPatch);
+        for (const channelId of prevChannelIds) {
+          if (nextChannelIds.has(channelId)) continue;
+          await deps.db.agents.removeAgentFromAxlChannel(agent.id, channelId);
+        }
+        for (const channelId of nextChannelIds) {
+          if (prevChannelIds.has(channelId)) continue;
+          await deps.db.agents.addAgentToAxlChannel(agent.id, channelId);
+        }
+      }
       const refreshed = await deps.db.agents.findById(agent.id);
-      res.json(refreshed ?? { ...updated, connectedAgentIds: connectedAgentIdsPatch ?? updated.connectedAgentIds });
+      res.json(refreshed ?? {
+        ...updated,
+        connectedAgentIds: connectedAgentIdsPatch ?? updated.connectedAgentIds,
+        connectedChannelIds: connectedChannelIdsPatch ?? updated.connectedChannelIds,
+      });
     } catch (err) {
       if ((err as { code?: string }).code === 'unknown_tokens') {
         res.status(400).json({
@@ -224,6 +259,37 @@ export function buildAgentsRouter(deps: Deps): Router {
       await deps.db.agents.setAxlConnections(agent.id, nextConnectedAgentIds);
       const refreshed = await deps.db.agents.findById(agent.id);
       res.json(refreshed ?? { ...agent, connectedAgentIds: nextConnectedAgentIds });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  r.post('/:id/channels', async (req, res, next) => {
+    try {
+      const body = ManageAgentChannelBodySchema.parse(req.body);
+      const agent = await deps.db.agents.findById(req.params.id);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
+      const channel = await deps.db.agents.findAxlChannelById(body.channelId);
+      if (!channel || channel.userId !== req.user!.id) throw new NotFoundError();
+      await deps.db.agents.addAgentToAxlChannel(agent.id, channel.id);
+      const refreshed = await deps.db.agents.findById(agent.id);
+      const connectedChannelIds = Array.from(new Set([...(agent.connectedChannelIds ?? []), channel.id]));
+      res.json(refreshed ?? { ...agent, connectedChannelIds });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  r.delete('/:id/channels/:channelId', async (req, res, next) => {
+    try {
+      const agent = await deps.db.agents.findById(req.params.id);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
+      const channel = await deps.db.agents.findAxlChannelById(req.params.channelId);
+      if (!channel || channel.userId !== req.user!.id) throw new NotFoundError();
+      await deps.db.agents.removeAgentFromAxlChannel(agent.id, channel.id);
+      const refreshed = await deps.db.agents.findById(agent.id);
+      const connectedChannelIds = (agent.connectedChannelIds ?? []).filter((id) => id !== channel.id);
+      res.json(refreshed ?? { ...agent, connectedChannelIds });
     } catch (err) {
       next(err);
     }

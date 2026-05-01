@@ -6,6 +6,9 @@ import {
   CreateAgentBodySchema,
   UpdateAgentBodySchema,
   ManageAgentConnectionBodySchema,
+  ManageAgentChannelBodySchema,
+  AxlChannelSchema,
+  CreateAxlChannelBodySchema,
   PostMessageBodySchema,
   PostMessageAcceptedSchema,
   PageOfActivitySchema,
@@ -177,6 +180,46 @@ function registerPaths(): void {
   });
 
   registry.registerPath({
+    method: 'get',
+    path: '/axl/channels',
+    description: 'Lists AXL channels owned by the authenticated user.',
+    responses: {
+      200: { description: 'list of channels', content: { 'application/json': { schema: z.array(AxlChannelSchema) } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/axl/channels',
+    description: 'Creates a new AXL channel for the authenticated user.',
+    request: { body: { content: { 'application/json': { schema: CreateAxlChannelBodySchema } } } },
+    responses: {
+      201: { description: 'created', content: { 'application/json': { schema: AxlChannelSchema } } },
+      400: { description: 'invalid input', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/axl/channels/{id}',
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: { description: 'channel', content: { 'application/json': { schema: AxlChannelSchema } } },
+      404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'delete',
+    path: '/axl/channels/{id}',
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      204: { description: 'deleted' },
+      404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
     method: 'post',
     path: '/agents',
     request: { body: { content: { 'application/json': { schema: CreateAgentBodySchema } } } },
@@ -228,6 +271,31 @@ function registerPaths(): void {
     path: '/agents/{id}/connections/{peerAgentId}',
     description: 'Removes a symmetric peer connection for this agent. No-op if the connection is absent.',
     request: { params: z.object({ id: z.string(), peerAgentId: z.string() }) },
+    responses: {
+      200: { description: 'updated', content: { 'application/json': { schema: AgentConfigSchema } } },
+      404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/agents/{id}/channels',
+    description: 'Adds this agent to an AXL channel owned by the same user. No-op when membership already exists.',
+    request: {
+      params: z.object({ id: z.string() }),
+      body: { content: { 'application/json': { schema: ManageAgentChannelBodySchema } } },
+    },
+    responses: {
+      200: { description: 'updated', content: { 'application/json': { schema: AgentConfigSchema } } },
+      404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'delete',
+    path: '/agents/{id}/channels/{channelId}',
+    description: 'Removes this agent from an AXL channel. No-op when membership is absent.',
+    request: { params: z.object({ id: z.string(), channelId: z.string() }) },
     responses: {
       200: { description: 'updated', content: { 'application/json': { schema: AgentConfigSchema } } },
       404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },

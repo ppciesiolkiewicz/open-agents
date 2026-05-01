@@ -40,6 +40,7 @@ export function agentRowToDomain(row: PrismaAgent): AgentConfig {
     allowedTokens: row.allowedTokens,
     toolIds: row.toolIds,
     connectedAgentIds: [],
+    connectedChannelIds: [],
     riskLimits: row.riskLimits as AgentConfig['riskLimits'],
     createdAt: numReq(row.createdAt),
     running: row.running ?? undefined,

@@ -12,6 +12,8 @@ export const RiskLimitsSchema = z.object({
 
 const CONNECTED_AGENT_IDS_DESCRIPTION =
   'Symmetric links for agent-to-agent messaging: each pair is one mutual connection. On write, unknown ids, other users’ agents, self, and duplicates are ignored. Re-sending an existing link is a no-op. PATCH replaces this agent’s link set; omitted ids are removed for both peers.';
+const CONNECTED_CHANNEL_IDS_DESCRIPTION =
+  'Channel memberships for this agent. IDs refer to AXL channels owned by the same user.';
 const TOOL_IDS_DESCRIPTION =
   'List of enabled tool IDs for this agent. IDs must exist in GET /tools. PATCH replaces this set when provided.';
 
@@ -25,6 +27,7 @@ export const AgentConfigSchema = z.object({
   allowedTokens: z.array(z.string()),
   toolIds: z.array(z.string()).openapi({ description: TOOL_IDS_DESCRIPTION }),
   connectedAgentIds: z.array(z.string()).openapi({ description: CONNECTED_AGENT_IDS_DESCRIPTION }),
+  connectedChannelIds: z.array(z.string()).openapi({ description: CONNECTED_CHANNEL_IDS_DESCRIPTION }),
   riskLimits: RiskLimitsSchema,
   createdAt: z.number(),
   running: z.boolean().optional(),
@@ -40,6 +43,7 @@ export const CreateAgentBodySchema = z.object({
   allowedTokens: z.array(z.string()).default([]),
   toolIds: z.array(z.string()).optional().openapi({ description: TOOL_IDS_DESCRIPTION }),
   connectedAgentIds: z.array(z.string()).default([]).openapi({ description: CONNECTED_AGENT_IDS_DESCRIPTION }),
+  connectedChannelIds: z.array(z.string()).default([]).openapi({ description: CONNECTED_CHANNEL_IDS_DESCRIPTION }),
   riskLimits: RiskLimitsSchema,
   intervalMs: z.number().int().min(1000).optional(),
 }).openapi('CreateAgentBody');
@@ -50,6 +54,7 @@ export const UpdateAgentBodySchema = z.object({
   allowedTokens: z.array(z.string()).optional(),
   toolIds: z.array(z.string()).optional().openapi({ description: TOOL_IDS_DESCRIPTION }),
   connectedAgentIds: z.array(z.string()).optional().openapi({ description: CONNECTED_AGENT_IDS_DESCRIPTION }),
+  connectedChannelIds: z.array(z.string()).optional().openapi({ description: CONNECTED_CHANNEL_IDS_DESCRIPTION }),
   riskLimits: RiskLimitsSchema.optional(),
   intervalMs: z.number().int().min(1000).optional(),
 }).openapi('UpdateAgentBody');
@@ -57,6 +62,22 @@ export const UpdateAgentBodySchema = z.object({
 export const ManageAgentConnectionBodySchema = z.object({
   peerAgentId: z.string().min(1),
 }).openapi('ManageAgentConnectionBody');
+
+export const ManageAgentChannelBodySchema = z.object({
+  channelId: z.string().min(1),
+}).openapi('ManageAgentChannelBody');
+
+export const AxlChannelSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  name: z.string().min(1),
+  createdAt: z.number(),
+  memberAgentIds: z.array(z.string()),
+}).openapi('AxlChannel');
+
+export const CreateAxlChannelBodySchema = z.object({
+  name: z.string().min(1),
+}).openapi('CreateAxlChannelBody');
 
 export const PostMessageBodySchema = z.object({
   content: z.string().min(1),
