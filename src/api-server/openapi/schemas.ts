@@ -10,6 +10,9 @@ export const RiskLimitsSchema = z.object({
   maxSlippageBps: z.number().int().nonnegative(),
 }).passthrough();
 
+const CONNECTED_AGENT_IDS_DESCRIPTION =
+  'Symmetric links for agent-to-agent messaging: each pair is one mutual connection. On write, unknown ids, other users’ agents, self, and duplicates are ignored. Re-sending an existing link is a no-op. PATCH replaces this agent’s link set; omitted ids are removed for both peers.';
+
 export const AgentConfigSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -18,6 +21,7 @@ export const AgentConfigSchema = z.object({
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
   allowedTokens: z.array(z.string()),
+  connectedAgentIds: z.array(z.string()).openapi({ description: CONNECTED_AGENT_IDS_DESCRIPTION }),
   riskLimits: RiskLimitsSchema,
   createdAt: z.number(),
   running: z.boolean().optional(),
@@ -31,6 +35,7 @@ export const CreateAgentBodySchema = z.object({
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
   allowedTokens: z.array(z.string()).default([]),
+  connectedAgentIds: z.array(z.string()).default([]).openapi({ description: CONNECTED_AGENT_IDS_DESCRIPTION }),
   riskLimits: RiskLimitsSchema,
   intervalMs: z.number().int().min(1000).optional(),
 }).openapi('CreateAgentBody');
@@ -39,6 +44,7 @@ export const UpdateAgentBodySchema = z.object({
   name: z.string().min(1).optional(),
   prompt: z.string().min(1).optional(),
   allowedTokens: z.array(z.string()).optional(),
+  connectedAgentIds: z.array(z.string()).optional().openapi({ description: CONNECTED_AGENT_IDS_DESCRIPTION }),
   riskLimits: RiskLimitsSchema.optional(),
   intervalMs: z.number().int().min(1000).optional(),
 }).openapi('UpdateAgentBody');

@@ -13,6 +13,7 @@ export interface AgentConfig {
   dryRun: boolean;
   dryRunSeedBalances?: Record<string, string>;  // tokenAddr (or "native") → raw bigint string
   allowedTokens: string[];
+  connectedAgentIds?: string[];
   riskLimits: {
     maxTradeUSD: number;
     maxSlippageBps: number;

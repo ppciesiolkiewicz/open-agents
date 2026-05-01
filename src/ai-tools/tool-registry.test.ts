@@ -5,11 +5,12 @@ import { CoinMarketCapService } from '../providers/coinmarketcap/coinmarketcap-s
 import { SerperService } from '../providers/serper/serper-service';
 import { FirecrawlService } from '../providers/firecrawl/firecrawl-service';
 import type { Database } from '../database/database';
+import { createStubTickQueue } from '../test-lib/stub-tick-queue';
 
 // Pure-logic test: verifies the canonical tool list is what the LLM sees.
 // No I/O — services and DB are constructed but never called.
 describe('ToolRegistry.build', () => {
-  it('returns the expected 18 tools in order', () => {
+  it('returns the expected 20 tools in order', () => {
     const registry = new ToolRegistry({
       coingecko: new CoingeckoService({ apiKey: 'unused' }),
       coinmarketcap: new CoinMarketCapService({ apiKey: 'unused' }),
@@ -18,6 +19,7 @@ describe('ToolRegistry.build', () => {
       db: {} as Database,
       uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
       env: { ALCHEMY_API_KEY: 'test', UNICHAIN_RPC_URL: undefined } as any,
+      tickQueue: createStubTickQueue(),
     });
     const names = registry.build().map((t) => t.name);
     expect(names).toEqual([
@@ -37,6 +39,8 @@ describe('ToolRegistry.build', () => {
       'findTokensBySymbol',
       'getTokenByAddress',
       'listAllowedTokens',
+      'sendMessageToAgentHelp',
+      'sendMessageToAgent',
       'formatTokenAmount',
       'parseTokenAmount',
     ]);
@@ -51,6 +55,7 @@ describe('ToolRegistry.build', () => {
       db: {} as Database,
       uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
       env: { ALCHEMY_API_KEY: 'test', UNICHAIN_RPC_URL: undefined } as any,
+      tickQueue: createStubTickQueue(),
     });
     for (const tool of registry.build()) {
       expect(tool.description.length).toBeGreaterThan(10);

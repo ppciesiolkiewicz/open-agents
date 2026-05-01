@@ -27,6 +27,8 @@
     "db:seed-tokens": "NODE_OPTIONS=--conditions=require tsx prisma/seed-tokens.ts",
     "llm:probe": "NODE_OPTIONS=--conditions=require tsx scripts/tests/zerog-llm-probe.ts",
     "llm:probe:streaming": "NODE_OPTIONS=--conditions=require tsx scripts/tests/zerog-llm-probe-streaming.ts",
+    "axl:pull": "bash scripts/pull-axl.sh",
+    "axl:start": "bash scripts/start-axl.sh",
     "swap:buy-uni": "NODE_OPTIONS=--conditions=require tsx scripts/tests/swap-buy-uni.ts",
     "swap:sell-uni": "NODE_OPTIONS=--conditions=require tsx scripts/tests/swap-sell-uni.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",

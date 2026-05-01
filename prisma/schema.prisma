@@ -26,8 +26,22 @@ model Agent {
   positions           Position[]
   memory              AgentMemory?
   events              ActivityEvent[]
+  axlConnectionsAsA   AxlAgentConnection[] @relation("AxlConnectionA")
+  axlConnectionsAsB   AxlAgentConnection[] @relation("AxlConnectionB")
 
   @@index([userId])
+}
+
+model AxlAgentConnection {
+  agentAId   String
+  agentA     Agent   @relation("AxlConnectionA", fields: [agentAId], references: [id], onDelete: Cascade)
+  agentBId   String
+  agentB     Agent   @relation("AxlConnectionB", fields: [agentBId], references: [id], onDelete: Cascade)
+  createdAt  BigInt
+
+  @@id([agentAId, agentBId])
+  @@index([agentAId])
+  @@index([agentBId])
 }
 
 model Transaction {

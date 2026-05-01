@@ -11,6 +11,7 @@ import { DryRunWallet } from '../wallet/dry-run/dry-run-wallet';
 import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN } from '../constants';
 import type { AgentConfig } from '../database/types';
 import type { AgentToolContext } from './tool';
+import { createStubTickQueue } from '../test-lib/stub-tick-queue';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
 const UNICHAIN_CHAIN_ID = 130;
@@ -90,6 +91,7 @@ describe('ToolRegistry tools (live, real services + postgres)', () => {
         ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY ?? 'dummy',
         UNICHAIN_RPC_URL: process.env.UNICHAIN_RPC_URL,
       } as any,
+      tickQueue: createStubTickQueue(),
     });
   });
 

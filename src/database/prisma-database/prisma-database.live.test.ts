@@ -78,6 +78,16 @@ describe('PrismaAgentRepository', () => {
     expect(await repo.findById('agent-1')).toBeNull();
   });
 
+  it('setAxlConnections creates symmetric connectivity view', async () => {
+    await repo.upsert(makeAgent('agent-1'));
+    await repo.upsert(makeAgent('agent-2'));
+    await repo.setAxlConnections('agent-1', ['agent-2']);
+    const a1 = await repo.findById('agent-1');
+    const a2 = await repo.findById('agent-2');
+    expect(a1?.connectedAgentIds).toEqual(['agent-2']);
+    expect(a2?.connectedAgentIds).toEqual(['agent-1']);
+  });
+
   it('findById returns null for missing agent', async () => {
     expect(await repo.findById('nope')).toBeNull();
   });

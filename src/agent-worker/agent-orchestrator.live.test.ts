@@ -69,6 +69,8 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     TEST_USER_ID = u.id;
     activityLog = new AgentActivityLog(db.activityLog);
     walletFactory = new WalletFactory(TEST_ENV, db.transactions);
+    clock = new MutableClock(10_000);
+    queue = new InMemoryTickQueue(() => clock.now());
     toolRegistry = new ToolRegistry({
       coingecko: new CoingeckoService({ apiKey: 'dummy' }),
       coinmarketcap: new CoinMarketCapService({ apiKey: 'dummy' }),
@@ -77,10 +79,9 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
       db,
       uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
       env: { ALCHEMY_API_KEY: 'unused', UNICHAIN_RPC_URL: undefined } as any,
+      tickQueue: queue,
     });
-    clock = new MutableClock(10_000);
     runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), toolRegistry, clock);
-    queue = new InMemoryTickQueue(() => clock.now());
     orchestrator = new AgentOrchestrator(db, queue, clock);
     dispatcher = new TickDispatcher({ db, runner, activityLog, queue });
     dispatcher.start();

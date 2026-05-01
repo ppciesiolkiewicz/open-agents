@@ -38,6 +38,7 @@ export function agentRowToDomain(row: PrismaAgent): AgentConfig {
       | Record<string, string>
       | undefined,
     allowedTokens: row.allowedTokens,
+    connectedAgentIds: [],
     riskLimits: row.riskLimits as AgentConfig['riskLimits'],
     createdAt: numReq(row.createdAt),
     running: row.running ?? undefined,

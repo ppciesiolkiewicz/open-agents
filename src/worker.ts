@@ -89,6 +89,7 @@ async function main(): Promise<void> {
     db,
     uniswap,
     env,
+    tickQueue: queue,
   });
   const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
 

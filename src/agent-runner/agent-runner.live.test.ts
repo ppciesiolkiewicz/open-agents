@@ -17,6 +17,7 @@ import type {
   ToolDefinition,
 } from './llm-client';
 import type { AgentConfig } from '../database/types';
+import { createStubTickQueue } from '../test-lib/stub-tick-queue';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
 const TEST_ENV = { WALLET_PRIVATE_KEY: TEST_KEY, ALCHEMY_API_KEY: 'unused' };
@@ -116,6 +117,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
       db,
       uniswap: {} as import('../uniswap/uniswap-service').UniswapService,
       env: { ALCHEMY_API_KEY: 'unused', UNICHAIN_RPC_URL: undefined } as any,
+      tickQueue: createStubTickQueue(),
     });
   });
 

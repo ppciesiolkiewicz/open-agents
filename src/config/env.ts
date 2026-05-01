@@ -28,6 +28,9 @@ const envSchema = z.object({
 
   PRIVY_APP_ID: z.string().min(1),
   PRIVY_APP_SECRET: z.string().min(1),
+
+  AXL_URL: z.string().url().default('http://127.0.0.1:9002'),
+
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   API_CORS_ORIGINS: z.string().optional(),

@@ -5,5 +5,6 @@ export interface AgentRepository {
   listByUser(userId: string): Promise<AgentConfig[]>;
   findById(id: string): Promise<AgentConfig | null>;
   upsert(agent: AgentConfig): Promise<void>;
+  setAxlConnections(agentId: string, connectedAgentIds: string[]): Promise<void>;
   delete(id: string): Promise<void>;
 }

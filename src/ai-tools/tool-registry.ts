@@ -6,6 +6,7 @@ import type { FirecrawlService } from '../providers/firecrawl/firecrawl-service'
 import type { Database } from '../database/database';
 import type { UniswapService } from '../uniswap/uniswap-service';
 import type { Env } from '../config/env';
+import type { TickQueue } from '../agent-runner/tick-queue';
 import { buildCoingeckoPriceTool } from './providers/coingecko-price-tool';
 import { buildCoinMarketCapInfoTool } from './providers/coinmarketcap-info-tool';
 import { buildSerperSearchTool } from './providers/serper-search-tool';
@@ -22,6 +23,8 @@ import { buildGetTokenByAddressTool } from './tokens/get-token-by-address-tool';
 import { buildListAllowedTokensTool } from './tokens/list-allowed-tokens-tool';
 import { buildFormatTokenAmountTool } from './utility/format-token-amount-tool';
 import { buildParseTokenAmountTool } from './utility/parse-token-amount-tool';
+import { buildSendMessageToAgentTool } from './axl/send-message-to-agent-tool';
+import { buildSendMessageToAgentHelpTool } from './axl/send-message-to-agent-help-tool';
 
 export interface ToolRegistryDeps {
   coingecko: CoingeckoService;
@@ -31,6 +34,7 @@ export interface ToolRegistryDeps {
   db: Database;
   uniswap: UniswapService;
   env: Env;
+  tickQueue: TickQueue;
 }
 
 export class ToolRegistry {
@@ -55,6 +59,8 @@ export class ToolRegistry {
       buildFindTokensBySymbolTool(this.deps.db),
       buildGetTokenByAddressTool(this.deps.db),
       buildListAllowedTokensTool(this.deps.db),
+      buildSendMessageToAgentHelpTool(this.deps.db),
+      buildSendMessageToAgentTool(this.deps.db, this.deps.tickQueue),
       buildFormatTokenAmountTool(),
       buildParseTokenAmountTool(),
     ];

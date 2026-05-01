@@ -33,6 +33,24 @@ export function buildAgentsRouter(deps: Deps): Router {
     return lowered;
   }
 
+  async function sanitizeConnectedAgentIdsForUser(
+    userId: string,
+    agentId: string,
+    requested: string[],
+  ): Promise<string[]> {
+    const roster = await deps.db.agents.listByUser(userId);
+    const rosterIds = new Set(roster.map((a) => a.id));
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const id of requested) {
+      if (!id || id === agentId || seen.has(id)) continue;
+      if (!rosterIds.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+    return out;
+  }
+
   r.get('/', async (req, res, next) => {
     try {
       const agents = await deps.db.agents.listByUser(req.user!.id);
@@ -48,14 +66,21 @@ export function buildAgentsRouter(deps: Deps): Router {
       const allowedTokens = body.allowedTokens
         ? await validateAndNormalizeAllowedTokens(body.allowedTokens)
         : [];
+      const agentId = randomUUID();
+      const connectedAgentIds = await sanitizeConnectedAgentIdsForUser(
+        req.user!.id,
+        agentId,
+        body.connectedAgentIds ?? [],
+      );
       const agent: AgentConfig = {
-        id: randomUUID(),
+        id: agentId,
         userId: req.user!.id,
         name: body.name,
         prompt: body.prompt,
         dryRun: body.dryRun,
         ...(body.dryRunSeedBalances ? { dryRunSeedBalances: body.dryRunSeedBalances } : {}),
         allowedTokens,
+        connectedAgentIds: [],
         riskLimits: body.riskLimits,
         createdAt: now(),
         running: false,
@@ -63,7 +88,9 @@ export function buildAgentsRouter(deps: Deps): Router {
         ...(body.intervalMs !== undefined ? { intervalMs: body.intervalMs } : {}),
       };
       await deps.db.agents.upsert(agent);
-      res.status(201).json(agent);
+      await deps.db.agents.setAxlConnections(agent.id, connectedAgentIds);
+      const created = await deps.db.agents.findById(agent.id);
+      res.status(201).json(created ?? { ...agent, connectedAgentIds });
     } catch (err) {
       if ((err as { code?: string }).code === 'unknown_tokens') {
         res.status(400).json({
@@ -96,6 +123,14 @@ export function buildAgentsRouter(deps: Deps): Router {
       if (body.allowedTokens !== undefined) {
         allowedTokensPatch = await validateAndNormalizeAllowedTokens(body.allowedTokens);
       }
+      let connectedAgentIdsPatch: string[] | undefined;
+      if (body.connectedAgentIds !== undefined) {
+        connectedAgentIdsPatch = await sanitizeConnectedAgentIdsForUser(
+          req.user!.id,
+          agent.id,
+          body.connectedAgentIds,
+        );
+      }
 
       const updated: AgentConfig = {
         ...agent,
@@ -106,7 +141,11 @@ export function buildAgentsRouter(deps: Deps): Router {
         ...(allowedTokensPatch !== undefined ? { allowedTokens: allowedTokensPatch } : {}),
       };
       await deps.db.agents.upsert(updated);
-      res.json(updated);
+      if (connectedAgentIdsPatch !== undefined) {
+        await deps.db.agents.setAxlConnections(agent.id, connectedAgentIdsPatch);
+      }
+      const refreshed = await deps.db.agents.findById(agent.id);
+      res.json(refreshed ?? { ...updated, connectedAgentIds: connectedAgentIdsPatch ?? updated.connectedAgentIds });
     } catch (err) {
       if ((err as { code?: string }).code === 'unknown_tokens') {
         res.status(400).json({
