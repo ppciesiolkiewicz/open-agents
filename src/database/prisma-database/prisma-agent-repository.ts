@@ -37,6 +37,7 @@ export class PrismaAgentRepository implements AgentRepository {
       dryRun: agent.dryRun,
       dryRunSeedBalances: (agent.dryRunSeedBalances ?? Prisma.DbNull) as Prisma.InputJsonValue,
       allowedTokens: agent.allowedTokens,
+      toolIds: agent.toolIds ?? [],
       riskLimits: agent.riskLimits as Prisma.InputJsonValue,
       createdAt: BigInt(agent.createdAt),
       running: agent.running ?? null,

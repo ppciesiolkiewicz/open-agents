@@ -20,6 +20,7 @@ model Agent {
   lastTickAt          BigInt?
   userId              String
   allowedTokens       String[]  @default([])
+  toolIds             String[]  @default([])
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   transactions        Transaction[]

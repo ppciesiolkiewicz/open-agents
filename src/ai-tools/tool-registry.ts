@@ -25,6 +25,7 @@ import { buildFormatTokenAmountTool } from './utility/format-token-amount-tool';
 import { buildParseTokenAmountTool } from './utility/parse-token-amount-tool';
 import { buildSendMessageToAgentTool } from './axl/send-message-to-agent-tool';
 import { buildSendMessageToAgentHelpTool } from './axl/send-message-to-agent-help-tool';
+import { assertToolCatalogMatchesBuiltTools } from './tool-catalog';
 
 export interface ToolRegistryDeps {
   coingecko: CoingeckoService;
@@ -42,7 +43,7 @@ export class ToolRegistry {
 
   build(): AgentTool[] {
     const [walletAddress, nativeBalance, tokenBalance] = buildWalletBalanceTools(this.deps.db, this.deps.env);
-    return [
+    const tools = [
       buildCoingeckoPriceTool(this.deps.coingecko, this.deps.db),
       buildCoinMarketCapInfoTool(this.deps.coinmarketcap),
       buildSerperSearchTool(this.deps.serper),
@@ -64,5 +65,7 @@ export class ToolRegistry {
       buildFormatTokenAmountTool(),
       buildParseTokenAmountTool(),
     ];
+    assertToolCatalogMatchesBuiltTools(tools);
+    return tools;
   }
 }

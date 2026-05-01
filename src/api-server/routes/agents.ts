@@ -5,9 +5,11 @@ import type { AgentConfig } from '../../database/types';
 import { NotFoundError } from '../middleware/error-handler';
 import {
   CreateAgentBodySchema,
+  ManageAgentConnectionBodySchema,
   UpdateAgentBodySchema,
 } from '../openapi/schemas';
 import { UNICHAIN } from '../../constants';
+import { listAllSupportedToolIds, validateAndNormalizeToolIds } from '../../ai-tools/tool-catalog';
 
 interface Deps {
   db: Database;
@@ -66,6 +68,15 @@ export function buildAgentsRouter(deps: Deps): Router {
       const allowedTokens = body.allowedTokens
         ? await validateAndNormalizeAllowedTokens(body.allowedTokens)
         : [];
+      const { normalizedToolIds, unknownToolIds } = validateAndNormalizeToolIds(
+        body.toolIds ?? listAllSupportedToolIds(),
+      );
+      if (unknownToolIds.length > 0) {
+        const err = new Error('unknown tool ids') as Error & { code?: string; unknownToolIds?: string[] };
+        err.code = 'unknown_tool_ids';
+        err.unknownToolIds = unknownToolIds;
+        throw err;
+      }
       const agentId = randomUUID();
       const connectedAgentIds = await sanitizeConnectedAgentIdsForUser(
         req.user!.id,
@@ -80,6 +91,7 @@ export function buildAgentsRouter(deps: Deps): Router {
         dryRun: body.dryRun,
         ...(body.dryRunSeedBalances ? { dryRunSeedBalances: body.dryRunSeedBalances } : {}),
         allowedTokens,
+        toolIds: normalizedToolIds,
         connectedAgentIds: [],
         riskLimits: body.riskLimits,
         createdAt: now(),
@@ -96,6 +108,13 @@ export function buildAgentsRouter(deps: Deps): Router {
         res.status(400).json({
           error: 'unknown_tokens',
           unknownAddresses: (err as Error & { unknownAddresses?: string[] }).unknownAddresses ?? [],
+        });
+        return;
+      }
+      if ((err as { code?: string }).code === 'unknown_tool_ids') {
+        res.status(400).json({
+          error: 'unknown_tool_ids',
+          unknownToolIds: (err as Error & { unknownToolIds?: string[] }).unknownToolIds ?? [],
         });
         return;
       }
@@ -123,6 +142,17 @@ export function buildAgentsRouter(deps: Deps): Router {
       if (body.allowedTokens !== undefined) {
         allowedTokensPatch = await validateAndNormalizeAllowedTokens(body.allowedTokens);
       }
+      let toolIdsPatch: string[] | undefined;
+      if (body.toolIds !== undefined) {
+        const { normalizedToolIds, unknownToolIds } = validateAndNormalizeToolIds(body.toolIds);
+        if (unknownToolIds.length > 0) {
+          const err = new Error('unknown tool ids') as Error & { code?: string; unknownToolIds?: string[] };
+          err.code = 'unknown_tool_ids';
+          err.unknownToolIds = unknownToolIds;
+          throw err;
+        }
+        toolIdsPatch = normalizedToolIds;
+      }
       let connectedAgentIdsPatch: string[] | undefined;
       if (body.connectedAgentIds !== undefined) {
         connectedAgentIdsPatch = await sanitizeConnectedAgentIdsForUser(
@@ -139,6 +169,7 @@ export function buildAgentsRouter(deps: Deps): Router {
         ...(body.riskLimits !== undefined ? { riskLimits: body.riskLimits } : {}),
         ...(body.intervalMs !== undefined ? { intervalMs: body.intervalMs } : {}),
         ...(allowedTokensPatch !== undefined ? { allowedTokens: allowedTokensPatch } : {}),
+        ...(toolIdsPatch !== undefined ? { toolIds: toolIdsPatch } : {}),
       };
       await deps.db.agents.upsert(updated);
       if (connectedAgentIdsPatch !== undefined) {
@@ -154,6 +185,46 @@ export function buildAgentsRouter(deps: Deps): Router {
         });
         return;
       }
+      if ((err as { code?: string }).code === 'unknown_tool_ids') {
+        res.status(400).json({
+          error: 'unknown_tool_ids',
+          unknownToolIds: (err as Error & { unknownToolIds?: string[] }).unknownToolIds ?? [],
+        });
+        return;
+      }
+      next(err);
+    }
+  });
+
+  r.post('/:id/connections', async (req, res, next) => {
+    try {
+      const body = ManageAgentConnectionBodySchema.parse(req.body);
+      const agent = await deps.db.agents.findById(req.params.id);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
+      const nextConnectedAgentIds = await sanitizeConnectedAgentIdsForUser(
+        req.user!.id,
+        agent.id,
+        [...(agent.connectedAgentIds ?? []), body.peerAgentId],
+      );
+      await deps.db.agents.setAxlConnections(agent.id, nextConnectedAgentIds);
+      const refreshed = await deps.db.agents.findById(agent.id);
+      res.json(refreshed ?? { ...agent, connectedAgentIds: nextConnectedAgentIds });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  r.delete('/:id/connections/:peerAgentId', async (req, res, next) => {
+    try {
+      const agent = await deps.db.agents.findById(req.params.id);
+      if (!agent || agent.userId !== req.user!.id) throw new NotFoundError();
+      const nextConnectedAgentIds = (agent.connectedAgentIds ?? []).filter(
+        (id) => id !== req.params.peerAgentId,
+      );
+      await deps.db.agents.setAxlConnections(agent.id, nextConnectedAgentIds);
+      const refreshed = await deps.db.agents.findById(agent.id);
+      res.json(refreshed ?? { ...agent, connectedAgentIds: nextConnectedAgentIds });
+    } catch (err) {
       next(err);
     }
   });

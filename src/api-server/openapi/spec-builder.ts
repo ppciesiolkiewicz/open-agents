@@ -5,6 +5,7 @@ import {
   AgentConfigSchema,
   CreateAgentBodySchema,
   UpdateAgentBodySchema,
+  ManageAgentConnectionBodySchema,
   PostMessageBodySchema,
   PostMessageAcceptedSchema,
   PageOfActivitySchema,
@@ -23,6 +24,8 @@ import {
   TokensListResponseSchema,
   AllowedTokensResponseSchema,
   UnknownTokensErrorSchema,
+  UnknownToolIdsErrorSchema,
+  ToolsListResponseSchema,
 } from './schemas';
 
 function registerPaths(): void {
@@ -109,6 +112,16 @@ function registerPaths(): void {
 
   registry.registerPath({
     method: 'get',
+    path: '/tools',
+    description: 'Returns the configured catalog of tools available for agent enablement.',
+    responses: {
+      200: { description: 'available tools', content: { 'application/json': { schema: ToolsListResponseSchema } } },
+      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
     path: '/users/me/zerog/balances',
     description: 'Get 0G balance across providers, ledger, and on-chain wallet',
     responses: {
@@ -169,7 +182,7 @@ function registerPaths(): void {
     request: { body: { content: { 'application/json': { schema: CreateAgentBodySchema } } } },
     responses: {
       201: { description: 'created', content: { 'application/json': { schema: AgentConfigSchema } } },
-      400: { description: 'invalid input or unknown tokens in allowlist', content: { 'application/json': { schema: UnknownTokensErrorSchema } } },
+      400: { description: 'invalid input or unknown tokens/tool ids', content: { 'application/json': { schema: z.union([UnknownTokensErrorSchema, UnknownToolIdsErrorSchema]) } } },
     },
   });
 
@@ -192,7 +205,32 @@ function registerPaths(): void {
     },
     responses: {
       200: { description: 'updated', content: { 'application/json': { schema: AgentConfigSchema } } },
-      400: { description: 'invalid input or unknown tokens in allowlist', content: { 'application/json': { schema: UnknownTokensErrorSchema } } },
+      400: { description: 'invalid input or unknown tokens/tool ids', content: { 'application/json': { schema: z.union([UnknownTokensErrorSchema, UnknownToolIdsErrorSchema]) } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/agents/{id}/connections',
+    description: 'Adds a symmetric peer connection for this agent. No-op when already connected, self, unknown, or cross-user.',
+    request: {
+      params: z.object({ id: z.string() }),
+      body: { content: { 'application/json': { schema: ManageAgentConnectionBodySchema } } },
+    },
+    responses: {
+      200: { description: 'updated', content: { 'application/json': { schema: AgentConfigSchema } } },
+      404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'delete',
+    path: '/agents/{id}/connections/{peerAgentId}',
+    description: 'Removes a symmetric peer connection for this agent. No-op if the connection is absent.',
+    request: { params: z.object({ id: z.string(), peerAgentId: z.string() }) },
+    responses: {
+      200: { description: 'updated', content: { 'application/json': { schema: AgentConfigSchema } } },
+      404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });
 

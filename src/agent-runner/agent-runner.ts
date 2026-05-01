@@ -8,6 +8,7 @@ import { toToolDefinition } from '../ai-tools/zod-to-openai';
 import { AGENT_RUNNER } from '../constants';
 import type { ChatMessage, InvokeOptions, LLMClient, ToolCall, ToolDefinition } from './llm-client';
 import { projectChatMessagesAsLLMMessages } from './tick-strategies/chat-history-projection';
+import { listAllSupportedToolIds, selectToolsByIds } from '../ai-tools/tool-catalog';
 
 export interface Clock {
   now(): number;
@@ -40,7 +41,9 @@ export class AgentRunner {
       this.logStdout(agent.id, `tick start (tickId=${tickId})`);
 
       const wallet = this.walletFactory.forAgent(agent);
-      const tools = this.toolRegistry.build();
+      const allTools = this.toolRegistry.build();
+      const effectiveToolIds = agent.toolIds ?? listAllSupportedToolIds();
+      const tools = selectToolsByIds(allTools, effectiveToolIds);
       const toolByName = new Map(tools.map((t) => [t.name, t]));
       const toolDefs = tools.map(toToolDefinition);
       const ctx: AgentToolContext = { agent, wallet, tickId };

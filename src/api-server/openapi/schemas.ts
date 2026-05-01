@@ -12,6 +12,8 @@ export const RiskLimitsSchema = z.object({
 
 const CONNECTED_AGENT_IDS_DESCRIPTION =
   'Symmetric links for agent-to-agent messaging: each pair is one mutual connection. On write, unknown ids, other users’ agents, self, and duplicates are ignored. Re-sending an existing link is a no-op. PATCH replaces this agent’s link set; omitted ids are removed for both peers.';
+const TOOL_IDS_DESCRIPTION =
+  'List of enabled tool IDs for this agent. IDs must exist in GET /tools. PATCH replaces this set when provided.';
 
 export const AgentConfigSchema = z.object({
   id: z.string(),
@@ -21,6 +23,7 @@ export const AgentConfigSchema = z.object({
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
   allowedTokens: z.array(z.string()),
+  toolIds: z.array(z.string()).openapi({ description: TOOL_IDS_DESCRIPTION }),
   connectedAgentIds: z.array(z.string()).openapi({ description: CONNECTED_AGENT_IDS_DESCRIPTION }),
   riskLimits: RiskLimitsSchema,
   createdAt: z.number(),
@@ -35,6 +38,7 @@ export const CreateAgentBodySchema = z.object({
   dryRun: z.boolean(),
   dryRunSeedBalances: z.record(z.string()).optional(),
   allowedTokens: z.array(z.string()).default([]),
+  toolIds: z.array(z.string()).optional().openapi({ description: TOOL_IDS_DESCRIPTION }),
   connectedAgentIds: z.array(z.string()).default([]).openapi({ description: CONNECTED_AGENT_IDS_DESCRIPTION }),
   riskLimits: RiskLimitsSchema,
   intervalMs: z.number().int().min(1000).optional(),
@@ -44,10 +48,15 @@ export const UpdateAgentBodySchema = z.object({
   name: z.string().min(1).optional(),
   prompt: z.string().min(1).optional(),
   allowedTokens: z.array(z.string()).optional(),
+  toolIds: z.array(z.string()).optional().openapi({ description: TOOL_IDS_DESCRIPTION }),
   connectedAgentIds: z.array(z.string()).optional().openapi({ description: CONNECTED_AGENT_IDS_DESCRIPTION }),
   riskLimits: RiskLimitsSchema.optional(),
   intervalMs: z.number().int().min(1000).optional(),
 }).openapi('UpdateAgentBody');
+
+export const ManageAgentConnectionBodySchema = z.object({
+  peerAgentId: z.string().min(1),
+}).openapi('ManageAgentConnectionBody');
 
 export const PostMessageBodySchema = z.object({
   content: z.string().min(1),
@@ -146,6 +155,23 @@ export const UnknownTokensErrorSchema = z.object({
   error: z.literal('unknown_tokens'),
   unknownAddresses: z.array(z.string()),
 }).openapi('UnknownTokensError');
+
+export const UnknownToolIdsErrorSchema = z.object({
+  error: z.literal('unknown_tool_ids'),
+  unknownToolIds: z.array(z.string()),
+}).openapi('UnknownToolIdsError');
+
+export const ToolCatalogItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  callableName: z.string(),
+  description: z.string(),
+  category: z.string().optional(),
+}).openapi('ToolCatalogItem');
+
+export const ToolsListResponseSchema = z.object({
+  tools: z.array(ToolCatalogItemSchema),
+}).openapi('ToolsListResponse');
 
 export const TreasuryDepositBodySchema = z.object({
   amount: z.string().min(1),
