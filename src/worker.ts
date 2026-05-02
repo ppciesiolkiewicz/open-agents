@@ -85,6 +85,7 @@ async function main(): Promise<void> {
     const topology = await axlClient.getTopology();
     localAxlPeerId = topology.ourPeerId;
     console.log(`[bootstrap] AXL node ready — peer=${localAxlPeerId}`);
+    await db.agents.stampAxlPeerId(localAxlPeerId);
   } catch (err) {
     console.warn(`[bootstrap] AXL node not reachable at ${env.AXL_URL} — messaging tools will fail until node is available:`, err);
   }

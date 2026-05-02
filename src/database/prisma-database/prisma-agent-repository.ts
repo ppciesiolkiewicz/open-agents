@@ -161,6 +161,10 @@ export class PrismaAgentRepository implements AgentRepository {
     });
   }
 
+  async stampAxlPeerId(peerId: string): Promise<void> {
+    await this.prisma.agent.updateMany({ where: { axlPeerId: null }, data: { axlPeerId: peerId } });
+  }
+
   async delete(id: string): Promise<void> {
     await this.prisma.agent.delete({ where: { id } }).catch((err) => {
       if ((err as { code?: string }).code === 'P2025') return;
