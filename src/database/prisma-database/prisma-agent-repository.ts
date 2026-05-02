@@ -48,6 +48,7 @@ export class PrismaAgentRepository implements AgentRepository {
         agent.lastTickAt === null || agent.lastTickAt === undefined
           ? null
           : BigInt(agent.lastTickAt),
+      axlPeerId: agent.axlPeerId ?? null,
     };
     await this.prisma.agent.upsert({
       where: { id: agent.id },
