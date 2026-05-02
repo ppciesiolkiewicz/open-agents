@@ -7,7 +7,8 @@ const SendMessageToAgentHelpInputSchema = z.object({});
 export function buildSendMessageToAgentHelpTool(db: Database): AgentTool<typeof SendMessageToAgentHelpInputSchema> {
   return {
     name: 'sendMessageToAgentHelp',
-    description: 'Return which connected agents are currently allowed message targets.',
+    description:
+      'Return the list of connected agents you can message, with their UUID (agentId) and human name. Always call this before sendMessageToAgent to get the correct agentId — never use an agent name as the ID.',
     inputSchema: SendMessageToAgentHelpInputSchema,
     async invoke(_input, ctx) {
       const source = await db.agents.findById(ctx.agent.id);
