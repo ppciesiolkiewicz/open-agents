@@ -1,7 +1,7 @@
 import type { PrivyClient } from '@privy-io/server-auth';
 import type { PublicClient } from 'viem';
 import { Wallet as EthersWallet, type Signer, type JsonRpcProvider } from 'ethers';
-import type { AgentConfig } from '../../database/types';
+import type { AgentConfig, UserWallet } from '../../database/types';
 import type { TransactionRepository } from '../../database/repositories/transaction-repository';
 import type { UserWalletRepository } from '../../database/repositories/user-wallet-repository';
 import type { Wallet } from '../wallet';
@@ -40,7 +40,10 @@ export class WalletFactory {
   async forAgent(agent: AgentConfig): Promise<Wallet> {
     const cached = this.cache.get(agent.id);
     if (cached) return cached;
-    const promise = this.build(agent);
+    const promise = this.build(agent).catch((err) => {
+      this.cache.delete(agent.id);
+      throw err;
+    });
     this.cache.set(agent.id, promise);
     return promise;
   }
@@ -55,12 +58,7 @@ export class WalletFactory {
       case 'privy':
       case 'privy_and_pk': {
         const privy = this.requirePrivy();
-        const uw = await this.deps.userWallets.findPrimaryByUser(agent.userId);
-        if (!uw) {
-          throw new Error(
-            `agent ${agent.id} (user ${agent.userId}) has no primary UserWallet — provision one via POST /users/me/wallets`,
-          );
-        }
+        const uw = await this.requirePrimaryUserWallet(agent);
         return new PrivyServerWallet(privy, uw, this.deps.publicClient);
       }
     }
@@ -73,6 +71,16 @@ export class WalletFactory {
       );
     }
     return this.deps.privy;
+  }
+
+  private async requirePrimaryUserWallet(agent: AgentConfig): Promise<UserWallet> {
+    const uw = await this.deps.userWallets.findPrimaryByUser(agent.userId);
+    if (!uw) {
+      throw new Error(
+        `agent ${agent.id} (user ${agent.userId}) has no primary UserWallet — provision one via POST /users/me/wallets`,
+      );
+    }
+    return uw;
   }
 
   async forZerogPayments(agent: AgentConfig): Promise<ZeroGSignerHandle> {
@@ -97,12 +105,7 @@ export class WalletFactory {
     const cached = this.zerogSignerByUser.get(agent.userId);
     if (cached) return cached;
     const privy = this.requirePrivy();
-    const uw = await this.deps.userWallets.findPrimaryByUser(agent.userId);
-    if (!uw) {
-      throw new Error(
-        `agent ${agent.id} (user ${agent.userId}) has no primary UserWallet — provision one via POST /users/me/wallets`,
-      );
-    }
+    const uw = await this.requirePrimaryUserWallet(agent);
     const signer = new PrivySigner(
       privy,
       uw.privyWalletId,
