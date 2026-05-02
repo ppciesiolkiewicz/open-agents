@@ -19,6 +19,7 @@ import {
   UsersMeResponseSchema,
   TreasuryDepositBodySchema,
   TreasuryDepositResponseSchema,
+  FakePurchaseBodySchema,
   ZeroGPurchaseSchema,
   ZeroGPurchaseListResponseSchema,
   ZeroGBalancesResponseSchema,
@@ -78,6 +79,18 @@ function registerPaths(): void {
     responses: {
       200: { description: 'purchase', content: { 'application/json': { schema: ZeroGPurchaseSchema } } },
       404: { description: 'not found', content: { 'application/json': { schema: ErrorResponseSchema } } },
+      401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/users/me/treasury/purchases/fake',
+    description: 'Creates a fake ZeroGPurchase row in `pending` status for the authenticated user, returns it immediately, then asynchronously advances the row through `bridging` → `swapping` → `sending` → `topping_up` → `completed` with a 2-second delay between each transition. No on-chain actions occur. Useful for exercising client UIs that subscribe to purchase status. Optional `amount` body field controls the incoming USDC amount (default `1`).',
+    request: { body: { content: { 'application/json': { schema: FakePurchaseBodySchema } } } },
+    responses: {
+      201: { description: 'fake purchase created', content: { 'application/json': { schema: ZeroGPurchaseSchema } } },
+      400: { description: 'no primary wallet', content: { 'application/json': { schema: ErrorResponseSchema } } },
       401: { description: 'invalid or missing token', content: { 'application/json': { schema: ErrorResponseSchema } } },
     },
   });

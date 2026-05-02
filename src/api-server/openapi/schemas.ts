@@ -198,6 +198,10 @@ export const TreasuryDepositBodySchema = z.object({
   amount: z.string().min(1),
 }).openapi('TreasuryDepositBody');
 
+export const FakePurchaseBodySchema = z.object({
+  amount: z.string().min(1).optional(),
+}).openapi('FakePurchaseBody');
+
 export const TreasuryDepositResponseSchema = z.object({
   txHash: z.string(),
   amount: z.string(),

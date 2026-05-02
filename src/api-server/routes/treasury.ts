@@ -1,10 +1,11 @@
+import { randomBytes, randomUUID } from 'crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import { encodeFunctionData, erc20Abi, parseUnits } from 'viem';
 import type { PrivyClient } from '@privy-io/server-auth';
 import type { Database } from '../../database/database.js';
-import type { ZeroGPurchaseStatus } from '../../database/types.js';
-import { USDC_ON_UNICHAIN } from '../../constants/index.js';
+import type { ZeroGPurchase, ZeroGPurchaseStatus } from '../../database/types.js';
+import { TREASURY_SERVICE_FEE_BPS, USDC_ON_UNICHAIN } from '../../constants/index.js';
 import type { Env } from '../../config/env.js';
 
 const ZEROG_PURCHASE_STATUSES: readonly ZeroGPurchaseStatus[] = [
@@ -25,6 +26,23 @@ interface Deps {
 const DepositBodySchema = z.object({
   amount: z.string().min(1),
 });
+
+const FakePurchaseBodySchema = z.object({
+  amount: z.string().min(1).optional(),
+});
+
+const FAKE_PURCHASE_STEP_MS = 2000;
+const FAKE_PURCHASE_STATUS_SEQUENCE: ZeroGPurchaseStatus[] = [
+  'bridging',
+  'swapping',
+  'sending',
+  'topping_up',
+  'completed',
+];
+
+function fakeTxHash(): string {
+  return `0x${randomBytes(32).toString('hex')}`;
+}
 
 export function buildTreasuryRouter(deps: Deps): Router {
   const r = Router();
@@ -64,6 +82,75 @@ export function buildTreasuryRouter(deps: Deps): Router {
         symbol: USDC_ON_UNICHAIN.symbol,
         decimals: USDC_ON_UNICHAIN.decimals,
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  r.post('/purchases/fake', async (req, res, next) => {
+    try {
+      const user = req.user!;
+      const body = FakePurchaseBodySchema.parse(req.body ?? {});
+
+      const userWallet = await deps.db.userWallets.findPrimaryByUser(user.id);
+      if (!userWallet) {
+        res.status(400).json({ error: 'no_wallet', message: 'Provision a wallet first via POST /users/me/wallets' });
+        return;
+      }
+
+      const amountStr = body.amount ?? '1';
+      const incomingAmount = parseUnits(amountStr, USDC_ON_UNICHAIN.decimals);
+      const serviceFeeAmount = (incomingAmount * BigInt(TREASURY_SERVICE_FEE_BPS)) / 10000n;
+      const swapInputAmount = incomingAmount - serviceFeeAmount;
+
+      const now = Date.now();
+      const purchase: ZeroGPurchase = {
+        id: randomUUID(),
+        userId: user.id,
+        userWalletAddress: userWallet.walletAddress,
+        incomingTxHash: fakeTxHash(),
+        incomingUsdcAmount: incomingAmount.toString(),
+        serviceFeeUsdcAmount: serviceFeeAmount.toString(),
+        swapInputUsdcAmount: swapInputAmount.toString(),
+        status: 'pending',
+        createdAt: now,
+        updatedAt: now,
+      };
+      await deps.db.zeroGPurchases.insert(purchase);
+
+      res.status(201).json(purchase);
+
+      const advance = (i: number): void => {
+        if (i >= FAKE_PURCHASE_STATUS_SEQUENCE.length) return;
+        setTimeout(async () => {
+          try {
+            const status = FAKE_PURCHASE_STATUS_SEQUENCE[i];
+            const patch: Parameters<typeof deps.db.zeroGPurchases.update>[1] = { status };
+            if (status === 'swapping') {
+              patch.swapTxHash = fakeTxHash();
+              patch.swapInputUsdceAmount = swapInputAmount.toString();
+              patch.swapOutputW0gAmount = (swapInputAmount * 1_000_000_000_000n).toString();
+              patch.swapGasCostWei = '300000000000000';
+              patch.unwrapTxHash = fakeTxHash();
+              patch.unwrapGasCostWei = '100000000000000';
+              patch.unwrappedOgAmount = (swapInputAmount * 1_000_000_000_000n).toString();
+            } else if (status === 'sending') {
+              patch.sendTxHash = fakeTxHash();
+              patch.sendGasCostWei = '50000000000000';
+              patch.ogAmountSentToUser = (swapInputAmount * 1_000_000_000_000n).toString();
+            } else if (status === 'topping_up') {
+              patch.ledgerTopUpTxHash = fakeTxHash();
+              patch.ledgerTopUpGasCostWei = '50000000000000';
+            }
+            await deps.db.zeroGPurchases.update(purchase.id, patch);
+          } catch (err) {
+            console.error(`[treasury/purchases/fake] update failed for ${purchase.id}:`, err);
+          } finally {
+            advance(i + 1);
+          }
+        }, FAKE_PURCHASE_STEP_MS);
+      };
+      advance(0);
     } catch (err) {
       next(err);
     }
