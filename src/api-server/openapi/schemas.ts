@@ -198,6 +198,10 @@ export const TreasuryDepositBodySchema = z.object({
   amount: z.string().min(1),
 }).openapi('TreasuryDepositBody');
 
+export const FakePurchaseBodySchema = z.object({
+  amount: z.string().min(1).optional(),
+}).openapi('FakePurchaseBody');
+
 export const TreasuryDepositResponseSchema = z.object({
   txHash: z.string(),
   amount: z.string(),
@@ -207,7 +211,6 @@ export const TreasuryDepositResponseSchema = z.object({
 
 export const ZeroGPurchaseStatusSchema = z.enum([
   'pending',
-  'bridging',
   'swapping',
   'sending',
   'topping_up',
@@ -225,9 +228,6 @@ export const ZeroGPurchaseSchema = z.object({
 
   serviceFeeUsdcAmount: z.string(),
   swapInputUsdcAmount: z.string(),
-
-  bridgeTxHash: z.string().optional(),
-  bridgeGasCostWei: z.string().optional(),
 
   swapTxHash: z.string().optional(),
   swapInputUsdceAmount: z.string().optional(),
@@ -309,3 +309,23 @@ export const WalletBalancesResponseSchema = z.object({
   }),
   totalValueUsd: z.number(),
 }).openapi('WalletBalancesResponse');
+
+export const SweepTransferSchema = z.object({
+  symbol: z.string(),
+  chainId: z.number().int(),
+  raw: z.string(),
+  txHash: z.string().optional(),
+  error: z.string().optional(),
+}).openapi('SweepTransfer');
+
+export const SweepWalletResultSchema = z.object({
+  walletAddress: z.string(),
+  privyWalletId: z.string(),
+  transfers: z.array(SweepTransferSchema),
+}).openapi('SweepWalletResult');
+
+export const SweepResponseSchema = z.object({
+  recipient: z.string(),
+  walletCount: z.number().int(),
+  results: z.array(SweepWalletResultSchema),
+}).openapi('SweepResponse');

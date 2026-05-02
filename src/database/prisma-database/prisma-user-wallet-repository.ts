@@ -39,6 +39,11 @@ export class PrismaUserWalletRepository implements UserWalletRepository {
     return rows.map(userWalletRowToDomain);
   }
 
+  async listAll(): Promise<UserWallet[]> {
+    const rows = await this.prisma.userWallet.findMany({ orderBy: { createdAt: 'asc' } });
+    return rows.map(userWalletRowToDomain);
+  }
+
   async findByPrivyWalletId(privyWalletId: string): Promise<UserWallet | null> {
     const row = await this.prisma.userWallet.findUnique({ where: { privyWalletId } });
     return row ? userWalletRowToDomain(row) : null;

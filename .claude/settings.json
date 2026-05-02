@@ -6,7 +6,22 @@
       "Bash(npx tsc *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(xargs ls *)"
+      "Bash(xargs ls *)",
+      "Bash(git push *)",
+      "Bash(curl -s \"https://tokens.coingecko.com/unichain/all.json\")",
+      "Bash(python3 -c \"import json,sys; tokens=json.load\\(sys.stdin\\)['tokens']; wbtc=[t for t in tokens if t['symbol'].upper\\(\\) in \\('WBTC','WBTC.E','WRAPPED BTC'\\)]; print\\(json.dumps\\(wbtc[:5], indent=2\\)\\)\")",
+      "Bash(git check-ignore *)",
+      "Bash(npx tsc --noEmit *)",
+      "Bash(npm run typecheck)",
+      "Bash(npx eslint *)",
+      "Bash(lsof -i *)",
+      "Bash(curl -s http://localhost:*)",
+      "Bash(npm install *)",
+      "Bash(npm --prefix /Users/pio/projects/open-agents-proj/open-agents-agent-loop/.worktrees/erc20-transfer-tool install)",
+      "Bash(npx vitest *)",
+      "Bash(git merge *)",
+      "Bash(git -C /Users/pio/projects/open-agents-proj/open-agents-agent-loop/.worktrees/erc20-transfer-tool merge main)",
+      "Read(//Users/pio/projects/open-agents-proj/open-agents-fe/src/**)"
     ]
   }
 }

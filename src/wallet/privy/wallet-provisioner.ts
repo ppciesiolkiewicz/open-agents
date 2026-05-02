@@ -85,9 +85,6 @@ export class WalletProvisioner {
       allAppWallets.push(...page.data);
       cursor = page.nextCursor;
     } while (cursor);
-    console.log(
-      `[wallet-provisioner] app-wide ethereum wallets (${allAppWallets.length}):\n${JSON.stringify(allAppWallets, null, 2)}`,
-    );
     const devWallet = (
       allAppWallets as Array<{ id: string; address: string }>
     ).find((w) => w.address?.toLowerCase() === ALLOWED_DEV_WALLET_ADDRESS);
