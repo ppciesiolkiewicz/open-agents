@@ -42,7 +42,9 @@ export class AgentRunner {
 
       const wallet = this.walletFactory.forAgent(agent);
       const allTools = this.toolRegistry.build();
-      const effectiveToolIds = agent.toolIds ?? listAllSupportedToolIds();
+      const effectiveToolIds = agent.toolIds && agent.toolIds.length > 0
+        ? agent.toolIds
+        : listAllSupportedToolIds();
       const tools = selectToolsByIds(allTools, effectiveToolIds);
       const toolByName = new Map(tools.map((t) => [t.name, t]));
       const toolDefs = tools.map(toToolDefinition);
