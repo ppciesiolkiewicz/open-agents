@@ -120,8 +120,6 @@ Local dev:
 - `npm run db:reset` — wipe data, re-migrate, re-seed
 - `npm run db:studio` — open Prisma Studio
 
-`zerog-bootstrap.json` (0G provider state) stays in `./db/` as a file — it is a singleton paid asset (3 OG to recreate) that gets its own migration cycle in a future spec.
-
 Schema in `prisma/schema.prisma`. Tests against a separate `agent_loop_test` database controlled by `TEST_DATABASE_URL`; DB live tests require `TEST_DATABASE_URL` to be set and will fail loudly if it is absent.
 
 ### Users + auth
@@ -214,8 +212,10 @@ ALCHEMY_API_KEY=
 UNICHAIN_RPC_URL=         # optional override; defaults to Alchemy URL
 
 # 0G chain
-ZEROG_NETWORK=testnet     # mainnet | testnet
-ZEROG_PROVIDER_ADDRESS=   # optional; bootstrap auto-picks otherwise
+ZEROG_NETWORK=mainnet     # mainnet | testnet
+ZEROG_PROVIDER_ADDRESS=   # 0x-prefixed 20-byte address (run `npm run zerog-bootstrap` to discover)
+ZEROG_SERVICE_URL=        # OpenAI-compatible base URL ending in /v1/proxy
+ZEROG_MODEL=              # e.g. qwen/qwen3-vl-30b-a3b-instruct
 
 # Data providers
 COINGECKO_API_KEY=
@@ -240,4 +240,4 @@ PRIVY_APP_ID=
 PRIVY_APP_SECRET=
 ```
 
-Service URL, secret, model — discovered at bootstrap, persisted to `./db/zerog-bootstrap.json`. Worker tick interval lives in `constants/`, not env.
+Provider address, service URL, and model live in `.env` (`ZEROG_PROVIDER_ADDRESS` / `ZEROG_SERVICE_URL` / `ZEROG_MODEL`). `npm run zerog-bootstrap` lists registered providers and funds the chosen sub-account but persists nothing — copy the printed values into `.env`. Worker tick interval lives in `constants/`, not env.

@@ -4,8 +4,6 @@ import { stdin as input, stdout as output } from 'node:process';
 import { loadEnv } from '../../config/env';
 import { buildZeroGBroker, buildEnvPkZeroGSigner } from './zerog-broker-factory';
 import { ZeroGBrokerService } from './zerog-broker-service';
-import { ZeroGBootstrapStore } from './zerog-bootstrap-store';
-import type { ZeroGBootstrapState } from './types';
 
 const DEFAULT_LEDGER_OG = 3;       // 0G ledger minimum (each deposit unit)
 const DEFAULT_TRANSFER_OG = 1;     // 0G per-provider minimum
@@ -42,7 +40,6 @@ async function main(): Promise<void> {
     ZEROG_NETWORK: env.ZEROG_NETWORK,
   });
   const service = new ZeroGBrokerService(broker);
-  const store = new ZeroGBootstrapStore(env.DB_DIR);
 
   console.log(`[zerog-bootstrap] network=${env.ZEROG_NETWORK} wallet=${walletAddress}`);
   console.log('[zerog-bootstrap] note: 0G ledger funding for Privy wallets is handled via the UI flow, not this script.');
@@ -80,9 +77,15 @@ async function main(): Promise<void> {
   }
   console.log('');
 
-  const target = process.env.ZEROG_PROVIDER_ADDRESS;
+  const target = env.ZEROG_PROVIDER_ADDRESS;
   if (!target) {
-    console.log('[zerog-bootstrap] set ZEROG_PROVIDER_ADDRESS=<address> in .env, then re-run `npm run zerog-bootstrap` to fund + persist.');
+    console.log('[zerog-bootstrap] no ZEROG_PROVIDER_ADDRESS set in .env. To select one and fund it:');
+    console.log('  1. Pick an address from the list above.');
+    console.log('  2. Set the following in .env:');
+    console.log('       ZEROG_PROVIDER_ADDRESS=<address>');
+    console.log('       ZEROG_SERVICE_URL=<url>');
+    console.log('       ZEROG_MODEL=<model>');
+    console.log('  3. Re-run `npm run zerog-bootstrap` to fund the sub-account.');
     if (!modelFilter) {
       console.log('[zerog-bootstrap] tip: set ZEROG_MODEL_FILTER=<substring> to narrow the list (e.g. ZEROG_MODEL_FILTER=llama).');
     }
@@ -91,8 +94,16 @@ async function main(): Promise<void> {
 
   const chosen = providers.find((p) => p.providerAddress.toLowerCase() === target.toLowerCase());
   if (!chosen) {
-    console.error(`[zerog-bootstrap] ZEROG_PROVIDER_ADDRESS=${target} not present in listService output.`);
+    console.error(`[zerog-bootstrap] ZEROG_PROVIDER_ADDRESS=${target} not present in listService output for network=${env.ZEROG_NETWORK}.`);
+    console.error(`[zerog-bootstrap] check ZEROG_NETWORK matches the chain the provider is registered on, or pick a different provider from the list above.`);
     process.exit(1);
+  }
+
+  if (env.ZEROG_SERVICE_URL && env.ZEROG_SERVICE_URL !== chosen.serviceUrl) {
+    console.warn(`[zerog-bootstrap] WARNING: env ZEROG_SERVICE_URL=${env.ZEROG_SERVICE_URL} differs from registry value ${chosen.serviceUrl}. Update .env if the registry value is correct.`);
+  }
+  if (env.ZEROG_MODEL && env.ZEROG_MODEL !== chosen.model) {
+    console.warn(`[zerog-bootstrap] WARNING: env ZEROG_MODEL=${env.ZEROG_MODEL} differs from registry value ${chosen.model}. Update .env if the registry value is correct.`);
   }
 
   const subBalanceWei = chosen.subAccountBalanceWei ?? 0n;
@@ -101,7 +112,6 @@ async function main(): Promise<void> {
   const ledgerBalanceOG = Number(ledgerBalanceWei) / 1e18;
 
   const willTopUpSub = subBalanceOG < MIN_SUBACCOUNT_OG;
-  const willTopUpLedger = ledgerBalanceOG < MIN_LEDGER_OG;
 
   // Transfer enough to cross the threshold, clamped to the SDK's 1 OG minimum.
   const subDeficitOG = Math.max(0, MIN_SUBACCOUNT_OG - subBalanceOG);
@@ -114,13 +124,6 @@ async function main(): Promise<void> {
   console.log(`[zerog-bootstrap] sub-account balance: ${formatWeiAsOG(subBalanceWei)} OG  (top-up threshold: ${MIN_SUBACCOUNT_OG} OG)`);
   console.log(`[zerog-bootstrap] main ledger available: ${formatWeiAsOG(ledgerBalanceWei)} OG  (top-up threshold: ${MIN_LEDGER_OG} OG — SDK auto-funding draws from here)`);
 
-  // Compute the actual sequence of wallet-touching operations:
-  //   - if no ledger account exists yet, addLedger creates one (wallet → ledger).
-  //   - if main ledger has < transferOG, an embedded depositFund(ledgerOG) fires
-  //     inside fundAndAcknowledge BEFORE the transfer can succeed.
-  //   - transferFund itself is internal (main → sub-account); zero wallet outflow.
-  //   - after the transfer, ledger is back at original-(transferOG) which may
-  //     be below MIN_LEDGER_OG, triggering a second depositFund(ledgerOG).
   const planLines: string[] = [];
   let walletOutflowOG = 0;
   let projectedLedgerOG = ledgerBalanceOG;
@@ -149,7 +152,6 @@ async function main(): Promise<void> {
   }
 
   planLines.push(`acknowledge provider signer (idempotent — no wallet cost)`);
-  planLines.push(`persist db/zerog-bootstrap.json (no wallet cost)`);
 
   console.log('[zerog-bootstrap] plan:');
   for (const l of planLines) console.log(`  - ${l}`);
@@ -191,20 +193,12 @@ async function main(): Promise<void> {
     console.log(`[zerog-bootstrap] main ledger: no top-up needed (available ${formatWeiAsOG(ledgerResult.balanceBeforeWei)} OG ≥ ${MIN_LEDGER_OG} OG).`);
   }
 
-  const now = Date.now();
-  const state: ZeroGBootstrapState = {
-    network: env.ZEROG_NETWORK,
-    providerAddress: chosen.providerAddress,
-    serviceUrl: result.serviceUrl,
-    model: result.model,
-    acknowledgedAt: now,
-    fundedAt: now,
-    fundAmountOG:
-      (result.toppedUp ? transferOG : 0) + (ledgerResult.deposited ? ledgerOG : 0),
-  };
-  await store.save(state);
-
-  console.log(`[zerog-bootstrap] persisted ${env.DB_DIR}/zerog-bootstrap.json`);
+  console.log('');
+  console.log('[zerog-bootstrap] ✅ funded. Ensure these are set in .env (no file is persisted):');
+  console.log(`  ZEROG_NETWORK=${env.ZEROG_NETWORK}`);
+  console.log(`  ZEROG_PROVIDER_ADDRESS=${chosen.providerAddress}`);
+  console.log(`  ZEROG_SERVICE_URL=${result.serviceUrl}`);
+  console.log(`  ZEROG_MODEL=${result.model}`);
   console.log(`[zerog-bootstrap] next: \`npm run llm:probe\` to sanity-check, or \`npm start\` to run the loop.`);
 }
 

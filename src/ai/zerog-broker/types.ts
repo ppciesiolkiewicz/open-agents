@@ -1,15 +1,13 @@
 import type { ZeroGNetworkName } from '../../constants';
 
-// Persisted runtime state — written by the bootstrap CLI, read by `npm start`.
-// Contains no secrets (0G auth is per-call via broker.inference.getRequestHeaders).
-export interface ZeroGBootstrapState {
+// Runtime 0G inference target — derived from env vars (ZEROG_NETWORK,
+// ZEROG_PROVIDER_ADDRESS, ZEROG_SERVICE_URL, ZEROG_MODEL). Contains no secrets
+// (0G auth is per-call via broker.inference.getRequestHeaders).
+export interface ZeroGRuntimeConfig {
   network: ZeroGNetworkName;
   providerAddress: `0x${string}`;
   serviceUrl: string;        // OpenAI-compatible base URL for the chat completions endpoint
-  model: string;             // e.g. "llama-3.3-70b-instruct"
-  acknowledgedAt: number;    // epoch ms — when broker.inference.acknowledgeProviderSigner ran
-  fundedAt: number;          // epoch ms — when transferFund last completed
-  fundAmountOG: number;      // OG value transferred to provider sub-account on the most recent fund
+  model: string;             // e.g. "qwen/qwen3-vl-30b-a3b-instruct"
 }
 
 // Returned by ZeroGBrokerService.listProviders for CLI display.

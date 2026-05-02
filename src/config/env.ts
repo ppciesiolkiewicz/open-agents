@@ -13,7 +13,12 @@ const envSchema = z.object({
   UNICHAIN_RPC_URL: z.string().url().optional(),
 
   ZEROG_NETWORK: z.enum(['mainnet', 'testnet']),
-  ZEROG_PROVIDER_ADDRESS: z.string().min(1).optional(),
+  ZEROG_PROVIDER_ADDRESS: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, 'must be 0x-prefixed 20-byte address')
+    .optional(),
+  ZEROG_SERVICE_URL: z.string().url().optional(),
+  ZEROG_MODEL: z.string().min(1).optional(),
 
   COINGECKO_API_KEY: z.string().min(1),
   COINMARKETCAP_API_KEY: z.string().min(1),

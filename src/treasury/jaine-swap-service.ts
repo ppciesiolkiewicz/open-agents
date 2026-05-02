@@ -63,10 +63,17 @@ export class JaineSwapService {
     const w0gBalanceOf = w0g.balanceOf as (address: string) => Promise<bigint>;
     const w0gWithdraw = w0g.withdraw as (wad: bigint) => Promise<ethers.ContractTransactionResponse>;
 
+    console.log(
+      `[JaineSwap] start treasury=${treasuryAddress} input=${usdceAmount} router=${JAINE_SWAP_ROUTER_ADDRESS} fee=${JAINE_POOL_FEE}`,
+    );
+
     const allowance: bigint = await usdceAllowance(treasuryAddress, JAINE_SWAP_ROUTER_ADDRESS);
+    console.log(`[JaineSwap] allowance current=${allowance} need=${usdceAmount}`);
     if (allowance < usdceAmount) {
+      console.log(`[JaineSwap] approving router amount=${usdceAmount}`);
       const approveTx = await usdceApprove(JAINE_SWAP_ROUTER_ADDRESS, usdceAmount);
-      await approveTx.wait();
+      const approveReceipt = await approveTx.wait();
+      console.log(`[JaineSwap] approved txHash=${approveReceipt?.hash ?? approveTx.hash}`);
     }
 
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 900);
@@ -74,7 +81,9 @@ export class JaineSwapService {
     const amountOutMinimum = 0n;
 
     const w0gBalanceBefore: bigint = await w0gBalanceOf(treasuryAddress);
+    console.log(`[JaineSwap] w0g balance before swap=${w0gBalanceBefore}`);
 
+    console.log(`[JaineSwap] swap submit input=${usdceAmount} deadline=${deadline}`);
     const swapTx = await routerExactInputSingle({
       tokenIn: USDCE_ON_ZEROG.address,
       tokenOut: W0G_ON_ZEROG.address,
@@ -91,12 +100,19 @@ export class JaineSwapService {
     const swapGasCostWei = swapReceipt.gasUsed * swapReceipt.gasPrice;
     const w0gBalanceAfter: bigint = await w0gBalanceOf(treasuryAddress);
     const swapOutputAmount = w0gBalanceAfter - w0gBalanceBefore;
+    console.log(
+      `[JaineSwap] swap confirmed txHash=${swapReceipt.hash} output=${swapOutputAmount} w0gBalanceAfter=${w0gBalanceAfter} gasCostWei=${swapGasCostWei}`,
+    );
 
+    console.log(`[JaineSwap] unwrap submit amount=${w0gBalanceAfter}`);
     const unwrapTx = await w0gWithdraw(w0gBalanceAfter);
     const unwrapReceipt = await unwrapTx.wait();
     if (!unwrapReceipt) throw new Error('JaineSwapService: unwrap tx no receipt');
 
     const unwrapGasCostWei = unwrapReceipt.gasUsed * unwrapReceipt.gasPrice;
+    console.log(
+      `[JaineSwap] unwrap confirmed txHash=${unwrapReceipt.hash} unwrappedOg=${w0gBalanceAfter} gasCostWei=${unwrapGasCostWei}`,
+    );
 
     return {
       swapTxHash: swapReceipt.hash,

@@ -48,7 +48,9 @@ export class TreasuryFundsWatcher {
           this.redis.lpush(TREASURY_REDIS_QUEUE, JSON.stringify(event)).catch((err) => {
             console.error('[TreasuryFundsWatcher] redis lpush error:', err);
           });
-          console.log(`[TreasuryFundsWatcher] detected USDC transfer from ${event.fromAddress}, amount=${event.amount}`);
+          console.log(
+            `[TreasuryFundsWatcher] detected USDC transfer from=${event.fromAddress} amount=${event.amount} txHash=${event.txHash} blockNumber=${event.blockNumber}`,
+          );
         }
       },
       onError: (err) => {

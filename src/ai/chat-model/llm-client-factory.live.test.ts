@@ -12,7 +12,7 @@ import { PrismaUserRepository } from '../../database/prisma-database/prisma-user
 import { getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
 import { ZEROG_NETWORKS } from '../../constants';
 import type { AgentConfig, User, UserWallet } from '../../database/types';
-import type { ZeroGBootstrapState } from '../zerog-broker/types';
+import type { ZeroGRuntimeConfig } from '../zerog-broker/types';
 import { randomUUID } from 'node:crypto';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
@@ -55,14 +55,11 @@ async function seedUserWithWallet(
   return { user, uw };
 }
 
-const FAKE_BOOTSTRAP: ZeroGBootstrapState = {
+const FAKE_BOOTSTRAP: ZeroGRuntimeConfig = {
   network: 'testnet',
   providerAddress: '0xf07240Efa67755B5311bc75784a061eDB47165Dd',
   serviceUrl: 'https://example.invalid/v1/proxy',
   model: 'llama-3.3-70b-instruct',
-  acknowledgedAt: 1,
-  fundedAt: 1,
-  fundAmountOG: 0,
 };
 
 describe('LLMClientFactory (live)', () => {

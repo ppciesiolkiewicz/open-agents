@@ -13,7 +13,7 @@ import { RedisClient } from './redis/redis-client';
 import { WalletFactory } from './wallet/factory/wallet-factory';
 import { AgentRunner } from './agent-runner/agent-runner';
 import { LLMClientFactory } from './ai/chat-model/llm-client-factory';
-import { ZeroGBootstrapStore } from './ai/zerog-broker/zerog-bootstrap-store';
+import { ZeroGRuntimeConfigLoader } from './ai/zerog-broker/zerog-runtime-config';
 import { buildZeroGProvider } from './ai/zerog-broker/zerog-broker-factory';
 import { silenceZeroGSdkNoise } from './ai/zerog-broker/silence-sdk-noise';
 import { ToolRegistry } from './ai-tools/tool-registry';
@@ -65,21 +65,15 @@ async function main(): Promise<void> {
   }
   const axlPoller = new AxlPoller(axlClient, queue);
 
-  const bootstrapStore = new ZeroGBootstrapStore(env.DB_DIR);
-  const bootstrapState = await bootstrapStore.load();
-  if (bootstrapState && bootstrapState.network !== env.ZEROG_NETWORK) {
-    console.warn(
-      `[bootstrap] WARNING: zerog-bootstrap.json was funded on '${bootstrapState.network}' but env says '${env.ZEROG_NETWORK}'; using the file's network.`,
-    );
-  }
-  if (!bootstrapState) {
-    console.log('[bootstrap] no zerog-bootstrap.json; using StubLLMClient. Run `npm run zerog-bootstrap` to fund a 0G provider.');
+  const zerogConfig = ZeroGRuntimeConfigLoader.fromEnv(env);
+  if (!zerogConfig) {
+    console.log('[bootstrap] ZEROG_PROVIDER_ADDRESS/SERVICE_URL/MODEL not set; using StubLLMClient. Run `npm run zerog-bootstrap` to discover values.');
   } else {
     silenceZeroGSdkNoise();
-    console.log(`[bootstrap] 0G LLM ready — network=${bootstrapState.network} provider=${bootstrapState.providerAddress} model=${bootstrapState.model}`);
+    console.log(`[bootstrap] 0G LLM ready — network=${zerogConfig.network} provider=${zerogConfig.providerAddress} model=${zerogConfig.model}`);
   }
 
-  const zerogNetwork = bootstrapState?.network ?? env.ZEROG_NETWORK;
+  const zerogNetwork = zerogConfig?.network ?? env.ZEROG_NETWORK;
   const zerogProvider = buildZeroGProvider(zerogNetwork);
   const privyClient = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
   const walletFactory = new WalletFactory({
@@ -93,7 +87,7 @@ async function main(): Promise<void> {
     zerogChainId: ZEROG_NETWORKS[zerogNetwork].chainId,
   });
   const uniswap = new UniswapService(env, db);
-  const llmFactory = new LLMClientFactory(walletFactory, bootstrapState);
+  const llmFactory = new LLMClientFactory(walletFactory, zerogConfig);
   const coingecko = new CoingeckoService({ apiKey: env.COINGECKO_API_KEY });
   const toolRegistry = new ToolRegistry({
     coingecko,
