@@ -9,7 +9,8 @@ export function buildListAvailableChannelsTool(
 ): AgentTool<typeof ListAvailableChannelsInputSchema> {
   return {
     name: 'listAvailableChannels',
-    description: 'List AXL channels this agent is connected to and can message.',
+    description:
+      'Return the list of channels this agent can message, with their UUID (channelId) and human name. Always call this before sendMessageToChannel to get the correct channelId — never use a channel name as the ID.',
     inputSchema: ListAvailableChannelsInputSchema,
     async invoke(_input, ctx) {
       const source = await db.agents.findById(ctx.agent.id);

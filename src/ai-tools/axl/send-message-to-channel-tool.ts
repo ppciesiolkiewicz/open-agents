@@ -4,7 +4,12 @@ import type { AxlClient } from '../../axl/axl-client';
 import type { AgentTool } from '../tool';
 
 const SendMessageToChannelInputSchema = z.object({
-  channelId: z.string().min(1),
+  channelId: z
+    .string()
+    .uuid()
+    .describe(
+      'The UUID of the channel (e.g. "a1b2c3d4-..."). NOT the channel name. Call listAvailableChannels first to get the list of connected channel IDs and their names.',
+    ),
   message: z.string().min(1),
 });
 
@@ -16,7 +21,7 @@ export function buildSendMessageToChannelTool(
   return {
     name: 'sendMessageToChannel',
     description:
-      'Send a message to all other agents in a connected AXL channel via the AXL P2P network.',
+      'Send a message to all other agents in a connected AXL channel. IMPORTANT: channelId must be a UUID — call listAvailableChannels first to look up channel IDs by name. Do not guess or use the channel name as the ID.',
     inputSchema: SendMessageToChannelInputSchema,
     async invoke(input, ctx) {
       const source = await db.agents.findById(ctx.agent.id);

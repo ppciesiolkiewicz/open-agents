@@ -4,7 +4,12 @@ import type { AxlClient } from '../../axl/axl-client';
 import type { AgentTool } from '../tool';
 
 const SendMessageToAgentInputSchema = z.object({
-  targetAgentId: z.string().min(1),
+  targetAgentId: z
+    .string()
+    .uuid()
+    .describe(
+      'The UUID of the target agent (e.g. "a1b2c3d4-..."). NOT the agent name. Call sendMessageToAgentHelp first to get the list of connected agent IDs and their names.',
+    ),
   message: z.string().min(1),
 });
 
@@ -16,7 +21,7 @@ export function buildSendMessageToAgentTool(
   return {
     name: 'sendMessageToAgent',
     description:
-      'Send a message to a connected peer agent via the AXL P2P network. The recipient runs a normal tick with your message as input.',
+      'Send a message to a connected peer agent via AXL P2P. IMPORTANT: targetAgentId must be a UUID — call sendMessageToAgentHelp first to look up agent IDs by name. Do not guess or use the agent name as the ID.',
     inputSchema: SendMessageToAgentInputSchema,
     async invoke(input, ctx) {
       if (input.targetAgentId === ctx.agent.id) {

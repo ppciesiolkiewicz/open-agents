@@ -19,6 +19,13 @@ export const UNI_ON_UNICHAIN = {
   coingeckoId: 'uniswap',
 } as const satisfies TokenInfo;
 
+export const WBTC_ON_UNICHAIN = {
+  address: '0x0555e30da8f98308edb960aa94c0db47230d2b9c' as `0x${string}`,
+  decimals: 8,
+  symbol: 'WBTC',
+  coingeckoId: 'wrapped-bitcoin',
+} as const satisfies TokenInfo;
+
 export const ZEROG_NATIVE_TOKEN = {
   symbol: 'OG',
   decimals: 18,
