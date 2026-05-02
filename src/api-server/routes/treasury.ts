@@ -117,6 +117,7 @@ export function buildTreasuryRouter(deps: Deps): Router {
         updatedAt: now,
       };
       await deps.db.zeroGPurchases.insert(purchase);
+      console.log(`[treasury/purchases/fake] created ${purchase.id} user=${user.id} amount=${amountStr} USDC`);
 
       res.status(201).json(purchase);
 
@@ -143,6 +144,7 @@ export function buildTreasuryRouter(deps: Deps): Router {
               patch.ledgerTopUpGasCostWei = '50000000000000';
             }
             await deps.db.zeroGPurchases.update(purchase.id, patch);
+            console.log(`[treasury/purchases/fake] ${purchase.id} -> ${status}`);
           } catch (err) {
             console.error(`[treasury/purchases/fake] update failed for ${purchase.id}:`, err);
           } finally {
