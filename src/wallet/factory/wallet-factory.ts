@@ -1,6 +1,6 @@
 import type { PrivyClient } from '@privy-io/server-auth';
 import type { PublicClient } from 'viem';
-import type { JsonRpcProvider } from 'ethers';
+import { Wallet as EthersWallet, type Signer, type JsonRpcProvider } from 'ethers';
 import type { AgentConfig } from '../../database/types';
 import type { TransactionRepository } from '../../database/repositories/transaction-repository';
 import type { UserWalletRepository } from '../../database/repositories/user-wallet-repository';
@@ -8,8 +8,14 @@ import type { Wallet } from '../wallet';
 import { RealWallet, type RealWalletEnv } from '../real/real-wallet';
 import { DryRunWallet, type DryRunWalletEnv } from '../dry-run/dry-run-wallet';
 import { PrivyServerWallet } from '../privy/privy-server-wallet';
+import { PrivySigner } from '../privy/privy-signer';
 
 export type WalletMode = 'pk' | 'privy' | 'privy_and_pk';
+
+export interface ZeroGSignerHandle {
+  signer: Signer;
+  address: string;
+}
 
 export type WalletFactoryEnv = RealWalletEnv & DryRunWalletEnv;
 
@@ -26,6 +32,8 @@ export interface WalletFactoryDeps {
 
 export class WalletFactory {
   private readonly cache = new Map<string, Promise<Wallet>>();
+  private envPkZeroGSigner: ZeroGSignerHandle | null = null;
+  private readonly zerogSignerByUser = new Map<string, ZeroGSignerHandle>();
 
   constructor(private readonly deps: WalletFactoryDeps) {}
 
@@ -65,5 +73,45 @@ export class WalletFactory {
       );
     }
     return this.deps.privy;
+  }
+
+  async forZerogPayments(agent: AgentConfig): Promise<ZeroGSignerHandle> {
+    switch (this.deps.walletMode) {
+      case 'pk':
+      case 'privy_and_pk':
+        return this.envPkSigner();
+      case 'privy':
+        return this.privyZeroGSigner(agent);
+    }
+  }
+
+  private envPkSigner(): ZeroGSignerHandle {
+    if (this.envPkZeroGSigner) return this.envPkZeroGSigner;
+    const wallet = new EthersWallet(this.deps.env.WALLET_PRIVATE_KEY, this.deps.zerogProvider);
+    const handle: ZeroGSignerHandle = { signer: wallet, address: wallet.address };
+    this.envPkZeroGSigner = handle;
+    return handle;
+  }
+
+  private async privyZeroGSigner(agent: AgentConfig): Promise<ZeroGSignerHandle> {
+    const cached = this.zerogSignerByUser.get(agent.userId);
+    if (cached) return cached;
+    const privy = this.requirePrivy();
+    const uw = await this.deps.userWallets.findPrimaryByUser(agent.userId);
+    if (!uw) {
+      throw new Error(
+        `agent ${agent.id} (user ${agent.userId}) has no primary UserWallet — provision one via POST /users/me/wallets`,
+      );
+    }
+    const signer = new PrivySigner(
+      privy,
+      uw.privyWalletId,
+      uw.walletAddress,
+      this.deps.zerogChainId,
+      this.deps.zerogProvider,
+    );
+    const handle: ZeroGSignerHandle = { signer, address: uw.walletAddress };
+    this.zerogSignerByUser.set(agent.userId, handle);
+    return handle;
   }
 }

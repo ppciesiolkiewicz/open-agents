@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
-import { JsonRpcProvider } from 'ethers';
+import { JsonRpcProvider, Wallet as EthersWallet } from 'ethers';
 import { createPublicClient, http, type PublicClient } from 'viem';
 import { unichain } from 'viem/chains';
 import { PrivyClient } from '@privy-io/server-auth';
@@ -7,6 +7,7 @@ import { WalletFactory } from './wallet-factory';
 import { RealWallet } from '../real/real-wallet';
 import { DryRunWallet } from '../dry-run/dry-run-wallet';
 import { PrivyServerWallet } from '../privy/privy-server-wallet';
+import { PrivySigner } from '../privy/privy-signer';
 import { PrismaTransactionRepository } from '../../database/prisma-database/prisma-transaction-repository';
 import { PrismaUserWalletRepository } from '../../database/prisma-database/prisma-user-wallet-repository';
 import { PrismaUserRepository } from '../../database/prisma-database/prisma-user-repository';
@@ -145,6 +146,43 @@ describe('WalletFactory (live)', () => {
       const a2 = await factory.forAgent(makeAgent({ id: 'a2', userId: 'u1', dryRun: false }));
       expect(a1First).toBe(a1Second);
       expect(a1First).not.toBe(a2);
+    });
+  });
+
+  describe('forZerogPayments', () => {
+    it('pk mode: returns env-pk signer (singleton across calls)', async () => {
+      const factory = build('pk');
+      const a1 = await factory.forZerogPayments(makeAgent({ id: 'a1', userId: 'u1', dryRun: false }));
+      const a2 = await factory.forZerogPayments(makeAgent({ id: 'a2', userId: 'u2', dryRun: false }));
+      expect(a1).toBe(a2);
+      expect(a1.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
+      console.log('[wallet-factory] pk zerog signer address:', a1.address);
+    });
+
+    it('privy_and_pk mode: returns env-pk signer (same singleton as pk)', async () => {
+      const { user } = await seedUserWithWallet(users, userWallets, 'did:privy:t3');
+      const factory = build('privy_and_pk', new PrivyClient('id', 'secret'));
+      const handle = await factory.forZerogPayments(makeAgent({ id: 'a1', userId: user.id, dryRun: false }));
+      const expected = new EthersWallet(TEST_KEY).address;
+      expect(handle.address.toLowerCase()).toBe(expected.toLowerCase());
+    });
+
+    it('privy mode: returns PrivySigner for the user wallet, cached per-user', async () => {
+      const { user, uw } = await seedUserWithWallet(users, userWallets, 'did:privy:t4');
+      const privy = new PrivyClient('id', 'secret');
+      const factory = build('privy', privy);
+      const a1 = await factory.forZerogPayments(makeAgent({ id: 'a1', userId: user.id, dryRun: false }));
+      const a2 = await factory.forZerogPayments(makeAgent({ id: 'a2', userId: user.id, dryRun: false }));
+      expect(a1).toBe(a2);
+      expect(a1.address.toLowerCase()).toBe(uw.walletAddress.toLowerCase());
+      expect(a1.signer).toBeInstanceOf(PrivySigner);
+    });
+
+    it('privy mode: throws when user has no primary UserWallet', async () => {
+      const factory = build('privy', new PrivyClient('id', 'secret'));
+      await expect(
+        factory.forZerogPayments(makeAgent({ id: 'a1', userId: 'unknown', dryRun: false })),
+      ).rejects.toThrow(/no primary UserWallet/);
     });
   });
 });
