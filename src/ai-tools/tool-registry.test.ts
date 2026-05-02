@@ -10,7 +10,7 @@ import { createStubTickQueue } from '../test-lib/stub-tick-queue';
 // Pure-logic test: verifies the canonical tool list is what the LLM sees.
 // No I/O — services and DB are constructed but never called.
 describe('ToolRegistry.build', () => {
-  it('returns the expected 20 tools in order', () => {
+  it('returns the expected 23 tools in order', () => {
     const registry = new ToolRegistry({
       coingecko: new CoingeckoService({ apiKey: 'unused' }),
       coinmarketcap: new CoinMarketCapService({ apiKey: 'unused' }),
@@ -30,6 +30,7 @@ describe('ToolRegistry.build', () => {
       'getWalletAddress',
       'getNativeBalance',
       'getTokenBalance',
+      'transferERC20Token',
       'readMemory',
       'updateMemory',
       'saveMemoryEntry',
@@ -41,6 +42,8 @@ describe('ToolRegistry.build', () => {
       'listAllowedTokens',
       'sendMessageToAgentHelp',
       'sendMessageToAgent',
+      'listAvailableChannels',
+      'sendMessageToChannel',
       'formatTokenAmount',
       'parseTokenAmount',
     ]);

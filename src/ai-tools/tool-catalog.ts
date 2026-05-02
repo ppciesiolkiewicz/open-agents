@@ -16,6 +16,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
   { id: 'wallet.address.get', name: 'Get wallet address', callableName: 'getWalletAddress', description: 'Get current agent wallet address', category: 'wallet' },
   { id: 'wallet.balance.native.get', name: 'Get native balance', callableName: 'getNativeBalance', description: 'Get native token balance for current wallet', category: 'wallet' },
   { id: 'wallet.balance.token.get', name: 'Get token balance', callableName: 'getTokenBalance', description: 'Get ERC-20 token balance for current wallet', category: 'wallet' },
+  { id: 'wallet.transfer.erc20', name: 'Transfer ERC-20 token', callableName: 'transferERC20Token', description: 'Transfer ERC-20 tokens to any address on Unichain', category: 'wallet' },
   { id: 'memory.read', name: 'Read memory', callableName: 'readMemory', description: 'Read persistent agent memory state, notes, and recent entries', category: 'memory' },
   { id: 'memory.update', name: 'Update memory', callableName: 'updateMemory', description: 'Update persistent agent memory state and notes', category: 'memory' },
   { id: 'memory.entry.save', name: 'Save memory entry', callableName: 'saveMemoryEntry', description: 'Append a memory entry for the current tick', category: 'memory' },

@@ -12,6 +12,7 @@ import { buildCoinMarketCapInfoTool } from './providers/coinmarketcap-info-tool'
 import { buildSerperSearchTool } from './providers/serper-search-tool';
 import { buildFirecrawlScrapeTool } from './providers/firecrawl-scrape-tool';
 import { buildWalletBalanceTools } from './wallet/wallet-balance-tools';
+import { buildERC20TransferTool } from './wallet/erc20-transfer-tool';
 import { buildReadMemoryTool } from './memory/read-memory-tool';
 import { buildUpdateMemoryTool } from './memory/update-memory-tool';
 import { buildSaveMemoryEntryTool } from './memory/save-memory-entry-tool';
@@ -54,6 +55,7 @@ export class ToolRegistry {
       walletAddress,
       nativeBalance,
       tokenBalance,
+      buildERC20TransferTool(this.deps.db, this.deps.coingecko),
       buildReadMemoryTool(this.deps.db),
       buildUpdateMemoryTool(this.deps.db),
       buildSaveMemoryEntryTool(this.deps.db),
