@@ -29,6 +29,8 @@ const envSchema = z.object({
   PRIVY_APP_ID: z.string().min(1),
   PRIVY_APP_SECRET: z.string().min(1),
 
+  WALLET_MODE: z.enum(['pk', 'privy', 'privy_and_pk']).default('pk'),
+
   AXL_URL: z.string().url().default('http://127.0.0.1:9002'),
 
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
