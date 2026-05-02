@@ -32,28 +32,38 @@ export function buildSendMessageToChannelTool(
 
       const targetAgentIds = channel.memberAgentIds.filter((id) => id !== source.id);
       const deliveredTargets: Array<{ agentId: string; name: string }> = [];
+      const failedTargets: Array<{ agentId: string; error: string }> = [];
 
       for (const targetAgentId of targetAgentIds) {
         const target = await db.agents.findById(targetAgentId);
         if (!target || target.userId !== source.userId) continue;
 
         const peerId = target.axlPeerId ?? localPeerId;
+        if (!target.axlPeerId) {
+          console.warn(`[sendMessageToChannel] agent ${target.id} has no axlPeerId — falling back to local node`);
+        }
         const chatContent = [
           `Message from agent ${source.id} in channel ${channel.id} (${channel.name})`,
           '',
           input.message,
         ].join('\n');
 
-        await axlClient.send(peerId, { targetAgentId: target.id, chatContent });
-        deliveredTargets.push({ agentId: target.id, name: target.name });
+        try {
+          await axlClient.send(peerId, { targetAgentId: target.id, chatContent });
+          deliveredTargets.push({ agentId: target.id, name: target.name });
+        } catch (err) {
+          failedTargets.push({ agentId: target.id, error: String(err) });
+        }
       }
 
       return {
-        delivered: true,
+        delivered: deliveredTargets.length > 0,
         channelId: channel.id,
         channelName: channel.name,
         deliveredCount: deliveredTargets.length,
         deliveredTargets,
+        failedCount: failedTargets.length,
+        failedTargets,
       };
     },
   };

@@ -34,6 +34,9 @@ export function buildSendMessageToAgentTool(
       }
 
       const peerId = target.axlPeerId ?? localPeerId;
+      if (!target.axlPeerId) {
+        console.warn(`[sendMessageToAgent] target agent ${target.id} has no axlPeerId — falling back to local node`);
+      }
       const chatContent = [
         `Message from agent ${source.id}, use "sendMessageToAgent" to reply`,
         '',

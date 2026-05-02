@@ -80,8 +80,14 @@ async function main(): Promise<void> {
   const queue = new RedisTickQueue({ producer: queueProducer, subscriber: queueSubscriber });
 
   const axlClient = new AxlClient(env.AXL_URL);
-  const { ourPeerId: localAxlPeerId } = await axlClient.getTopology();
-  console.log(`[bootstrap] AXL node ready — peer=${localAxlPeerId}`);
+  let localAxlPeerId = '';
+  try {
+    const topology = await axlClient.getTopology();
+    localAxlPeerId = topology.ourPeerId;
+    console.log(`[bootstrap] AXL node ready — peer=${localAxlPeerId}`);
+  } catch (err) {
+    console.warn(`[bootstrap] AXL node not reachable at ${env.AXL_URL} — messaging tools will fail until node is available:`, err);
+  }
   const axlPoller = new AxlPoller(axlClient, queue);
 
   const walletFactory = new WalletFactory(env, db.transactions);

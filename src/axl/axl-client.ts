@@ -23,21 +23,21 @@ export class AxlClient {
     const body = Buffer.from(JSON.stringify(message), 'utf-8');
     const res = await fetch(`${this.baseUrl}/send`, {
       method: 'POST',
-      headers: { 'X-Destination-Peer-Id': peerId },
+      headers: { 'X-Destination-Peer-Id': peerId, 'Content-Type': 'application/json' },
       body,
     });
     if (!res.ok) throw new Error(`AXL send failed: ${res.status} ${await res.text()}`);
   }
 
-  async recv(): Promise<ReceivedAxlMessage | null> {
-    const res = await fetch(`${this.baseUrl}/recv`);
+  async recv(signal?: AbortSignal): Promise<ReceivedAxlMessage | null> {
+    const res = await fetch(`${this.baseUrl}/recv`, { signal });
     if (res.status === 204) return null;
     if (!res.ok) throw new Error(`AXL recv failed: ${res.status}`);
     const fromPeerId = res.headers.get('X-From-Peer-Id') ?? '';
     const raw = await res.arrayBuffer();
     const text = Buffer.from(raw).toString('utf-8');
     const parsed = AxlMessageSchema.safeParse(JSON.parse(text));
-    if (!parsed.success) throw new Error(`AXL recv bad payload: ${text}`);
+    if (!parsed.success) throw new Error(`AXL recv bad payload from peer ${fromPeerId}: ${text}`);
     return { fromPeerId, message: parsed.data };
   }
 }
