@@ -18,6 +18,7 @@ import { SerperService } from '../providers/serper/serper-service';
 import { FirecrawlService } from '../providers/firecrawl/firecrawl-service';
 import type { AgentConfig } from '../database/types';
 import type { LLMClient } from '../agent-runner/llm-client';
+import type { LLMClientFactory } from '../ai/chat-model/llm-client-factory';
 import { ZEROG_NETWORKS } from '../constants';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
@@ -62,6 +63,13 @@ class MutableClock implements Clock {
   advance(ms: number): void { this.current += ms; }
 }
 
+function asFactory(llm: LLMClient): LLMClientFactory {
+  return {
+    forAgent: async () => llm,
+    modelName: () => llm.modelName(),
+  } as unknown as LLMClientFactory;
+}
+
 describe('AgentOrchestrator (live, real db + runner)', () => {
   const prisma = getTestPrisma();
   let db: PrismaDatabase;
@@ -101,7 +109,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
       env: { ALCHEMY_API_KEY: 'unused', UNICHAIN_RPC_URL: undefined } as any,
       tickQueue: queue,
     });
-    runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), toolRegistry, clock);
+    runner = new AgentRunner(db, activityLog, walletFactory, asFactory(new StubLLMClient()), toolRegistry, clock);
     orchestrator = new AgentOrchestrator(db, queue, clock);
     dispatcher = new TickDispatcher({ db, runner, activityLog, queue });
     dispatcher.start();
@@ -193,7 +201,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
       }
     }
 
-    const failingRunner = new AgentRunner(db, activityLog, walletFactory, new SelectiveLLM(), toolRegistry, clock);
+    const failingRunner = new AgentRunner(db, activityLog, walletFactory, asFactory(new SelectiveLLM()), toolRegistry, clock);
     const failingQueue = new InMemoryTickQueue(() => clock.now());
     const failingOrch = new AgentOrchestrator(db, failingQueue, clock);
     const failingDispatcher = new TickDispatcher({ db, runner: failingRunner, activityLog, queue: failingQueue });

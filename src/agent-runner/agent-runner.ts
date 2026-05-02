@@ -6,7 +6,8 @@ import type { ToolRegistry } from '../ai-tools/tool-registry';
 import type { AgentTool, AgentToolContext } from '../ai-tools/tool';
 import { toToolDefinition } from '../ai-tools/zod-to-openai';
 import { AGENT_RUNNER } from '../constants';
-import type { ChatMessage, InvokeOptions, LLMClient, ToolCall, ToolDefinition } from './llm-client';
+import type { ChatMessage, InvokeOptions, ToolCall, ToolDefinition, LLMClient } from './llm-client';
+import type { LLMClientFactory } from '../ai/chat-model/llm-client-factory';
 import { projectChatMessagesAsLLMMessages } from './tick-strategies/chat-history-projection';
 import { listAllSupportedToolIds, selectToolsByIds } from '../ai-tools/tool-catalog';
 
@@ -21,7 +22,7 @@ export class AgentRunner {
     private readonly db: Database,
     private readonly activityLog: AgentActivityLog,
     private readonly walletFactory: WalletFactory,
-    private readonly llm: LLMClient,
+    private readonly llmFactory: LLMClientFactory,
     private readonly toolRegistry: ToolRegistry,
     private readonly clock: Clock = SYSTEM_CLOCK,
   ) {}
@@ -40,6 +41,7 @@ export class AgentRunner {
       await this.activityLog.tickStart(agent.id, tickId);
       this.logStdout(agent.id, `tick start (tickId=${tickId})`);
 
+      const llm = await this.llmFactory.forAgent(agent);
       const wallet = await this.walletFactory.forAgent(agent);
       const allTools = this.toolRegistry.build();
       const effectiveToolIds = agent.toolIds && agent.toolIds.length > 0
@@ -50,7 +52,7 @@ export class AgentRunner {
       const toolDefs = tools.map(toToolDefinition);
       const ctx: AgentToolContext = { agent, wallet, tickId };
 
-      await this.runToolLoop(agent, tickId, initialMessages, toolDefs, toolByName, ctx, options);
+      await this.runToolLoop(agent, tickId, initialMessages, toolDefs, toolByName, ctx, llm, options);
     } catch (err) {
       const e = err as Error;
       this.logStdout(agent.id, `ERROR ${e.message}`);
@@ -74,6 +76,7 @@ export class AgentRunner {
     toolDefs: ToolDefinition[],
     toolByName: Map<string, AgentTool>,
     ctx: AgentToolContext,
+    llm: LLMClient,
     options: InvokeOptions = {},
   ): Promise<void> {
     let rounds = 0;
@@ -86,17 +89,17 @@ export class AgentRunner {
         }
         return sum + chars;
       }, 0);
-      await this.activityLog.llmCall(agent.id, tickId, { model: this.llm.modelName(), promptChars });
-      this.logStdout(agent.id, `llm_call round=${rounds} model=${this.llm.modelName()} promptChars=${promptChars}`);
+      await this.activityLog.llmCall(agent.id, tickId, { model: llm.modelName(), promptChars });
+      this.logStdout(agent.id, `llm_call round=${rounds} model=${llm.modelName()} promptChars=${promptChars}`);
 
-      const turn = await this.llm.invokeWithTools(
+      const turn = await llm.invokeWithTools(
         messages,
         toolDefs,
         Object.keys(options).length > 0 ? options : undefined,
       );
 
       await this.activityLog.llmResponse(agent.id, tickId, {
-        model: this.llm.modelName(),
+        model: llm.modelName(),
         responseChars: (turn.content ?? '').length,
         ...(turn.tokenCount !== undefined ? { tokenCount: turn.tokenCount } : {}),
         content: turn.content ?? '',

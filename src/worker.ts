@@ -14,6 +14,7 @@ import { WalletFactory } from './wallet/factory/wallet-factory';
 import { AgentRunner } from './agent-runner/agent-runner';
 import { StubLLMClient } from './agent-runner/stub-llm-client';
 import type { LLMClient } from './agent-runner/llm-client';
+import type { LLMClientFactory } from './ai/chat-model/llm-client-factory';
 import { ZeroGBootstrapStore } from './ai/zerog-broker/zerog-bootstrap-store';
 import { buildZeroGBroker, buildEnvPkZeroGSigner, buildZeroGProvider } from './ai/zerog-broker/zerog-broker-factory';
 import { silenceZeroGSdkNoise } from './ai/zerog-broker/silence-sdk-noise';
@@ -117,7 +118,8 @@ async function main(): Promise<void> {
     axlClient,
     localAxlPeerId,
   });
-  const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
+  const llmFactoryShim = { forAgent: async () => llm, modelName: () => llm.modelName() } as unknown as LLMClientFactory;
+  const runner = new AgentRunner(db, activityLog, walletFactory, llmFactoryShim, toolRegistry);
 
   console.log(`[bootstrap] worker — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}`);
   console.log(`[bootstrap] postgres at ${env.DATABASE_URL.replace(/:[^:@]+@/, ':***@')}`);
