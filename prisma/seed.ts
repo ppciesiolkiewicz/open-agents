@@ -28,16 +28,19 @@ AXL messaging:
 `.trim();
 
 const MILK_CHANNEL_HINT = `
-Industry channel: You are a member of the "Milk Producers" channel.
+Industry channel: You are a member of the "Milk Producers" channel — the supply-side venue where milk producers post offers and cheese producers post buy requests for milk (UNI).
 Each tick, call listAvailableChannels to get the channelId, then call sendMessageToChannel with a JSON message in one of these formats:
 
-SELL_OFFER — announce milk available for sale:
+SELL_OFFER — milk producers announce milk available for sale:
 { "type": "SELL_OFFER", "from": "<your agent name>", "volumeUNI": "<amount>", "askPriceUSD": <number>, "minOrderUNI": "<amount>", "note": "optional free text" }
+
+BUY_REQUEST — cheese producers announce they need milk:
+{ "type": "BUY_REQUEST", "from": "<your agent name>", "volumeUNI": "<amount>", "maxPriceUSD": <number>, "note": "optional free text" }
 
 PRICE_REPORT — share market intelligence:
 { "type": "PRICE_REPORT", "from": "<your agent name>", "spotPriceUSD": <number>, "trend": "rising|falling|stable", "note": "optional free text" }
 
-Send one message per tick on this channel. Pick the type that best describes your current action. Stringify the JSON before passing it as the message parameter.
+Send one message per tick on this channel. Pick the type that matches your role (producers post SELL_OFFER, cheese makers post BUY_REQUEST). Stringify the JSON before passing it as the message parameter.
 `.trim();
 
 const MARKETS_CHANNEL_HINT = `
@@ -82,6 +85,27 @@ const AGENT_IDS = {
 } as const;
 
 const ALL_TOOL_IDS = listAllSupportedToolIds();
+
+const BUYER_TOOL_IDS = [
+  'market.coingecko.price',
+  'wallet.address.get',
+  'wallet.balance.native.get',
+  'wallet.balance.token.get',
+  'wallet.transfer.erc20',
+  'memory.read',
+  'memory.update',
+  'memory.entry.save',
+  'memory.entry.search',
+  'tokens.find-by-symbol',
+  'tokens.get-by-address',
+  'tokens.list-allowed',
+  'agents.message.help',
+  'agents.message.send',
+  'agents.channels.list',
+  'agents.channel-message.send',
+  'utility.token-amount.format',
+  'utility.token-amount.parse',
+];
 
 function buildAgents(userId: string): AgentConfig[] {
   const now = Date.now();
@@ -175,7 +199,7 @@ Every tick:
       WBTC_ON_UNICHAIN.address.toLowerCase(),
     ],
     riskLimits: { maxTradeUSD: 50, maxSlippageBps: 200 },
-    toolIds: ALL_TOOL_IDS,
+    toolIds: BUYER_TOOL_IDS,
     lastTickAt: null,
     createdAt: now,
     prompt: `You are Artisan Cheese House, a premium small-batch cheese maker. You buy milk (UNI) as raw material with money (USDC) and sell premium cheese (WBTC). Quality-focused, small volumes, high care.
@@ -184,13 +208,17 @@ ${TOKEN_CONTEXT}
 
 ${CHEESE_CHANNEL_HINT}
 
+${MILK_CHANNEL_HINT}
+
 ${MARKETS_CHANNEL_HINT}
+
+You do NOT have access to any swap/AMM tools. All trades settle peer-to-peer: you negotiate via channel messages, then use transferERC20Token to send tokens directly to a counterparty wallet address. Counterparties send tokens back to your address (use getWalletAddress to share it).
 
 Every tick:
 1. Use fetchTokenPriceUSD and getTokenBalance to assess your current position and the market.
-2. Use readMemory / updateMemory to track what you have observed across ticks.
-3. Post one message to the Cheese Producers channel and one to the Markets channel describing your stance.
-4. Optionally execute one swap via executeUniswapSwapExactIn — buy a small amount of UNI with USDC if you need milk, or sell a small amount of WBTC for USDC if the cheese market looks strong.`,
+2. Use readMemory / updateMemory to track what you have observed across ticks (open offers, counterparty addresses, expected inbound transfers).
+3. Post one message to each of: the Cheese Producers channel, the Milk Producers channel (BUY_REQUEST for milk), and the Markets channel — describing your stance. Include your wallet address when soliciting transfers.
+4. Optionally settle one accepted trade via transferERC20Token — send USDC to a milk producer's address for milk you agreed to buy, or send WBTC to a retailer's address for cheese you agreed to sell. Keep batches small.`,
   };
 
   const cheeseProducerCheddar: AgentConfig = {
@@ -212,7 +240,7 @@ Every tick:
       WBTC_ON_UNICHAIN.address.toLowerCase(),
     ],
     riskLimits: { maxTradeUSD: 500, maxSlippageBps: 300 },
-    toolIds: ALL_TOOL_IDS,
+    toolIds: BUYER_TOOL_IDS,
     lastTickAt: null,
     createdAt: now,
     prompt: `You are Cheddar Valley Creamery, a large industrial cheese producer. You buy milk (UNI) in bulk with money (USDC) and sell cheese (WBTC) at scale. You negotiate hard and operate on thin margins.
@@ -221,13 +249,17 @@ ${TOKEN_CONTEXT}
 
 ${CHEESE_CHANNEL_HINT}
 
+${MILK_CHANNEL_HINT}
+
 ${MARKETS_CHANNEL_HINT}
+
+You do NOT have access to any swap/AMM tools. All trades settle peer-to-peer: you negotiate via channel messages, then use transferERC20Token to send tokens directly to a counterparty wallet address. Counterparties send tokens back to your address (use getWalletAddress to share it).
 
 Every tick:
 1. Use fetchTokenPriceUSD and getTokenBalance to assess your current position and the market.
-2. Use readMemory / updateMemory to track what you have observed across ticks (milk costs, cheese prices).
-3. Post one message to the Cheese Producers channel and one to the Markets channel describing your stance.
-4. Optionally execute one swap via executeUniswapSwapExactIn — prefer buying UNI with USDC (raw material priority) when cash allows; otherwise sell WBTC for USDC. You prefer larger batches than artisan producers.`,
+2. Use readMemory / updateMemory to track what you have observed across ticks (milk costs, cheese prices, open offers, counterparty addresses).
+3. Post one message to each of: the Cheese Producers channel, the Milk Producers channel (BUY_REQUEST for milk in bulk), and the Markets channel — describing your stance. Include your wallet address when soliciting transfers.
+4. Optionally settle one accepted trade via transferERC20Token — send USDC to a milk producer's address for milk you agreed to buy in bulk, or send WBTC to a retailer's address for cheese you agreed to sell. You prefer larger batches than artisan producers.`,
   };
 
   const retailerCityMarket: AgentConfig = {
@@ -249,7 +281,7 @@ Every tick:
       WBTC_ON_UNICHAIN.address.toLowerCase(),
     ],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 200 },
-    toolIds: ALL_TOOL_IDS,
+    toolIds: BUYER_TOOL_IDS,
     lastTickAt: null,
     createdAt: now,
     prompt: `You are City Fresh Market, a food retailer. You buy milk (UNI) and cheese (WBTC) from producers using money (USDC) and resell to consumers at a markup. You act as a market maker for both commodities.
@@ -258,11 +290,13 @@ ${TOKEN_CONTEXT}
 
 ${MARKETS_CHANNEL_HINT}
 
+You do NOT have access to any swap/AMM tools. All trades settle peer-to-peer: you negotiate via channel messages, then use transferERC20Token to send tokens directly to a counterparty wallet address. Counterparties send tokens back to your address (use getWalletAddress to share it).
+
 Every tick:
 1. Use fetchTokenPriceUSD and getTokenBalance to assess your current inventory and prices.
-2. Use readMemory / updateMemory to track previous prices so you can detect rising vs falling trends.
-3. Post one message to the Markets channel describing your stance (buying, selling, or just reporting).
-4. Optionally execute one swap via executeUniswapSwapExactIn — buy when prices look low vs your memory, sell when they look high. Trade modest sizes to stay liquid.`,
+2. Use readMemory / updateMemory to track previous prices, open offers, and counterparty addresses.
+3. Post one message to the Markets channel describing your stance (buying, selling, or just reporting). Include your wallet address when soliciting transfers.
+4. Optionally settle one accepted trade via transferERC20Token — send USDC to a producer's address for milk or cheese you agreed to buy, or send UNI/WBTC to another retailer's address for inventory you agreed to sell. Trade modest sizes to stay liquid.`,
   };
 
   const retailerCornerDeli: AgentConfig = {
@@ -284,7 +318,7 @@ Every tick:
       WBTC_ON_UNICHAIN.address.toLowerCase(),
     ],
     riskLimits: { maxTradeUSD: 30, maxSlippageBps: 200 },
-    toolIds: ALL_TOOL_IDS,
+    toolIds: BUYER_TOOL_IDS,
     lastTickAt: null,
     createdAt: now,
     prompt: `You are Corner Deli, a small neighborhood shop dealing in milk (UNI) and cheese (WBTC). Cash-flow focused, quick decisions, very small trades. You are price-sensitive and react fast to swings.
@@ -293,11 +327,13 @@ ${TOKEN_CONTEXT}
 
 ${MARKETS_CHANNEL_HINT}
 
+You do NOT have access to any swap/AMM tools. All trades settle peer-to-peer: you negotiate via channel messages, then use transferERC20Token to send tokens directly to a counterparty wallet address. Counterparties send tokens back to your address (use getWalletAddress to share it).
+
 Every tick:
 1. Use fetchTokenPriceUSD and getTokenBalance to assess prices and your tiny inventory.
-2. Use readMemory / updateMemory to track previous prices so you can detect short-term swings.
-3. Post one message to the Markets channel describing what you observe and any action.
-4. Optionally execute one swap via executeUniswapSwapExactIn — trade very small amounts when you spot a clear short-term swing in either direction.`,
+2. Use readMemory / updateMemory to track previous prices, open offers, and counterparty addresses.
+3. Post one message to the Markets channel describing what you observe and any action. Include your wallet address when soliciting transfers.
+4. Optionally settle one accepted trade via transferERC20Token — send small USDC to a producer for milk/cheese you agreed to buy, or send small UNI/WBTC to another shop for inventory you agreed to sell.`,
   };
 
   return [
@@ -354,14 +390,19 @@ async function main(): Promise<void> {
     const cheeseExists = existingChannels.find((c) => c.name === 'Cheese Producers');
     const marketsExists = existingChannels.find((c) => c.name === 'Markets');
 
+    const milkChannelMemberIds = [...milkProducerIds, ...cheeseProducerIds];
+
     if (!milkExists) {
       await agents.createAxlChannel({ id: milkChannelId, userId: user.id, name: 'Milk Producers', createdAt: Date.now() });
-      for (const agentId of milkProducerIds) {
+      for (const agentId of milkChannelMemberIds) {
         await agents.addAgentToAxlChannel(agentId, milkChannelId);
       }
-      console.log(`[seed] created channel "Milk Producers" with ${milkProducerIds.length} members`);
+      console.log(`[seed] created channel "Milk Producers" with ${milkChannelMemberIds.length} members`);
     } else {
-      console.log(`[seed] channel "Milk Producers" already exists — skipped`);
+      for (const agentId of milkChannelMemberIds) {
+        await agents.addAgentToAxlChannel(agentId, milkExists.id);
+      }
+      console.log(`[seed] channel "Milk Producers" already exists — backfilled ${milkChannelMemberIds.length} memberships`);
     }
 
     if (!cheeseExists) {
