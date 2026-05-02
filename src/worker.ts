@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { loadEnv, type Env } from './config/env';
-import { WORKER } from './constants';
+import { WORKER, ZEROG_NETWORKS } from './constants';
 import { IntervalScheduler } from './agent-worker/interval-scheduler';
 import { AgentOrchestrator } from './agent-worker/agent-orchestrator';
 import { TickDispatcher } from './agent-worker/tick-dispatcher';
@@ -15,7 +15,7 @@ import { AgentRunner } from './agent-runner/agent-runner';
 import { StubLLMClient } from './agent-runner/stub-llm-client';
 import type { LLMClient } from './agent-runner/llm-client';
 import { ZeroGBootstrapStore } from './ai/zerog-broker/zerog-bootstrap-store';
-import { buildZeroGBroker, buildEnvPkZeroGSigner } from './ai/zerog-broker/zerog-broker-factory';
+import { buildZeroGBroker, buildEnvPkZeroGSigner, buildZeroGProvider } from './ai/zerog-broker/zerog-broker-factory';
 import { silenceZeroGSdkNoise } from './ai/zerog-broker/silence-sdk-noise';
 import { ZeroGLLMClient } from './ai/chat-model/zerog-llm-client';
 import { ToolRegistry } from './ai-tools/tool-registry';
@@ -31,6 +31,8 @@ import { TreasuryFundsWatcher } from './treasury/treasury-funds-watcher';
 import { TreasuryService } from './treasury/treasury-service';
 import { AxlClient } from './axl/axl-client';
 import { AxlPoller } from './axl/axl-poller';
+import { createPublicClient, http, type PublicClient } from 'viem';
+import { unichain } from 'viem/chains';
 
 async function buildLLM(env: Env): Promise<LLMClient> {
   const store = new ZeroGBootstrapStore(env.DB_DIR);
@@ -89,7 +91,18 @@ async function main(): Promise<void> {
   }
   const axlPoller = new AxlPoller(axlClient, queue);
 
-  const walletFactory = new WalletFactory(env, db.transactions);
+  const privyClient = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
+  const zerogProvider = buildZeroGProvider(env.ZEROG_NETWORK);
+  const walletFactory = new WalletFactory({
+    env,
+    walletMode: env.WALLET_MODE,
+    transactions: db.transactions,
+    userWallets: db.userWallets,
+    privy: env.WALLET_MODE === 'pk' ? null : privyClient,
+    publicClient: createPublicClient({ chain: unichain, transport: http(env.UNICHAIN_RPC_URL) }) as PublicClient,
+    zerogProvider,
+    zerogChainId: ZEROG_NETWORKS[env.ZEROG_NETWORK].chainId,
+  });
   const uniswap = new UniswapService(env, db);
   const llm = await buildLLM(env);
   const coingecko = new CoingeckoService({ apiKey: env.COINGECKO_API_KEY });
@@ -117,7 +130,6 @@ async function main(): Promise<void> {
   axlPoller.start();
   console.log('[bootstrap] AXL poller started');
 
-  const privyClient = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
   const treasuryWallet = new TreasuryWallet(env);
   const jaineSwap = new JaineSwapService(treasuryWallet);
   const treasuryWatcherRedis = RedisClient.build(env.REDIS_URL);

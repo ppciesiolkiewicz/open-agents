@@ -1,37 +1,69 @@
+import type { PrivyClient } from '@privy-io/server-auth';
+import type { PublicClient } from 'viem';
+import type { JsonRpcProvider } from 'ethers';
 import type { AgentConfig } from '../../database/types';
 import type { TransactionRepository } from '../../database/repositories/transaction-repository';
+import type { UserWalletRepository } from '../../database/repositories/user-wallet-repository';
 import type { Wallet } from '../wallet';
 import { RealWallet, type RealWalletEnv } from '../real/real-wallet';
 import { DryRunWallet, type DryRunWalletEnv } from '../dry-run/dry-run-wallet';
+import { PrivyServerWallet } from '../privy/privy-server-wallet';
+
+export type WalletMode = 'pk' | 'privy' | 'privy_and_pk';
 
 export type WalletFactoryEnv = RealWalletEnv & DryRunWalletEnv;
 
-/**
- * Transitional: returns the env-key RealWallet for every agent regardless
- * of which user owns it. Per-user wallets via PrivyWalletFactory ship in
- * a follow-up cutover spec — the module exists and is tested under
- * `src/wallet/privy/` but is not wired into this factory yet.
- */
+export interface WalletFactoryDeps {
+  env: WalletFactoryEnv;
+  walletMode: WalletMode;
+  transactions: TransactionRepository;
+  userWallets: UserWalletRepository;
+  privy: PrivyClient | null;
+  publicClient: PublicClient;
+  zerogProvider: JsonRpcProvider;
+  zerogChainId: number;
+}
+
 export class WalletFactory {
-  // Cache wallets per agentId. The cached AgentConfig reference is from
-  // the FIRST forAgent() call, so config edits (dryRun flip,
-  // dryRunSeedBalances change) require a restart to take effect — fine
-  // for v1 because the project convention is to clear the DB between
-  // modes anyway.
-  private readonly cache = new Map<string, Wallet>();
+  private readonly cache = new Map<string, Promise<Wallet>>();
 
-  constructor(
-    private readonly env: WalletFactoryEnv,
-    private readonly transactions: TransactionRepository,
-  ) {}
+  constructor(private readonly deps: WalletFactoryDeps) {}
 
-  forAgent(agent: AgentConfig): Wallet {
+  async forAgent(agent: AgentConfig): Promise<Wallet> {
     const cached = this.cache.get(agent.id);
     if (cached) return cached;
-    const wallet = agent.dryRun
-      ? new DryRunWallet(agent, this.transactions, this.env)
-      : new RealWallet(this.env);
-    this.cache.set(agent.id, wallet);
-    return wallet;
+    const promise = this.build(agent);
+    this.cache.set(agent.id, promise);
+    return promise;
+  }
+
+  private async build(agent: AgentConfig): Promise<Wallet> {
+    if (agent.dryRun) {
+      return new DryRunWallet(agent, this.deps.transactions, this.deps.env);
+    }
+    switch (this.deps.walletMode) {
+      case 'pk':
+        return new RealWallet(this.deps.env);
+      case 'privy':
+      case 'privy_and_pk': {
+        const privy = this.requirePrivy();
+        const uw = await this.deps.userWallets.findPrimaryByUser(agent.userId);
+        if (!uw) {
+          throw new Error(
+            `agent ${agent.id} (user ${agent.userId}) has no primary UserWallet — provision one via POST /users/me/wallets`,
+          );
+        }
+        return new PrivyServerWallet(privy, uw, this.deps.publicClient);
+      }
+    }
+  }
+
+  private requirePrivy(): PrivyClient {
+    if (!this.deps.privy) {
+      throw new Error(
+        `WalletFactory: walletMode=${this.deps.walletMode} requires a PrivyClient — set PRIVY_APP_ID and PRIVY_APP_SECRET`,
+      );
+    }
+    return this.deps.privy;
   }
 }

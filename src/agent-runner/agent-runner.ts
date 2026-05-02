@@ -40,7 +40,7 @@ export class AgentRunner {
       await this.activityLog.tickStart(agent.id, tickId);
       this.logStdout(agent.id, `tick start (tickId=${tickId})`);
 
-      const wallet = this.walletFactory.forAgent(agent);
+      const wallet = await this.walletFactory.forAgent(agent);
       const allTools = this.toolRegistry.build();
       const effectiveToolIds = agent.toolIds && agent.toolIds.length > 0
         ? agent.toolIds

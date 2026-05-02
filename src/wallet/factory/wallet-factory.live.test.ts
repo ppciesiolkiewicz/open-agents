@@ -1,27 +1,39 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { JsonRpcProvider } from 'ethers';
+import { createPublicClient, http, type PublicClient } from 'viem';
+import { unichain } from 'viem/chains';
+import { PrivyClient } from '@privy-io/server-auth';
 import { WalletFactory } from './wallet-factory';
 import { RealWallet } from '../real/real-wallet';
 import { DryRunWallet } from '../dry-run/dry-run-wallet';
+import { PrivyServerWallet } from '../privy/privy-server-wallet';
 import { PrismaTransactionRepository } from '../../database/prisma-database/prisma-transaction-repository';
+import { PrismaUserWalletRepository } from '../../database/prisma-database/prisma-user-wallet-repository';
+import { PrismaUserRepository } from '../../database/prisma-database/prisma-user-repository';
 import { getTestPrisma, truncateAll } from '../../database/prisma-database/test-helpers';
-import type { AgentConfig } from '../../database/types';
+import { ZEROG_NETWORKS } from '../../constants';
+import type { AgentConfig, User, UserWallet } from '../../database/types';
+import { randomUUID } from 'node:crypto';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
 const TEST_ENV = {
   WALLET_PRIVATE_KEY: TEST_KEY,
   ALCHEMY_API_KEY: 'unused-for-this-test',
 };
+const PUBLIC_CLIENT = createPublicClient({ chain: unichain, transport: http() }) as PublicClient;
+const ZEROG_PROVIDER = new JsonRpcProvider(ZEROG_NETWORKS.testnet.rpcUrl);
+const ZEROG_CHAIN_ID = ZEROG_NETWORKS.testnet.chainId;
 
-function makeAgent(id: string, dryRun: boolean): AgentConfig {
+function makeAgent(opts: { id: string; userId: string; dryRun: boolean }): AgentConfig {
   return {
-    id,
-    userId: 'user-test',
-    name: id,
+    id: opts.id,
+    userId: opts.userId,
+    name: opts.id,
     running: true,
     intervalMs: 60_000,
     prompt: 'test',
-    dryRun,
-    dryRunSeedBalances: dryRun ? { native: '0' } : undefined,
+    dryRun: opts.dryRun,
+    dryRunSeedBalances: opts.dryRun ? { native: '0' } : undefined,
     allowedTokens: [],
     riskLimits: { maxTradeUSD: 100, maxSlippageBps: 100 },
     lastTickAt: null,
@@ -29,10 +41,29 @@ function makeAgent(id: string, dryRun: boolean): AgentConfig {
   };
 }
 
+async function seedUserWithWallet(
+  users: PrismaUserRepository,
+  wallets: PrismaUserWalletRepository,
+  privyDid: string,
+): Promise<{ user: User; uw: UserWallet }> {
+  const user = await users.findOrCreateByPrivyDid(privyDid, {});
+  const uw: UserWallet = {
+    id: randomUUID(),
+    userId: user.id,
+    privyWalletId: `privy-wallet-${user.id}`,
+    walletAddress: `0x${'ab'.repeat(20)}`,
+    isPrimary: true,
+    createdAt: Date.now(),
+  };
+  await wallets.insert(uw);
+  return { user, uw };
+}
+
 describe('WalletFactory (live)', () => {
   const prisma = getTestPrisma();
   let txRepo: PrismaTransactionRepository;
-  let factory: WalletFactory;
+  let userWallets: PrismaUserWalletRepository;
+  let users: PrismaUserRepository;
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -44,33 +75,76 @@ describe('WalletFactory (live)', () => {
   beforeEach(async () => {
     await truncateAll(prisma);
     txRepo = new PrismaTransactionRepository(prisma);
-    factory = new WalletFactory(TEST_ENV, txRepo);
+    userWallets = new PrismaUserWalletRepository(prisma);
+    users = new PrismaUserRepository(prisma);
   });
 
-  it('returns DryRunWallet for an agent with dryRun=true', () => {
-    const w = factory.forAgent(makeAgent('a1', true));
-    console.log('[wallet-factory] dry-run agent → wallet kind:', w.constructor.name);
-    expect(w).toBeInstanceOf(DryRunWallet);
-  });
+  function build(walletMode: 'pk' | 'privy' | 'privy_and_pk', privy: PrivyClient | null = null): WalletFactory {
+    return new WalletFactory({
+      env: TEST_ENV,
+      walletMode,
+      transactions: txRepo,
+      userWallets,
+      privy,
+      publicClient: PUBLIC_CLIENT,
+      zerogProvider: ZEROG_PROVIDER,
+      zerogChainId: ZEROG_CHAIN_ID,
+    });
+  }
 
-  it('returns RealWallet for an agent with dryRun=false', () => {
-    const w = factory.forAgent(makeAgent('a2', false));
-    console.log('[wallet-factory] real agent → wallet kind:', w.constructor.name);
-    expect(w).toBeInstanceOf(RealWallet);
-  });
+  describe('forAgent', () => {
+    it('pk mode: returns RealWallet for live agent', async () => {
+      const factory = build('pk');
+      const w = await factory.forAgent(makeAgent({ id: 'a1', userId: 'u1', dryRun: false }));
+      expect(w).toBeInstanceOf(RealWallet);
+    });
 
-  it('both wallet kinds expose the same address derived from WALLET_PRIVATE_KEY', () => {
-    const dry = factory.forAgent(makeAgent('a1', true));
-    const real = factory.forAgent(makeAgent('a2', false));
-    expect(dry.getAddress()).toBe(real.getAddress());
-  });
+    it('any mode: returns DryRunWallet when agent.dryRun=true', async () => {
+      const factory = build('privy', new PrivyClient('app-id', 'app-secret'));
+      const w = await factory.forAgent(makeAgent({ id: 'a1', userId: 'u1', dryRun: true }));
+      expect(w).toBeInstanceOf(DryRunWallet);
+    });
 
-  it('caches one wallet per agent id (same instance on repeat calls)', () => {
-    const a1First = factory.forAgent(makeAgent('a1', true));
-    const a1Second = factory.forAgent(makeAgent('a1', true));
-    const a2 = factory.forAgent(makeAgent('a2', true));
-    expect(a1First).toBe(a1Second);     // same reference
-    expect(a1First).not.toBe(a2);       // different agent → different wallet
-    console.log('[wallet-factory] cache reuse OK for a1');
+    it('privy mode: returns PrivyServerWallet using primary UserWallet', async () => {
+      const { user, uw } = await seedUserWithWallet(users, userWallets, 'did:privy:test');
+      const privy = new PrivyClient('app-id-stub', 'app-secret-stub');
+      const factory = build('privy', privy);
+      const w = await factory.forAgent(makeAgent({ id: 'a1', userId: user.id, dryRun: false }));
+      expect(w).toBeInstanceOf(PrivyServerWallet);
+      expect(w.getAddress().toLowerCase()).toBe(uw.walletAddress.toLowerCase());
+      console.log('[wallet-factory] privy → wallet address:', w.getAddress());
+    });
+
+    it('privy_and_pk mode: returns PrivyServerWallet for tools (same as privy)', async () => {
+      const { user } = await seedUserWithWallet(users, userWallets, 'did:privy:test2');
+      const privy = new PrivyClient('app-id-stub', 'app-secret-stub');
+      const factory = build('privy_and_pk', privy);
+      const w = await factory.forAgent(makeAgent({ id: 'a2', userId: user.id, dryRun: false }));
+      expect(w).toBeInstanceOf(PrivyServerWallet);
+    });
+
+    it('privy mode: throws when agent.userId has no primary UserWallet', async () => {
+      const privy = new PrivyClient('app-id-stub', 'app-secret-stub');
+      const factory = build('privy', privy);
+      await expect(
+        factory.forAgent(makeAgent({ id: 'a1', userId: 'unknown-user', dryRun: false })),
+      ).rejects.toThrow(/no primary UserWallet/);
+    });
+
+    it('privy mode: throws when no PrivyClient is provided', async () => {
+      const factory = build('privy', null);
+      await expect(
+        factory.forAgent(makeAgent({ id: 'a1', userId: 'u1', dryRun: false })),
+      ).rejects.toThrow(/requires a PrivyClient/);
+    });
+
+    it('caches one wallet per agent id (same instance on repeat calls)', async () => {
+      const factory = build('pk');
+      const a1First = await factory.forAgent(makeAgent({ id: 'a1', userId: 'u1', dryRun: false }));
+      const a1Second = await factory.forAgent(makeAgent({ id: 'a1', userId: 'u1', dryRun: false }));
+      const a2 = await factory.forAgent(makeAgent({ id: 'a2', userId: 'u1', dryRun: false }));
+      expect(a1First).toBe(a1Second);
+      expect(a1First).not.toBe(a2);
+    });
   });
 });
