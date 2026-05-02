@@ -48,6 +48,7 @@ export class PrismaAgentRepository implements AgentRepository {
         agent.lastTickAt === null || agent.lastTickAt === undefined
           ? null
           : BigInt(agent.lastTickAt),
+      axlPeerId: agent.axlPeerId ?? null,
     };
     await this.prisma.agent.upsert({
       where: { id: agent.id },
@@ -158,6 +159,10 @@ export class PrismaAgentRepository implements AgentRepository {
       if ((err as { code?: string }).code === 'P2025') return;
       throw err;
     });
+  }
+
+  async stampAxlPeerId(peerId: string): Promise<void> {
+    await this.prisma.agent.updateMany({ where: { axlPeerId: null }, data: { axlPeerId: peerId } });
   }
 
   async delete(id: string): Promise<void> {

@@ -18,6 +18,7 @@ model Agent {
   running             Boolean?
   intervalMs          Int?
   lastTickAt          BigInt?
+  axlPeerId           String?
   userId              String
   allowedTokens       String[]  @default([])
   toolIds             String[]  @default([])

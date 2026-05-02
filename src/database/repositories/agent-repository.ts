@@ -12,5 +12,6 @@ export interface AgentRepository {
   deleteAxlChannel(channelId: string): Promise<void>;
   addAgentToAxlChannel(agentId: string, channelId: string): Promise<void>;
   removeAgentFromAxlChannel(agentId: string, channelId: string): Promise<void>;
+  stampAxlPeerId(peerId: string): Promise<void>;
   delete(id: string): Promise<void>;
 }

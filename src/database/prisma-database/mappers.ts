@@ -46,6 +46,7 @@ export function agentRowToDomain(row: PrismaAgent): AgentConfig {
     running: row.running ?? undefined,
     intervalMs: row.intervalMs ?? undefined,
     lastTickAt: num(row.lastTickAt),
+    axlPeerId: row.axlPeerId ?? null,
   };
 }
 

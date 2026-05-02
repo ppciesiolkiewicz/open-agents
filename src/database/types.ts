@@ -26,6 +26,7 @@ export interface AgentConfig {
   running?: boolean;
   intervalMs?: number;
   lastTickAt?: number | null;
+  axlPeerId?: string | null;
 }
 
 export interface AxlChannel {

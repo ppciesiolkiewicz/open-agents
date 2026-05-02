@@ -40,6 +40,7 @@ export interface ApiServerDeps {
   env: Env;
   treasuryAddress: `0x${string}`;
   port: number;
+  localAxlPeerId: string;
   corsOrigins?: string;
 }
 
@@ -74,7 +75,7 @@ export class ApiServer {
     this.app.use('/tokens', buildTokensRouter({ db: deps.db }));
     this.app.use('/tools', buildToolsRouter());
     this.app.use('/axl/channels', buildAxlChannelsRouter({ db: deps.db }));
-    this.app.use('/agents', buildAgentsRouter({ db: deps.db }));
+    this.app.use('/agents', buildAgentsRouter({ db: deps.db, localAxlPeerId: deps.localAxlPeerId }));
     this.app.use('/agents/:id/activity', buildActivityRouter({ db: deps.db, activityLog: deps.activityLog }));
     this.app.use('/agents/:id/messages', buildMessagesRouter({ db: deps.db, activityLog: deps.activityLog, queue: deps.queue }));
     this.app.use('/agents/:id/stream', buildStreamRouter({ db: deps.db, activityLog: deps.activityLog }));

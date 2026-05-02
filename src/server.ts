@@ -15,6 +15,7 @@ import { CoingeckoService } from './providers/coingecko/coingecko-service';
 import { privateKeyToAccount } from 'viem/accounts';
 import { buildZeroGBroker } from './ai/zerog-broker/zerog-broker-factory';
 import { ZeroGBrokerService } from './ai/zerog-broker/zerog-broker-service';
+import { AxlClient } from './axl/axl-client';
 
 async function main(): Promise<void> {
   let env: Env;
@@ -51,6 +52,9 @@ async function main(): Promise<void> {
 
   const treasuryAddress = privateKeyToAccount(env.TREASURY_WALLET_PRIVATE_KEY as `0x${string}`).address;
 
+  const { ourPeerId: localAxlPeerId } = await new AxlClient(env.AXL_URL).getTopology();
+  console.log(`[bootstrap] AXL node ready — peer=${localAxlPeerId}`);
+
   const api = new ApiServer({
     db,
     activityLog,
@@ -64,6 +68,7 @@ async function main(): Promise<void> {
     env,
     treasuryAddress,
     port: env.PORT,
+    localAxlPeerId,
     ...(env.API_CORS_ORIGINS ? { corsOrigins: env.API_CORS_ORIGINS } : {}),
   });
 

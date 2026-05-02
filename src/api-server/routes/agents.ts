@@ -14,6 +14,7 @@ import { listAllSupportedToolIds, validateAndNormalizeToolIds } from '../../ai-t
 
 interface Deps {
   db: Database;
+  localAxlPeerId: string;
   clock?: () => number;
 }
 
@@ -100,6 +101,7 @@ export function buildAgentsRouter(deps: Deps): Router {
         createdAt: now(),
         running: false,
         lastTickAt: null,
+        axlPeerId: deps.localAxlPeerId || null,
         ...(body.intervalMs !== undefined ? { intervalMs: body.intervalMs } : {}),
       };
       await deps.db.agents.upsert(agent);
