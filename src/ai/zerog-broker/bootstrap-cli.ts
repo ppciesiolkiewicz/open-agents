@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { loadEnv } from '../../config/env';
-import { buildZeroGBroker } from './zerog-broker-factory';
+import { buildZeroGBroker, buildEnvPkZeroGSigner } from './zerog-broker-factory';
 import { ZeroGBrokerService } from './zerog-broker-service';
 import { ZeroGBootstrapStore } from './zerog-bootstrap-store';
 import type { ZeroGBootstrapState } from './types';
@@ -36,8 +36,9 @@ async function confirm(q: string): Promise<boolean> {
 
 async function main(): Promise<void> {
   const env = loadEnv();
+  const signer = buildEnvPkZeroGSigner(env.WALLET_PRIVATE_KEY, env.ZEROG_NETWORK);
   const { broker, walletAddress } = await buildZeroGBroker({
-    WALLET_PRIVATE_KEY: env.WALLET_PRIVATE_KEY,
+    signer,
     ZEROG_NETWORK: env.ZEROG_NETWORK,
   });
   const service = new ZeroGBrokerService(broker);

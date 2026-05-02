@@ -15,7 +15,7 @@ import { AgentRunner } from './agent-runner/agent-runner';
 import { StubLLMClient } from './agent-runner/stub-llm-client';
 import type { LLMClient } from './agent-runner/llm-client';
 import { ZeroGBootstrapStore } from './ai/zerog-broker/zerog-bootstrap-store';
-import { buildZeroGBroker } from './ai/zerog-broker/zerog-broker-factory';
+import { buildZeroGBroker, buildEnvPkZeroGSigner } from './ai/zerog-broker/zerog-broker-factory';
 import { silenceZeroGSdkNoise } from './ai/zerog-broker/silence-sdk-noise';
 import { ZeroGLLMClient } from './ai/chat-model/zerog-llm-client';
 import { ToolRegistry } from './ai-tools/tool-registry';
@@ -44,10 +44,8 @@ async function buildLLM(env: Env): Promise<LLMClient> {
       `[bootstrap] WARNING: zerog-bootstrap.json was funded on '${state.network}' but env says '${env.ZEROG_NETWORK}'; using the file's network. Delete db/zerog-bootstrap.json and re-run \`npm run zerog-bootstrap\` to switch.`,
     );
   }
-  const { broker } = await buildZeroGBroker({
-    WALLET_PRIVATE_KEY: env.WALLET_PRIVATE_KEY,
-    ZEROG_NETWORK: state.network,
-  });
+  const signer = buildEnvPkZeroGSigner(env.WALLET_PRIVATE_KEY, state.network);
+  const { broker } = await buildZeroGBroker({ signer, ZEROG_NETWORK: state.network });
   silenceZeroGSdkNoise();
   console.log(`[bootstrap] 0G LLM ready — network=${state.network} provider=${state.providerAddress} model=${state.model}`);
   return new ZeroGLLMClient({

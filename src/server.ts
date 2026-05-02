@@ -13,7 +13,7 @@ import { RedisClient } from './redis/redis-client';
 import { BalanceService } from './balance/balance-service';
 import { CoingeckoService } from './providers/coingecko/coingecko-service';
 import { privateKeyToAccount } from 'viem/accounts';
-import { buildZeroGBroker } from './ai/zerog-broker/zerog-broker-factory';
+import { buildZeroGBroker, buildEnvPkZeroGSigner } from './ai/zerog-broker/zerog-broker-factory';
 import { ZeroGBrokerService } from './ai/zerog-broker/zerog-broker-service';
 import { AxlClient } from './axl/axl-client';
 
@@ -44,10 +44,8 @@ async function main(): Promise<void> {
   const coingecko = new CoingeckoService({ apiKey: env.COINGECKO_API_KEY });
   const balanceService = new BalanceService(env, coingecko);
 
-  const { broker } = await buildZeroGBroker({
-    WALLET_PRIVATE_KEY: env.WALLET_PRIVATE_KEY,
-    ZEROG_NETWORK: env.ZEROG_NETWORK,
-  });
+  const signer = buildEnvPkZeroGSigner(env.WALLET_PRIVATE_KEY, env.ZEROG_NETWORK);
+  const { broker } = await buildZeroGBroker({ signer, ZEROG_NETWORK: env.ZEROG_NETWORK });
   const brokerService = new ZeroGBrokerService(broker);
 
   const treasuryAddress = privateKeyToAccount(env.TREASURY_WALLET_PRIVATE_KEY as `0x${string}`).address;
