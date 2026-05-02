@@ -9,7 +9,7 @@ import { TREASURY_SERVICE_FEE_BPS, USDC_ON_UNICHAIN } from '../../constants/inde
 import type { Env } from '../../config/env.js';
 
 const ZEROG_PURCHASE_STATUSES: readonly ZeroGPurchaseStatus[] = [
-  'pending', 'bridging', 'swapping', 'sending', 'topping_up', 'completed', 'failed',
+  'pending', 'swapping', 'sending', 'topping_up', 'completed', 'failed',
 ];
 
 const PurchasesQuerySchema = z.object({
@@ -33,7 +33,6 @@ const FakePurchaseBodySchema = z.object({
 
 const FAKE_PURCHASE_STEP_MS = 2000;
 const FAKE_PURCHASE_STATUS_SEQUENCE: ZeroGPurchaseStatus[] = [
-  'bridging',
   'swapping',
   'sending',
   'topping_up',

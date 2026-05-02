@@ -62,7 +62,7 @@ function registerPaths(): void {
     description: 'Lists ZeroGPurchase rows for the authenticated user, most recent first. Optional `status` query is a comma-separated list (e.g. `?status=pending,swapping,sending,topping_up` for in-progress only). Use this to track the status of in-flight deposits.',
     request: {
       query: z.object({
-        status: z.string().optional().openapi({ description: 'Comma-separated list of statuses to filter by. Allowed: pending, bridging, swapping, sending, topping_up, completed, failed.' }),
+        status: z.string().optional().openapi({ description: 'Comma-separated list of statuses to filter by. Allowed: pending, swapping, sending, topping_up, completed, failed.' }),
       }),
     },
     responses: {
@@ -87,7 +87,7 @@ function registerPaths(): void {
   registry.registerPath({
     method: 'post',
     path: '/users/me/treasury/purchases/fake',
-    description: 'Creates a fake ZeroGPurchase row in `pending` status for the authenticated user, returns it immediately, then asynchronously advances the row through `bridging` → `swapping` → `sending` → `topping_up` → `completed` with a 2-second delay between each transition. No on-chain actions occur. Useful for exercising client UIs that subscribe to purchase status. Optional `amount` body field controls the incoming USDC amount (default `1`).',
+    description: 'Creates a fake ZeroGPurchase row in `pending` status for the authenticated user, returns it immediately, then asynchronously advances the row through `swapping` → `sending` → `topping_up` → `completed` with a 2-second delay between each transition. No on-chain actions occur. Useful for exercising client UIs that subscribe to purchase status. Optional `amount` body field controls the incoming USDC amount (default `1`).',
     request: { body: { content: { 'application/json': { schema: FakePurchaseBodySchema } } } },
     responses: {
       201: { description: 'fake purchase created', content: { 'application/json': { schema: ZeroGPurchaseSchema } } },
@@ -99,7 +99,7 @@ function registerPaths(): void {
   registry.registerPath({
     method: 'post',
     path: '/users/me/treasury/deposit',
-    description: 'Sends USDC from the authenticated user\'s primary Privy wallet on Unichain to the treasury wallet. The TreasuryFundsWatcher detects the transfer and triggers the swap → bridge → broker top-up pipeline asynchronously.',
+    description: 'Sends USDC from the authenticated user\'s primary Privy wallet on Unichain to the treasury wallet. The TreasuryFundsWatcher detects the transfer and triggers the swap → send → broker top-up pipeline asynchronously.',
     request: { body: { content: { 'application/json': { schema: TreasuryDepositBodySchema } } } },
     responses: {
       201: { description: 'transfer submitted', content: { 'application/json': { schema: TreasuryDepositResponseSchema } } },

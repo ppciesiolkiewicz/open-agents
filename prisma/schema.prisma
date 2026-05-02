@@ -197,9 +197,6 @@ model ZeroGPurchase {
   serviceFeeUsdcAmount  BigInt
   swapInputUsdcAmount   BigInt
 
-  bridgeTxHash          String?
-  bridgeGasCostWei      BigInt?
-
   swapTxHash            String?
   swapInputUsdceAmount  BigInt?
   swapOutputW0gAmount   BigInt?
