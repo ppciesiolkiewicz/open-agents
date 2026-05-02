@@ -84,11 +84,20 @@ MARKET_UPDATE — share general intelligence:
 Always send exactly one message per tick. Pick the type that best describes your current state. Stringify the JSON before passing it as the message parameter.
 `.trim();
 
+const AGENT_IDS = {
+  milkProducerAlpine: '11111111-1111-1111-1111-111111111101',
+  milkProducerSunrise: '11111111-1111-1111-1111-111111111102',
+  cheeseProducerArtisan: '11111111-1111-1111-1111-111111111103',
+  cheeseProducerCheddar: '11111111-1111-1111-1111-111111111104',
+  retailerCityMarket: '11111111-1111-1111-1111-111111111105',
+  retailerCornerDeli: '11111111-1111-1111-1111-111111111106',
+} as const;
+
 function buildAgents(userId: string): AgentConfig[] {
   const now = Date.now();
 
   const milkProducerAlpine: AgentConfig = {
-    id: 'milk-producer-alpine-001',
+    id: AGENT_IDS.milkProducerAlpine,
     userId,
     name: 'Alpine Milk Co',
     running: false,
@@ -132,7 +141,7 @@ Every tick, do exactly:
   };
 
   const milkProducerSunrise: AgentConfig = {
-    id: 'milk-producer-sunrise-001',
+    id: AGENT_IDS.milkProducerSunrise,
     userId,
     name: 'Sunrise Dairy',
     running: false,
@@ -175,7 +184,7 @@ Every tick, do exactly:
   };
 
   const cheeseProducerArtisan: AgentConfig = {
-    id: 'cheese-producer-artisan-001',
+    id: AGENT_IDS.cheeseProducerArtisan,
     userId,
     name: 'Artisan Cheese House',
     running: false,
@@ -220,7 +229,7 @@ Every tick, do exactly:
   };
 
   const cheeseProducerCheddar: AgentConfig = {
-    id: 'cheese-producer-cheddar-001',
+    id: AGENT_IDS.cheeseProducerCheddar,
     userId,
     name: 'Cheddar Valley Creamery',
     running: false,
@@ -265,7 +274,7 @@ Every tick, do exactly:
   };
 
   const retailerCityMarket: AgentConfig = {
-    id: 'retailer-city-market-001',
+    id: AGENT_IDS.retailerCityMarket,
     userId,
     name: 'City Fresh Market',
     running: false,
@@ -311,7 +320,7 @@ Every tick, do exactly:
   };
 
   const retailerCornerDeli: AgentConfig = {
-    id: 'retailer-corner-deli-001',
+    id: AGENT_IDS.retailerCornerDeli,
     userId,
     name: 'Corner Deli',
     running: false,
@@ -400,8 +409,8 @@ async function main(): Promise<void> {
     }
 
     // --- channels ---
-    const milkProducerIds = ['milk-producer-alpine-001', 'milk-producer-sunrise-001'];
-    const cheeseProducerIds = ['cheese-producer-artisan-001', 'cheese-producer-cheddar-001'];
+    const milkProducerIds = [AGENT_IDS.milkProducerAlpine, AGENT_IDS.milkProducerSunrise];
+    const cheeseProducerIds = [AGENT_IDS.cheeseProducerArtisan, AGENT_IDS.cheeseProducerCheddar];
 
     const milkChannelId = randomUUID();
     const cheeseChannelId = randomUUID();
