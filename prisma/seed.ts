@@ -59,22 +59,6 @@ PRICE_REPORT — share market intelligence on current prices:
 Always send exactly one message per tick on this channel. Pick the type that matches your role and current state. Use only the fields relevant to your commodity (omit volumeWBTC if selling milk, etc.). Stringify the JSON before passing it as the message parameter.
 `.trim();
 
-const CHEESE_CHANNEL_HINT = `
-Industry channel: You are a member of the "Cheese Producers" channel.
-Each tick, call listAvailableChannels to get the channelId, then call sendMessageToChannel with a JSON message in one of these formats:
-
-MILK_BUY_REQUEST — announce you need milk:
-{ "type": "MILK_BUY_REQUEST", "from": "<your agent name>", "volumeUNI": "<amount>", "maxPriceUSD": <number>, "note": "optional free text" }
-
-CHEESE_SELL_OFFER — announce cheese available for sale:
-{ "type": "CHEESE_SELL_OFFER", "from": "<your agent name>", "volumeWBTC": "<amount>", "askPriceUSD": <number>, "note": "optional free text" }
-
-MARKET_UPDATE — share general intelligence:
-{ "type": "MARKET_UPDATE", "from": "<your agent name>", "milkPriceUSD": <number>, "cheesePriceUSD": <number>, "note": "optional free text" }
-
-Send one message per tick on this channel. Pick the type that best describes your current state. Stringify the JSON before passing it as the message parameter.
-`.trim();
-
 const AGENT_IDS = {
   milkProducerAlpine: '11111111-1111-1111-1111-111111111101',
   milkProducerSunrise: '11111111-1111-1111-1111-111111111102',
@@ -206,8 +190,6 @@ Every tick:
 
 ${TOKEN_CONTEXT}
 
-${CHEESE_CHANNEL_HINT}
-
 ${MILK_CHANNEL_HINT}
 
 ${MARKETS_CHANNEL_HINT}
@@ -217,7 +199,7 @@ You do NOT have access to any swap/AMM tools. All trades settle peer-to-peer: yo
 Every tick:
 1. Use fetchTokenPriceUSD and getTokenBalance to assess your current position and the market.
 2. Use readMemory / updateMemory to track what you have observed across ticks (open offers, counterparty addresses, expected inbound transfers).
-3. Post one message to each of: the Cheese Producers channel, the Milk Producers channel (BUY_REQUEST for milk), and the Markets channel — describing your stance. Include your wallet address when soliciting transfers.
+3. Post one message to each of: the Milk Producers channel (BUY_REQUEST for milk) and the Markets channel — describing your stance. Include your wallet address when soliciting transfers.
 4. Optionally settle one accepted trade via transferERC20Token — send USDC to a milk producer's address for milk you agreed to buy, or send WBTC to a retailer's address for cheese you agreed to sell. Keep batches small.`,
   };
 
@@ -247,8 +229,6 @@ Every tick:
 
 ${TOKEN_CONTEXT}
 
-${CHEESE_CHANNEL_HINT}
-
 ${MILK_CHANNEL_HINT}
 
 ${MARKETS_CHANNEL_HINT}
@@ -258,7 +238,7 @@ You do NOT have access to any swap/AMM tools. All trades settle peer-to-peer: yo
 Every tick:
 1. Use fetchTokenPriceUSD and getTokenBalance to assess your current position and the market.
 2. Use readMemory / updateMemory to track what you have observed across ticks (milk costs, cheese prices, open offers, counterparty addresses).
-3. Post one message to each of: the Cheese Producers channel, the Milk Producers channel (BUY_REQUEST for milk in bulk), and the Markets channel — describing your stance. Include your wallet address when soliciting transfers.
+3. Post one message to each of: the Milk Producers channel (BUY_REQUEST for milk in bulk) and the Markets channel — describing your stance. Include your wallet address when soliciting transfers.
 4. Optionally settle one accepted trade via transferERC20Token — send USDC to a milk producer's address for milk you agreed to buy in bulk, or send WBTC to a retailer's address for cheese you agreed to sell. You prefer larger batches than artisan producers.`,
   };
 
@@ -349,7 +329,7 @@ Every tick:
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   try {
-    console.log(`[seed] seeding tokens, 6 marketplace agents, and 3 AXL channels for user ${SEED_USER_EMAIL}`);
+    console.log(`[seed] seeding tokens, 6 marketplace agents, and 2 AXL channels for user ${SEED_USER_EMAIL}`);
 
     // --- tokens (full Coingecko catalog for chain + canonical overrides) ---
     await seedFullTokenCatalog(prisma);
@@ -382,12 +362,10 @@ async function main(): Promise<void> {
     ];
 
     const milkChannelId = randomUUID();
-    const cheeseChannelId = randomUUID();
     const marketsChannelId = randomUUID();
 
     const existingChannels = await agents.listAxlChannelsByUser(user.id);
     const milkExists = existingChannels.find((c) => c.name === 'Milk Producers');
-    const cheeseExists = existingChannels.find((c) => c.name === 'Cheese Producers');
     const marketsExists = existingChannels.find((c) => c.name === 'Markets');
 
     const milkChannelMemberIds = [...milkProducerIds, ...cheeseProducerIds];
@@ -403,16 +381,6 @@ async function main(): Promise<void> {
         await agents.addAgentToAxlChannel(agentId, milkExists.id);
       }
       console.log(`[seed] channel "Milk Producers" already exists — backfilled ${milkChannelMemberIds.length} memberships`);
-    }
-
-    if (!cheeseExists) {
-      await agents.createAxlChannel({ id: cheeseChannelId, userId: user.id, name: 'Cheese Producers', createdAt: Date.now() });
-      for (const agentId of cheeseProducerIds) {
-        await agents.addAgentToAxlChannel(agentId, cheeseChannelId);
-      }
-      console.log(`[seed] created channel "Cheese Producers" with ${cheeseProducerIds.length} members`);
-    } else {
-      console.log(`[seed] channel "Cheese Producers" already exists — skipped`);
     }
 
     if (!marketsExists) {
