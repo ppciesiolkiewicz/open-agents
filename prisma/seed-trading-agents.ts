@@ -6,12 +6,11 @@ import { PrismaAgentRepository } from '../src/database/prisma-database/prisma-ag
 import { PrismaUserRepository } from '../src/database/prisma-database/prisma-user-repository';
 import type { AgentConfig } from '../src/database/types';
 import {
+  SEED_USER_EMAIL,
+  SEED_USER_DID,
   seedFullTokenCatalog,
   upsertCanonicalTokens,
 } from './seed-shared';
-
-const SEED_USER_EMAIL = 'ppciesiolkiewicz+trading@gmail.com';
-const SEED_USER_DID = 'did:privy:seed-trading-agents';
 
 const AGENT_IDS = {
   sentiment: '22222222-2222-2222-2222-222222222201',
