@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
-import type { PrivyClient } from '@privy-io/server-auth';
-import type { UserWalletRepository } from '../../database/repositories/user-wallet-repository';
-import type { User, UserWallet } from '../../database/types';
+import { randomUUID } from "node:crypto";
+import type { PrivyClient } from "@privy-io/server-auth";
+import type { UserWalletRepository } from "../../database/repositories/user-wallet-repository";
+import type { User, UserWallet } from "../../database/types";
 
 interface PrivyLinkedWallet {
   type: string;
@@ -30,7 +30,8 @@ interface PrivyLinkedWallet {
 // every new wallet is created with `owner.userId` set (already done in
 // findOrCreatePrivyServerWallet's create path).
 // =============================================================================
-const ALLOWED_DEV_WALLET_ADDRESS = '0x70b9197E72F09A13a022952F4D3DE77d99c72f2a'.toLowerCase();
+const ALLOWED_DEV_WALLET_ADDRESS =
+  "0x70b9197E72F09A13a022952F4D3DE77d99c72f2a".toLowerCase();
 
 export class WalletProvisioner {
   constructor(
@@ -42,9 +43,11 @@ export class WalletProvisioner {
     const existing = await this.userWallets.findPrimaryByUser(user.id);
     if (existing) return existing;
 
-    const { privyWalletId, walletAddress } = await this.findOrCreatePrivyServerWallet(user);
+    const { privyWalletId, walletAddress } =
+      await this.findOrCreatePrivyServerWallet(user);
 
-    const existingByPrivyId = await this.userWallets.findByPrivyWalletId(privyWalletId);
+    const existingByPrivyId =
+      await this.userWallets.findByPrivyWalletId(privyWalletId);
     if (existingByPrivyId) return existingByPrivyId;
 
     const uw: UserWallet = {
@@ -69,18 +72,15 @@ export class WalletProvisioner {
     user: User,
   ): Promise<{ privyWalletId: string; walletAddress: string }> {
     const privyUser = await this.privy.getUserById(user.privyDid);
-    const linkedWallets = (privyUser.linkedAccounts as PrivyLinkedWallet[]).filter(
-      (a) => a.type === 'wallet',
-    );
-    console.log(
-      `[wallet-provisioner] privyDid=${user.privyDid} linkedWallets=${JSON.stringify(linkedWallets, null, 2)}`,
-    );
+    const linkedWallets = (
+      privyUser.linkedAccounts as PrivyLinkedWallet[]
+    ).filter((a) => a.type === "wallet");
 
     const allAppWallets: unknown[] = [];
     let cursor: string | undefined;
     do {
       const page = await this.privy.walletApi.getWallets(
-        cursor ? { cursor, chainType: 'ethereum' } : { chainType: 'ethereum' },
+        cursor ? { cursor, chainType: "ethereum" } : { chainType: "ethereum" },
       );
       allAppWallets.push(...page.data);
       cursor = page.nextCursor;
@@ -88,15 +88,15 @@ export class WalletProvisioner {
     console.log(
       `[wallet-provisioner] app-wide ethereum wallets (${allAppWallets.length}):\n${JSON.stringify(allAppWallets, null, 2)}`,
     );
-    const devWallet = (allAppWallets as Array<{ id: string; address: string }>).find(
-      (w) => w.address?.toLowerCase() === ALLOWED_DEV_WALLET_ADDRESS,
-    );
+    const devWallet = (
+      allAppWallets as Array<{ id: string; address: string }>
+    ).find((w) => w.address?.toLowerCase() === ALLOWED_DEV_WALLET_ADDRESS);
     if (devWallet) {
       return { privyWalletId: devWallet.id, walletAddress: devWallet.address };
     }
 
     const created = await this.privy.walletApi.createWallet({
-      chainType: 'ethereum',
+      chainType: "ethereum",
       owner: { userId: user.privyDid },
     });
     return { privyWalletId: created.id, walletAddress: created.address };
