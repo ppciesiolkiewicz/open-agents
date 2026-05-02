@@ -211,7 +211,6 @@ export const TreasuryDepositResponseSchema = z.object({
 
 export const ZeroGPurchaseStatusSchema = z.enum([
   'pending',
-  'bridging',
   'swapping',
   'sending',
   'topping_up',
@@ -229,9 +228,6 @@ export const ZeroGPurchaseSchema = z.object({
 
   serviceFeeUsdcAmount: z.string(),
   swapInputUsdcAmount: z.string(),
-
-  bridgeTxHash: z.string().optional(),
-  bridgeGasCostWei: z.string().optional(),
 
   swapTxHash: z.string().optional(),
   swapInputUsdceAmount: z.string().optional(),

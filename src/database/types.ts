@@ -127,7 +127,6 @@ export interface UserWallet {
 
 export type ZeroGPurchaseStatus =
   | 'pending'
-  | 'bridging'
   | 'swapping'
   | 'sending'
   | 'topping_up'
@@ -144,9 +143,6 @@ export interface ZeroGPurchase {
 
   serviceFeeUsdcAmount: string;
   swapInputUsdcAmount: string;
-
-  bridgeTxHash?: string;
-  bridgeGasCostWei?: string;
 
   swapTxHash?: string;
   swapInputUsdceAmount?: string;

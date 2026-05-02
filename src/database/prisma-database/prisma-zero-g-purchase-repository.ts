@@ -11,8 +11,6 @@ function rowToDomain(row: any): ZeroGPurchase {
     incomingUsdcAmount: row.incomingUsdcAmount.toString(),
     serviceFeeUsdcAmount: row.serviceFeeUsdcAmount.toString(),
     swapInputUsdcAmount: row.swapInputUsdcAmount.toString(),
-    bridgeTxHash: row.bridgeTxHash ?? undefined,
-    bridgeGasCostWei: row.bridgeGasCostWei?.toString(),
     swapTxHash: row.swapTxHash ?? undefined,
     swapInputUsdceAmount: row.swapInputUsdceAmount?.toString(),
     swapOutputW0gAmount: row.swapOutputW0gAmount?.toString(),
@@ -78,8 +76,6 @@ export class PrismaZeroGPurchaseRepository implements ZeroGPurchaseRepository {
     const data: Record<string, unknown> = { updatedAt: BigInt(Date.now()) };
     if (patch.status !== undefined) data.status = patch.status;
     if (patch.errorMessage !== undefined) data.errorMessage = patch.errorMessage;
-    if (patch.bridgeTxHash !== undefined) data.bridgeTxHash = patch.bridgeTxHash;
-    if (patch.bridgeGasCostWei !== undefined) data.bridgeGasCostWei = BigInt(patch.bridgeGasCostWei);
     if (patch.swapTxHash !== undefined) data.swapTxHash = patch.swapTxHash;
     if (patch.swapInputUsdceAmount !== undefined) data.swapInputUsdceAmount = BigInt(patch.swapInputUsdceAmount);
     if (patch.swapOutputW0gAmount !== undefined) data.swapOutputW0gAmount = BigInt(patch.swapOutputW0gAmount);
