@@ -29,6 +29,8 @@ import { TreasuryWallet } from './treasury/treasury-wallet';
 import { JaineSwapService } from './treasury/jaine-swap-service';
 import { TreasuryFundsWatcher } from './treasury/treasury-funds-watcher';
 import { TreasuryService } from './treasury/treasury-service';
+import { AxlClient } from './axl/axl-client';
+import { AxlPoller } from './axl/axl-poller';
 
 async function buildLLM(env: Env): Promise<LLMClient> {
   const store = new ZeroGBootstrapStore(env.DB_DIR);
@@ -77,6 +79,11 @@ async function main(): Promise<void> {
   const queueSubscriber = RedisClient.build(env.REDIS_URL);
   const queue = new RedisTickQueue({ producer: queueProducer, subscriber: queueSubscriber });
 
+  const axlClient = new AxlClient(env.AXL_URL);
+  const { ourPeerId: localAxlPeerId } = await axlClient.getTopology();
+  console.log(`[bootstrap] AXL node ready — peer=${localAxlPeerId}`);
+  const axlPoller = new AxlPoller(axlClient, queue);
+
   const walletFactory = new WalletFactory(env, db.transactions);
   const uniswap = new UniswapService(env, db);
   const llm = await buildLLM(env);
@@ -89,7 +96,8 @@ async function main(): Promise<void> {
     db,
     uniswap,
     env,
-    tickQueue: queue,
+    axlClient,
+    localAxlPeerId,
   });
   const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
 
@@ -101,6 +109,8 @@ async function main(): Promise<void> {
   const orchestrator = new AgentOrchestrator(db, queue);
   const dispatcher = new TickDispatcher({ db, runner, activityLog, queue });
   dispatcher.start();
+  axlPoller.start();
+  console.log('[bootstrap] AXL poller started');
 
   const privyClient = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
   const treasuryWallet = new TreasuryWallet(env);
@@ -133,6 +143,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     console.log(`[bootstrap] received ${signal}, stopping`);
     scheduler.stop();
+    axlPoller.stop();
     await dispatcher.stop().catch(() => {});
     treasuryWatcher.stop();
     await treasuryService.stop();
