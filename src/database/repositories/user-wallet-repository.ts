@@ -5,6 +5,7 @@ export interface UserWalletRepository {
   findById(id: string): Promise<UserWallet | null>;
   findPrimaryByUser(userId: string): Promise<UserWallet | null>;
   listByUser(userId: string): Promise<UserWallet[]>;
+  listAll(): Promise<UserWallet[]>;
   findByPrivyWalletId(privyWalletId: string): Promise<UserWallet | null>;
   findByWalletAddress(address: string): Promise<UserWallet | null>;
 }

