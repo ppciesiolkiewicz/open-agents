@@ -1,5 +1,6 @@
 import type { AxlClient } from './axl-client';
 import type { TickQueue } from '../agent-runner/tick-queue';
+import { WORKER } from '../constants';
 
 export interface AxlPollerOptions {
   pollIntervalMs?: number;
@@ -29,7 +30,7 @@ export class AxlPoller {
   }
 
   private async loop(signal: AbortSignal): Promise<void> {
-    const minIntervalMs = this.options.pollIntervalMs ?? 100;
+    const minIntervalMs = this.options.pollIntervalMs ?? WORKER.axlPollIntervalMs;
     const maxBackoffMs = 30_000;
     let backoffMs = minIntervalMs;
 

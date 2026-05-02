@@ -226,6 +226,7 @@ FIRECRAWL_API_KEY=
 # Runtime
 DB_DIR=./db
 LOG_LEVEL=info
+# AXL_URL=http://127.0.0.1:9002   # optional; defaults to local AXL node
 
 # Postgres
 DATABASE_URL=
