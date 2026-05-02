@@ -71,40 +71,41 @@ export function buildSweepRouter(deps: Deps): Router {
         const addr = w.walletAddress as `0x${string}`;
         const transfers: TokenSweepResult[] = [];
 
-        for (const token of UNICHAIN_ERC20S) {
-          const raw = await unichainClient.readContract({
-            address: token.address,
-            abi: erc20Abi,
-            functionName: 'balanceOf',
-            args: [addr],
-          }) as bigint;
-          if (raw === 0n) continue;
-          try {
-            const data = encodeFunctionData({
-              abi: erc20Abi,
-              functionName: 'transfer',
-              args: [recipient, raw],
-            });
-            const { hash } = await deps.privy.walletApi.ethereum.sendTransaction({
-              walletId: w.privyWalletId,
-              caip2: `eip155:${UNICHAIN.chainId}`,
-              transaction: {
-                to: token.address,
-                data,
-                chainId: UNICHAIN.chainId,
-              },
-            }) as { hash: string };
-            await unichainClient.waitForTransactionReceipt({ hash: hash as `0x${string}` });
-            transfers.push({ symbol: token.symbol, chainId: UNICHAIN.chainId, raw: raw.toString(), txHash: hash });
-          } catch (err) {
-            transfers.push({
-              symbol: token.symbol,
-              chainId: UNICHAIN.chainId,
-              raw: raw.toString(),
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }
+        // Unichain transfers disabled — keep funds on Unichain.
+        // for (const token of UNICHAIN_ERC20S) {
+        //   const raw = await unichainClient.readContract({
+        //     address: token.address,
+        //     abi: erc20Abi,
+        //     functionName: 'balanceOf',
+        //     args: [addr],
+        //   }) as bigint;
+        //   if (raw === 0n) continue;
+        //   try {
+        //     const data = encodeFunctionData({
+        //       abi: erc20Abi,
+        //       functionName: 'transfer',
+        //       args: [recipient, raw],
+        //     });
+        //     const { hash } = await deps.privy.walletApi.ethereum.sendTransaction({
+        //       walletId: w.privyWalletId,
+        //       caip2: `eip155:${UNICHAIN.chainId}`,
+        //       transaction: {
+        //         to: token.address,
+        //         data,
+        //         chainId: UNICHAIN.chainId,
+        //       },
+        //     }) as { hash: string };
+        //     await unichainClient.waitForTransactionReceipt({ hash: hash as `0x${string}` });
+        //     transfers.push({ symbol: token.symbol, chainId: UNICHAIN.chainId, raw: raw.toString(), txHash: hash });
+        //   } catch (err) {
+        //     transfers.push({
+        //       symbol: token.symbol,
+        //       chainId: UNICHAIN.chainId,
+        //       raw: raw.toString(),
+        //       error: err instanceof Error ? err.message : String(err),
+        //     });
+        //   }
+        // }
 
         try {
           const balance = await zerogClient.getBalance({ address: addr });

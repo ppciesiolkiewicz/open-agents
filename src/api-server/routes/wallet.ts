@@ -56,20 +56,22 @@ export function buildWalletRouter(deps: Deps): Router {
         ),
       ]);
 
-      const enrichedTokens: TokenWithPrice[] = tokenBalances.map((b: TokenBalanceItem) => {
-        const priceUsd = tokenPrices[b.address.toLowerCase()] ?? 0;
-        const valueUsd = parseFloat(b.formatted) * priceUsd;
-        return {
-          chainId: b.chainId,
-          address: b.address,
-          symbol: b.symbol,
-          decimals: b.decimals,
-          balanceRaw: b.raw,
-          balanceFormatted: b.formatted,
-          priceUsd,
-          valueUsd: Math.round(valueUsd * 1e6) / 1e6,
-        };
-      });
+      const enrichedTokens: TokenWithPrice[] = tokenBalances
+        .filter((b: TokenBalanceItem) => b.raw !== '0')
+        .map((b: TokenBalanceItem) => {
+          const priceUsd = tokenPrices[b.address.toLowerCase()] ?? 0;
+          const valueUsd = parseFloat(b.formatted) * priceUsd;
+          return {
+            chainId: b.chainId,
+            address: b.address,
+            symbol: b.symbol,
+            decimals: b.decimals,
+            balanceRaw: b.raw,
+            balanceFormatted: b.formatted,
+            priceUsd,
+            valueUsd: Math.round(valueUsd * 1e6) / 1e6,
+          };
+        });
 
       const unichainTotal = enrichedTokens.reduce((acc, t) => acc + t.valueUsd, 0);
 
