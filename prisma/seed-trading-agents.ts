@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { USDC_ON_UNICHAIN, UNI_ON_UNICHAIN, WBTC_ON_UNICHAIN } from '../src/constants';
 import { PrismaAgentRepository } from '../src/database/prisma-database/prisma-agent-repository';
@@ -13,16 +12,28 @@ import {
 } from './seed-shared';
 
 const AGENT_IDS = {
+  searcher: '22222222-2222-2222-2222-222222222200',
   sentiment: '22222222-2222-2222-2222-222222222201',
   risk: '22222222-2222-2222-2222-222222222202',
   executor: '22222222-2222-2222-2222-222222222203',
 } as const;
 
+const SEARCHER_TOOL_IDS = [
+  'market.coingecko.price',
+  'memory.read',
+  'memory.update',
+  'memory.entry.save',
+  'memory.entry.search',
+  'tokens.find-by-symbol',
+  'tokens.list-allowed',
+  'agents.message.help',
+  'agents.message.send',
+];
+
 const SENTIMENT_TOOL_IDS = [
   'market.coingecko.price',
   'market.coinmarketcap.info',
   'search.web',
-  'web.scrape.markdown',
   'memory.read',
   'memory.update',
   'memory.entry.save',
@@ -30,8 +41,8 @@ const SENTIMENT_TOOL_IDS = [
   'tokens.find-by-symbol',
   'tokens.get-by-address',
   'tokens.list-allowed',
-  'agents.channels.list',
-  'agents.channel-message.send',
+  'agents.message.help',
+  'agents.message.send',
 ];
 
 const RISK_TOOL_IDS = [
@@ -50,8 +61,6 @@ const RISK_TOOL_IDS = [
   'utility.token-amount.parse',
   'agents.message.help',
   'agents.message.send',
-  'agents.channels.list',
-  'agents.channel-message.send',
 ];
 
 const EXECUTOR_TOOL_IDS = [
@@ -72,8 +81,6 @@ const EXECUTOR_TOOL_IDS = [
   'utility.token-amount.parse',
   'agents.message.help',
   'agents.message.send',
-  'agents.channels.list',
-  'agents.channel-message.send',
 ];
 
 const TOKEN_CONTEXT = `
@@ -85,38 +92,58 @@ Tradable tokens on Unichain:
 To resolve a token address from a symbol, call findTokensBySymbol or listAllowedTokens.
 `.trim();
 
-const SIGNALS_CHANNEL_HINT = `
-Channel: "Trading Signals" — sentiment publishes here, executor listens.
-
-SIGNAL message format:
-{ "type": "SIGNAL", "from": "<your agent name>", "asset": "UNI|WBTC", "direction": "buy|sell|hold", "confidence": "low|medium|high", "rationale": "<short reason>" }
-
-Send one SIGNAL per tick on this channel. Stringify the JSON before passing it as the message parameter.
+const DM_HINT = `
+Agent-to-agent messaging:
+- Use sendMessageToAgentHelp to look up the target agent's UUID.
+- Use sendMessageToAgent with that UUID and a JSON message string.
+- The recipient will be ticked automatically with your message as the user input on its next tick.
+- Send messages as stringified JSON so the recipient can parse them deterministically.
 `.trim();
 
-const APPROVALS_CHANNEL_HINT = `
-Channel: "Trade Approvals" — executor proposes trades here, risk manager approves or rejects.
-
-PROPOSE_TRADE (executor):
-{ "type": "PROPOSE_TRADE", "from": "<your agent name>", "tokenIn": "UNI|USDC|WBTC", "tokenOut": "UNI|USDC|WBTC", "amountIn": "<amount>", "rationale": "<short reason>" }
-
-DECISION (risk manager):
-{ "type": "DECISION", "from": "<your agent name>", "verdict": "approve|reject", "reason": "<short reason>" }
-
-Stringify the JSON before passing it as the message parameter.
-`.trim();
-
-const ALL_AGENT_IDS = Object.values(AGENT_IDS);
+const TICK_INTERVAL_MS = 300_000;
 
 function buildAgents(userId: string): AgentConfig[] {
   const now = Date.now();
+
+  const searcher: AgentConfig = {
+    id: AGENT_IDS.searcher,
+    userId,
+    name: 'Opportunity Searcher',
+    running: false,
+    intervalMs: TICK_INTERVAL_MS,
+    dryRun: true,
+    dryRunSeedBalances: { native: '100000000000000000' },
+    allowedTokens: [
+      UNI_ON_UNICHAIN.address.toLowerCase(),
+      USDC_ON_UNICHAIN.address.toLowerCase(),
+      WBTC_ON_UNICHAIN.address.toLowerCase(),
+    ],
+    riskLimits: { maxTradeUSD: 0, maxSlippageBps: 0 },
+    toolIds: SEARCHER_TOOL_IDS,
+    connectedAgentIds: [AGENT_IDS.sentiment],
+    lastTickAt: null,
+    createdAt: now,
+    prompt: `You are the Opportunity Searcher. You are the only scheduled-tick agent in the trading flow — every tick (5 minutes) you scan a small set of assets, look for notable moves, and ping the Sentiment Researcher when something looks interesting. You never trade, never hold a wallet, never call risk or the executor.
+
+${TOKEN_CONTEXT}
+
+${DM_HINT}
+
+Every tick:
+1. Use fetchTokenPriceUSD to read current spot prices for UNI and WBTC.
+2. Use readMemory to recall the previous tick's prices and any open opportunity you flagged.
+3. Use updateMemory / saveMemoryEntry to record the new prices and the % move since last tick.
+4. If a price moved more than ~1% since the last tick, or if memory says you previously flagged an asset and have not heard back, send ONE direct message to the Sentiment Researcher with a stringified JSON payload:
+   { "type": "OPPORTUNITY", "asset": "UNI|WBTC", "spotPriceUSD": <number>, "moveSinceLastTickPct": <number>, "note": "<one short sentence>" }
+5. If nothing is interesting, do not send anything — just update memory and return.`,
+  };
 
   const sentiment: AgentConfig = {
     id: AGENT_IDS.sentiment,
     userId,
     name: 'Sentiment Researcher',
     running: false,
-    intervalMs: 60_000,
+    intervalMs: 0,
     dryRun: true,
     dryRunSeedBalances: { native: '100000000000000000' },
     allowedTokens: [
@@ -126,20 +153,23 @@ function buildAgents(userId: string): AgentConfig[] {
     ],
     riskLimits: { maxTradeUSD: 0, maxSlippageBps: 0 },
     toolIds: SENTIMENT_TOOL_IDS,
-    connectedAgentIds: [],
+    connectedAgentIds: [AGENT_IDS.executor],
     lastTickAt: null,
     createdAt: now,
-    prompt: `You are the Sentiment Researcher. You read the market — prices, news, social signals — and publish trading signals for the executor agent. You never hold a wallet or execute trades.
+    prompt: `You are the Sentiment Researcher. You only run when the Opportunity Searcher (or another upstream agent) sends you a message. You read prices and recent news, form a view, and forward a SIGNAL to the Trade Executor. You never hold a wallet or execute trades.
 
 ${TOKEN_CONTEXT}
 
-${SIGNALS_CHANNEL_HINT}
+${DM_HINT}
 
-Every tick:
-1. Use fetchTokenPriceUSD and fetchTokenInfoBySymbol to gather price snapshots for UNI and WBTC.
-2. Use searchWeb and scrapeUrlMarkdown to gather recent news or social context that might move price (optional, only if memory suggests something is brewing).
-3. Use readMemory / updateMemory / saveMemoryEntry to track your evolving view of each asset across ticks.
-4. Publish exactly one SIGNAL message to the Trading Signals channel summarizing your current stance per asset (you may rotate between assets across ticks).`,
+When you receive an incoming message:
+1. Parse it. If it is an OPPORTUNITY from the Opportunity Searcher, note the asset and the price move.
+2. Use fetchTokenPriceUSD and fetchTokenInfoBySymbol to confirm current price and basic stats.
+3. Use searchWeb to gather recent news that might move price (only if memory suggests something is brewing).
+4. Use readMemory / updateMemory / saveMemoryEntry to track your evolving view of each asset across calls.
+5. Send ONE direct message to the Trade Executor with a stringified JSON SIGNAL:
+   { "type": "SIGNAL", "asset": "UNI|WBTC", "direction": "buy|sell|hold", "confidence": "low|medium|high", "rationale": "<short reason>" }
+   If your view is "hold", send the SIGNAL anyway so the Executor knows you saw the opportunity and decided against it.`,
   };
 
   const risk: AgentConfig = {
@@ -147,7 +177,7 @@ Every tick:
     userId,
     name: 'Risk Manager',
     running: false,
-    intervalMs: 60_000,
+    intervalMs: 0,
     dryRun: true,
     dryRunSeedBalances: { native: '100000000000000000' },
     allowedTokens: [
@@ -160,18 +190,18 @@ Every tick:
     connectedAgentIds: [AGENT_IDS.executor],
     lastTickAt: null,
     createdAt: now,
-    prompt: `You are the Risk Manager. You sit between the sentiment researcher and the executor. You review proposed trades on the Trade Approvals channel and either approve or reject them. You can also message the executor directly to halt trading. You never execute trades yourself.
+    prompt: `You are the Risk Manager. You only run when the Trade Executor sends you a PROPOSE_TRADE. You review it against current wallet exposure, then reply with a DECISION direct message. You never execute trades yourself.
 
 ${TOKEN_CONTEXT}
 
-${APPROVALS_CHANNEL_HINT}
+${DM_HINT}
 
-Every tick:
-1. Use getTokenBalance and fetchTokenPriceUSD to assess current exposure for the operator wallet.
-2. Use readMemory / updateMemory / saveMemoryEntry to track your risk posture, recent decisions, and a running tally of approved vs rejected trades.
-3. If the executor has posted PROPOSE_TRADE messages on the Trade Approvals channel since your last tick, review them — favor rejection when exposure is concentrated, drawdowns are large, or rationale is weak.
-4. Post exactly one DECISION message per pending proposal you are responding to (or a single status DECISION if there is nothing to review).
-5. If you want to halt all trading immediately, also send a sendMessageToAgent direct message to the Executor (use sendMessageToAgentHelp first to look up its UUID).`,
+When you receive an incoming message:
+1. Parse it. If it is a PROPOSE_TRADE from the Trade Executor, note tokenIn / tokenOut / amountIn / rationale.
+2. Use getTokenBalance and fetchTokenPriceUSD to assess current exposure for the operator wallet.
+3. Use readMemory / updateMemory / saveMemoryEntry to track recent decisions and a running tally of approved vs rejected trades. Favor rejection when exposure is concentrated, drawdowns are large, or rationale is weak.
+4. Send ONE direct message back to the Trade Executor with a stringified JSON DECISION:
+   { "type": "DECISION", "verdict": "approve|reject", "reason": "<short reason>" }`,
   };
 
   const executor: AgentConfig = {
@@ -179,7 +209,7 @@ Every tick:
     userId,
     name: 'Trade Executor',
     running: false,
-    intervalMs: 60_000,
+    intervalMs: 0,
     dryRun: true,
     dryRunSeedBalances: {
       native: '100000000000000000',
@@ -195,80 +225,57 @@ Every tick:
     connectedAgentIds: [AGENT_IDS.risk],
     lastTickAt: null,
     createdAt: now,
-    prompt: `You are the Trade Executor. You consume signals from the Sentiment Researcher (via the Trading Signals channel), propose trades to the Risk Manager (via the Trade Approvals channel), and only execute swaps once you have an approval. You hold the wallet and the swap tools — but you must respect risk decisions.
+    prompt: `You are the Trade Executor. You only run when another agent sends you a message. You receive SIGNALs from the Sentiment Researcher and DECISIONs from the Risk Manager. You hold the wallet and the swap tools — but you must never execute a swap without an "approve" DECISION matching a proposal you previously sent.
 
 ${TOKEN_CONTEXT}
 
-${SIGNALS_CHANNEL_HINT}
+${DM_HINT}
 
-${APPROVALS_CHANNEL_HINT}
-
-Every tick:
-1. Use listAvailableChannels to find both channels by ID.
-2. Use getTokenBalance and fetchTokenPriceUSD to know your current position and pricing.
-3. Use readMemory / updateMemory to track latest signal, latest risk decision, and pending proposals.
-4. If a fresh SIGNAL from the sentiment researcher suggests action and you do not already have a pending proposal, post one PROPOSE_TRADE on the Trade Approvals channel and wait — do not execute yet.
-5. If you have an approved DECISION for a prior proposal, call getUniswapQuoteExactIn first to size and sanity-check the trade, then call executeUniswapSwapExactIn. Record the result in memory.
-6. Never execute a swap that has not been explicitly approved by the Risk Manager.`,
+When you receive an incoming message:
+1. Parse it.
+2. If it is a SIGNAL from the Sentiment Researcher with direction "buy" or "sell" and confidence "medium" or "high":
+   - Use getTokenBalance and fetchTokenPriceUSD to size a small trade within your maxTradeUSD limit.
+   - Save the proposed trade in memory under a "pending_proposal" key with a fresh proposalId.
+   - Send ONE direct message to the Risk Manager with a stringified JSON PROPOSE_TRADE:
+     { "type": "PROPOSE_TRADE", "proposalId": "<fresh id>", "tokenIn": "UNI|USDC|WBTC", "tokenOut": "UNI|USDC|WBTC", "amountIn": "<amount>", "rationale": "<short reason>" }
+   - Do NOT execute a swap yet.
+3. If it is a DECISION from the Risk Manager with verdict "approve" matching a pending proposal in memory:
+   - Call getUniswapQuoteExactIn to sanity-check pricing.
+   - Call executeUniswapSwapExactIn with the parameters from the pending proposal.
+   - Record the outcome in memory and clear the pending proposal.
+4. If it is a DECISION with verdict "reject" or any other message, just record it in memory and stop. Never execute a swap that has not been explicitly approved.`,
   };
 
-  return [sentiment, risk, executor];
+  return [searcher, sentiment, risk, executor];
 }
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   try {
-    console.log(`[seed-trading] seeding tokens, 3 trading agents, and 2 AXL channels for user ${SEED_USER_EMAIL}`);
+    console.log(`[seed-trading] seeding tokens and 4 trading agents for user ${SEED_USER_EMAIL}`);
 
-    // --- tokens (full Coingecko catalog for chain + canonical overrides) ---
     await seedFullTokenCatalog(prisma);
     await upsertCanonicalTokens(prisma);
 
-    // --- user ---
     const users = new PrismaUserRepository(prisma);
     const agents = new PrismaAgentRepository(prisma);
 
     const user = await users.findOrCreateByPrivyDid(SEED_USER_DID, { email: SEED_USER_EMAIL });
     console.log(`[seed-trading] user: ${user.id} (${user.email})`);
 
-    // --- agents ---
     const agentConfigs = buildAgents(user.id);
     for (const cfg of agentConfigs) {
       await agents.upsert(cfg);
       console.log(`[seed-trading] upserted agent "${cfg.id}" — ${cfg.name} (${(cfg.toolIds ?? []).length} tools)`);
     }
 
-    // --- agent-to-agent connections ---
+    await agents.setAxlConnections(AGENT_IDS.searcher, [AGENT_IDS.sentiment]);
+    await agents.setAxlConnections(AGENT_IDS.sentiment, [AGENT_IDS.executor]);
     await agents.setAxlConnections(AGENT_IDS.executor, [AGENT_IDS.risk]);
     await agents.setAxlConnections(AGENT_IDS.risk, [AGENT_IDS.executor]);
-    console.log(`[seed-trading] linked Executor ↔ Risk Manager for direct messaging`);
+    console.log(`[seed-trading] wired DM graph: searcher → sentiment → executor ↔ risk`);
 
-    // --- channels ---
-    const existingChannels = await agents.listAxlChannelsByUser(user.id);
-    const signalsExists = existingChannels.find((c) => c.name === 'Trading Signals');
-    const approvalsExists = existingChannels.find((c) => c.name === 'Trade Approvals');
-
-    if (!signalsExists) {
-      const id = randomUUID();
-      await agents.createAxlChannel({ id, userId: user.id, name: 'Trading Signals', createdAt: Date.now() });
-      await agents.addAgentToAxlChannel(AGENT_IDS.sentiment, id);
-      await agents.addAgentToAxlChannel(AGENT_IDS.executor, id);
-      console.log(`[seed-trading] created channel "Trading Signals" with sentiment + executor`);
-    } else {
-      console.log(`[seed-trading] channel "Trading Signals" already exists — skipped`);
-    }
-
-    if (!approvalsExists) {
-      const id = randomUUID();
-      await agents.createAxlChannel({ id, userId: user.id, name: 'Trade Approvals', createdAt: Date.now() });
-      await agents.addAgentToAxlChannel(AGENT_IDS.executor, id);
-      await agents.addAgentToAxlChannel(AGENT_IDS.risk, id);
-      console.log(`[seed-trading] created channel "Trade Approvals" with executor + risk`);
-    } else {
-      console.log(`[seed-trading] channel "Trade Approvals" already exists — skipped`);
-    }
-
-    console.log('[seed-trading] done. Run `npm run start:worker` to start the agent loop.');
+    console.log('[seed-trading] done. Start the Opportunity Searcher in the UI to drive the flow.');
   } finally {
     await prisma.$disconnect();
   }
