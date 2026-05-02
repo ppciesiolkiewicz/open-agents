@@ -269,11 +269,13 @@ async function main(): Promise<void> {
       console.log(`[seed-trading] upserted agent "${cfg.id}" — ${cfg.name} (${(cfg.toolIds ?? []).length} tools)`);
     }
 
+    // setAxlConnections wipes ALL of the agent's pairs before recreating, so each
+    // agent must list every neighbor (upstream + downstream) in one call.
     await agents.setAxlConnections(AGENT_IDS.searcher, [AGENT_IDS.sentiment]);
-    await agents.setAxlConnections(AGENT_IDS.sentiment, [AGENT_IDS.executor]);
-    await agents.setAxlConnections(AGENT_IDS.executor, [AGENT_IDS.risk]);
+    await agents.setAxlConnections(AGENT_IDS.sentiment, [AGENT_IDS.searcher, AGENT_IDS.executor]);
+    await agents.setAxlConnections(AGENT_IDS.executor, [AGENT_IDS.sentiment, AGENT_IDS.risk]);
     await agents.setAxlConnections(AGENT_IDS.risk, [AGENT_IDS.executor]);
-    console.log(`[seed-trading] wired DM graph: searcher → sentiment → executor ↔ risk`);
+    console.log(`[seed-trading] wired DM graph: searcher ↔ sentiment ↔ executor ↔ risk`);
 
     console.log('[seed-trading] done. Start the Opportunity Searcher in the UI to drive the flow.');
   } finally {
