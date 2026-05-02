@@ -50,7 +50,7 @@ Checklist when adding/changing a route:
 
 Single source for chain config (Unichain + 0G mainnet/testnet), token addresses, Uniswap fee tiers, worker tick interval. Never inline addresses, chainIds, RPC URLs, or magic numbers like polling intervals.
 
-**Pool addresses + state are NOT constants.** `UniswapService` derives the v4 PoolKey + on-chain pool address + state from `(tokenA, tokenB, feeTier)` at runtime. `constants/` only holds `FEE_TIERS` (Uniswap-defined: 500 / 3_000 / 10_000 bps). Discovery helpers (`buildPoolKey`, `getPoolAddress`, `getPoolState`) live in the `uniswap/` module.
+**Pool addresses + state are NOT constants.** `UniswapService` derives the v4 PoolKey + on-chain pool address + state from `(tokenA, tokenB, feeTier)` at runtime. `constants/` holds the `FeeTier` type (500 | 3_000 | 10_000 bps). Discovery helpers (`buildPoolKey`, `getPoolAddress`, `getPoolState`) live in the `uniswap/` module.
 
 ### No comments
 

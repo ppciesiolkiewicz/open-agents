@@ -8,7 +8,7 @@ import { PrismaUserRepository } from '../src/database/prisma-database/prisma-use
 import type { AgentConfig } from '../src/database/types';
 
 const SEED_USER_EMAIL = 'ppciesiolkiewicz@gmail.com';
-const SEED_USER_DID = 'did:privy:seed-ppciesiolkiewicz';
+const SEED_USER_DID = 'did:privy:cmojphu3700g40cieu3d6zmmc';
 
 const TOKENS = [
   {
@@ -93,7 +93,7 @@ function buildAgents(userId: string): AgentConfig[] {
     name: 'Alpine Milk Co',
     running: false,
     intervalMs: 60_000,
-    dryRun: true,
+    dryRun: false,
     dryRunSeedBalances: {
       native: '100000000000000000',
       [UNI_ON_UNICHAIN.address.toLowerCase()]: '10000000000000000000', // 10 UNI
@@ -137,7 +137,7 @@ Every tick, do exactly:
     name: 'Sunrise Dairy',
     running: false,
     intervalMs: 60_000,
-    dryRun: true,
+    dryRun: false,
     dryRunSeedBalances: {
       native: '100000000000000000',
       [UNI_ON_UNICHAIN.address.toLowerCase()]: '20000000000000000000', // 20 UNI
@@ -180,7 +180,7 @@ Every tick, do exactly:
     name: 'Artisan Cheese House',
     running: false,
     intervalMs: 60_000,
-    dryRun: true,
+    dryRun: false,
     dryRunSeedBalances: {
       native: '100000000000000000',
       [USDC_ON_UNICHAIN.address.toLowerCase()]: '50000000',             // 50 USDC
@@ -225,7 +225,7 @@ Every tick, do exactly:
     name: 'Cheddar Valley Creamery',
     running: false,
     intervalMs: 60_000,
-    dryRun: true,
+    dryRun: false,
     dryRunSeedBalances: {
       native: '100000000000000000',
       [USDC_ON_UNICHAIN.address.toLowerCase()]: '200000000',            // 200 USDC
@@ -270,7 +270,7 @@ Every tick, do exactly:
     name: 'City Fresh Market',
     running: false,
     intervalMs: 60_000,
-    dryRun: true,
+    dryRun: false,
     dryRunSeedBalances: {
       native: '100000000000000000',
       [UNI_ON_UNICHAIN.address.toLowerCase()]: '3000000000000000000',   // 3 UNI
@@ -316,7 +316,7 @@ Every tick, do exactly:
     name: 'Corner Deli',
     running: false,
     intervalMs: 60_000,
-    dryRun: true,
+    dryRun: false,
     dryRunSeedBalances: {
       native: '100000000000000000',
       [UNI_ON_UNICHAIN.address.toLowerCase()]: '1000000000000000000',   // 1 UNI
