@@ -215,4 +215,32 @@ describe('ToolRegistry tools (live, real services + postgres)', () => {
     expect(result.delivered).toBe(true);
     expect(result.deliveredCount).toBe(1);
   });
+
+  it('listAvailableChannels returns only channels this agent is connected to', async () => {
+    const peer = makeAgent('a2', agent.userId);
+    await db.agents.upsert(peer);
+    const alpha = await db.agents.createAxlChannel({
+      id: 'channel-test-2',
+      userId: agent.userId,
+      name: 'alpha',
+      createdAt: Date.now(),
+    });
+    const beta = await db.agents.createAxlChannel({
+      id: 'channel-test-3',
+      userId: agent.userId,
+      name: 'beta',
+      createdAt: Date.now(),
+    });
+    await db.agents.addAgentToAxlChannel(agent.id, alpha.id);
+    await db.agents.addAgentToAxlChannel(peer.id, beta.id);
+
+    const tool = registry.build().find((t) => t.name === 'listAvailableChannels');
+    if (!tool) throw new Error('list channels tool missing');
+    const result = (await tool.invoke({}, ctx)) as {
+      channels: Array<{ channelId: string }>;
+    };
+    console.log('[tool-registry] listAvailableChannels:', result);
+    expect(result.channels.some((c) => c.channelId === alpha.id)).toBe(true);
+    expect(result.channels.some((c) => c.channelId === beta.id)).toBe(false);
+  });
 });

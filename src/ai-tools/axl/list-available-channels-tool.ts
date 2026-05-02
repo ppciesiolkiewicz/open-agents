@@ -2,15 +2,15 @@ import { z } from 'zod';
 import type { Database } from '../../database/database';
 import type { AgentTool } from '../tool';
 
-const SendMessageToChannelHelpInputSchema = z.object({});
+const ListAvailableChannelsInputSchema = z.object({});
 
-export function buildSendMessageToChannelHelpTool(
+export function buildListAvailableChannelsTool(
   db: Database,
-): AgentTool<typeof SendMessageToChannelHelpInputSchema> {
+): AgentTool<typeof ListAvailableChannelsInputSchema> {
   return {
-    name: 'sendMessageToChannelHelp',
-    description: 'Return channel IDs this agent can currently message.',
-    inputSchema: SendMessageToChannelHelpInputSchema,
+    name: 'listAvailableChannels',
+    description: 'List AXL channels this agent is connected to and can message.',
+    inputSchema: ListAvailableChannelsInputSchema,
     async invoke(_input, ctx) {
       const source = await db.agents.findById(ctx.agent.id);
       if (!source) {
@@ -19,7 +19,7 @@ export function buildSendMessageToChannelHelpTool(
       const channels = await Promise.all(
         (source.connectedChannelIds ?? []).map(async (id) => db.agents.findAxlChannelById(id)),
       );
-      const allowedChannels = channels
+      const connectedChannels = channels
         .filter((channel): channel is NonNullable<typeof channel> => Boolean(channel))
         .map((channel) => ({
           channelId: channel.id,
@@ -28,7 +28,7 @@ export function buildSendMessageToChannelHelpTool(
         }));
       return {
         agentId: source.id,
-        allowedChannels,
+        channels: connectedChannels,
       };
     },
   };
