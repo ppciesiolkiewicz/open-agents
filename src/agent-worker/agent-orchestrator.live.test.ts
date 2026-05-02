@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll, afterEach } from 'vitest';
+import { JsonRpcProvider } from 'ethers';
+import { createPublicClient, http, type PublicClient } from 'viem';
+import { unichain } from 'viem/chains';
 import { PrismaDatabase } from '../database/prisma-database/prisma-database';
 import { getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
 import { AgentActivityLog } from '../database/agent-activity-log';
@@ -15,9 +18,27 @@ import { SerperService } from '../providers/serper/serper-service';
 import { FirecrawlService } from '../providers/firecrawl/firecrawl-service';
 import type { AgentConfig } from '../database/types';
 import type { LLMClient } from '../agent-runner/llm-client';
+import type { LLMClientFactory } from '../ai/chat-model/llm-client-factory';
+import { ZEROG_NETWORKS } from '../constants';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
 const TEST_ENV = { WALLET_PRIVATE_KEY: TEST_KEY, ALCHEMY_API_KEY: 'unused' };
+
+const TEST_PUBLIC_CLIENT = createPublicClient({ chain: unichain, transport: http() }) as PublicClient;
+const TEST_ZEROG_PROVIDER = new JsonRpcProvider(ZEROG_NETWORKS.testnet.rpcUrl);
+
+function makeTestWalletFactory(db: PrismaDatabase): WalletFactory {
+  return new WalletFactory({
+    env: TEST_ENV,
+    walletMode: 'pk',
+    transactions: db.transactions,
+    userWallets: db.userWallets,
+    privy: null,
+    publicClient: TEST_PUBLIC_CLIENT,
+    zerogProvider: TEST_ZEROG_PROVIDER,
+    zerogChainId: ZEROG_NETWORKS.testnet.chainId,
+  });
+}
 
 function makeAgent(id: string, opts: { running?: boolean; intervalMs?: number; lastTickAt?: number | null; userId?: string } = {}): AgentConfig {
   return {
@@ -40,6 +61,13 @@ class MutableClock implements Clock {
   constructor(private current: number) {}
   now(): number { return this.current; }
   advance(ms: number): void { this.current += ms; }
+}
+
+function asFactory(llm: LLMClient): LLMClientFactory {
+  return {
+    forAgent: async () => llm,
+    modelName: () => llm.modelName(),
+  } as unknown as LLMClientFactory;
 }
 
 describe('AgentOrchestrator (live, real db + runner)', () => {
@@ -68,7 +96,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
     const u = await db.users.findOrCreateByPrivyDid('did:privy:test', {});
     TEST_USER_ID = u.id;
     activityLog = new AgentActivityLog(db.activityLog);
-    walletFactory = new WalletFactory(TEST_ENV, db.transactions);
+    walletFactory = makeTestWalletFactory(db);
     clock = new MutableClock(10_000);
     queue = new InMemoryTickQueue(() => clock.now());
     toolRegistry = new ToolRegistry({
@@ -81,7 +109,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
       env: { ALCHEMY_API_KEY: 'unused', UNICHAIN_RPC_URL: undefined } as any,
       tickQueue: queue,
     });
-    runner = new AgentRunner(db, activityLog, walletFactory, new StubLLMClient(), toolRegistry, clock);
+    runner = new AgentRunner(db, activityLog, walletFactory, asFactory(new StubLLMClient()), toolRegistry, clock);
     orchestrator = new AgentOrchestrator(db, queue, clock);
     dispatcher = new TickDispatcher({ db, runner, activityLog, queue });
     dispatcher.start();
@@ -173,7 +201,7 @@ describe('AgentOrchestrator (live, real db + runner)', () => {
       }
     }
 
-    const failingRunner = new AgentRunner(db, activityLog, walletFactory, new SelectiveLLM(), toolRegistry, clock);
+    const failingRunner = new AgentRunner(db, activityLog, walletFactory, asFactory(new SelectiveLLM()), toolRegistry, clock);
     const failingQueue = new InMemoryTickQueue(() => clock.now());
     const failingOrch = new AgentOrchestrator(db, failingQueue, clock);
     const failingDispatcher = new TickDispatcher({ db, runner: failingRunner, activityLog, queue: failingQueue });

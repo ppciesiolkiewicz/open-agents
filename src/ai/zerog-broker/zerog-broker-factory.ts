@@ -1,26 +1,29 @@
-import { JsonRpcProvider, Wallet, type AbstractSigner } from 'ethers';
+import { JsonRpcProvider, Wallet, type AbstractSigner, type Signer } from 'ethers';
 import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker';
 import { ZEROG_NETWORKS, type ZeroGNetworkName } from '../../constants';
 
-export interface BrokerEnv {
-  WALLET_PRIVATE_KEY: string;
+export interface BrokerInputs {
+  signer: Signer;
   ZEROG_NETWORK: ZeroGNetworkName;
 }
 
-// Resolves to the SDK's broker type. We intentionally `Awaited<ReturnType<...>>`
-// rather than importing a named class — the SDK's exported types have churned
-// across versions; this stays robust.
 export type ZeroGBroker = Awaited<ReturnType<typeof createZGComputeNetworkBroker>>;
 
-export async function buildZeroGBroker(env: BrokerEnv): Promise<{
+export async function buildZeroGBroker(inputs: BrokerInputs): Promise<{
   broker: ZeroGBroker;
   walletAddress: `0x${string}`;
 }> {
-  const network = ZEROG_NETWORKS[env.ZEROG_NETWORK];
-  const provider = new JsonRpcProvider(network.rpcUrl);
-  const wallet = new Wallet(env.WALLET_PRIVATE_KEY, provider);
-  const broker = await createZGComputeNetworkBroker(wallet);
-  return { broker, walletAddress: wallet.address as `0x${string}` };
+  const broker = await createZGComputeNetworkBroker(inputs.signer as any);
+  const walletAddress = (await inputs.signer.getAddress()) as `0x${string}`;
+  return { broker, walletAddress };
+}
+
+export function buildZeroGProvider(network: ZeroGNetworkName): JsonRpcProvider {
+  return new JsonRpcProvider(ZEROG_NETWORKS[network].rpcUrl);
+}
+
+export function buildEnvPkZeroGSigner(privateKey: string, network: ZeroGNetworkName): Wallet {
+  return new Wallet(privateKey, buildZeroGProvider(network));
 }
 
 export class ZeroGBrokerFactory {

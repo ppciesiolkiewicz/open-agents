@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { loadEnv } from '../../config/env';
-import { buildZeroGBroker } from './zerog-broker-factory';
+import { buildZeroGBroker, buildEnvPkZeroGSigner } from './zerog-broker-factory';
 import { ZeroGBrokerService } from './zerog-broker-service';
 import { ZeroGBootstrapStore } from './zerog-bootstrap-store';
 import type { ZeroGBootstrapState } from './types';
@@ -36,14 +36,16 @@ async function confirm(q: string): Promise<boolean> {
 
 async function main(): Promise<void> {
   const env = loadEnv();
+  const signer = buildEnvPkZeroGSigner(env.WALLET_PRIVATE_KEY, env.ZEROG_NETWORK);
   const { broker, walletAddress } = await buildZeroGBroker({
-    WALLET_PRIVATE_KEY: env.WALLET_PRIVATE_KEY,
+    signer,
     ZEROG_NETWORK: env.ZEROG_NETWORK,
   });
   const service = new ZeroGBrokerService(broker);
   const store = new ZeroGBootstrapStore(env.DB_DIR);
 
   console.log(`[zerog-bootstrap] network=${env.ZEROG_NETWORK} wallet=${walletAddress}`);
+  console.log('[zerog-bootstrap] note: 0G ledger funding for Privy wallets is handled via the UI flow, not this script.');
   console.log(`[zerog-bootstrap] listing providers...`);
 
   const providers = await service.listProviders();

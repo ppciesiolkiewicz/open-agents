@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { loadEnv, type Env } from './config/env';
-import { WORKER } from './constants';
+import { WORKER, ZEROG_NETWORKS } from './constants';
 import { IntervalScheduler } from './agent-worker/interval-scheduler';
 import { AgentOrchestrator } from './agent-worker/agent-orchestrator';
 import { TickDispatcher } from './agent-worker/tick-dispatcher';
@@ -12,12 +12,10 @@ import { RedisTickQueue } from './agent-runner/redis-tick-queue';
 import { RedisClient } from './redis/redis-client';
 import { WalletFactory } from './wallet/factory/wallet-factory';
 import { AgentRunner } from './agent-runner/agent-runner';
-import { StubLLMClient } from './agent-runner/stub-llm-client';
-import type { LLMClient } from './agent-runner/llm-client';
+import { LLMClientFactory } from './ai/chat-model/llm-client-factory';
 import { ZeroGBootstrapStore } from './ai/zerog-broker/zerog-bootstrap-store';
-import { buildZeroGBroker } from './ai/zerog-broker/zerog-broker-factory';
+import { buildZeroGProvider } from './ai/zerog-broker/zerog-broker-factory';
 import { silenceZeroGSdkNoise } from './ai/zerog-broker/silence-sdk-noise';
-import { ZeroGLLMClient } from './ai/chat-model/zerog-llm-client';
 import { ToolRegistry } from './ai-tools/tool-registry';
 import { CoingeckoService } from './providers/coingecko/coingecko-service';
 import { CoinMarketCapService } from './providers/coinmarketcap/coinmarketcap-service';
@@ -31,32 +29,8 @@ import { TreasuryFundsWatcher } from './treasury/treasury-funds-watcher';
 import { TreasuryService } from './treasury/treasury-service';
 import { AxlClient } from './axl/axl-client';
 import { AxlPoller } from './axl/axl-poller';
-
-async function buildLLM(env: Env): Promise<LLMClient> {
-  const store = new ZeroGBootstrapStore(env.DB_DIR);
-  const state = await store.load();
-  if (!state) {
-    console.log('[bootstrap] no zerog-bootstrap.json; using StubLLMClient. Run `npm run zerog-bootstrap` to fund a 0G provider.');
-    return new StubLLMClient();
-  }
-  if (state.network !== env.ZEROG_NETWORK) {
-    console.warn(
-      `[bootstrap] WARNING: zerog-bootstrap.json was funded on '${state.network}' but env says '${env.ZEROG_NETWORK}'; using the file's network. Delete db/zerog-bootstrap.json and re-run \`npm run zerog-bootstrap\` to switch.`,
-    );
-  }
-  const { broker } = await buildZeroGBroker({
-    WALLET_PRIVATE_KEY: env.WALLET_PRIVATE_KEY,
-    ZEROG_NETWORK: state.network,
-  });
-  silenceZeroGSdkNoise();
-  console.log(`[bootstrap] 0G LLM ready — network=${state.network} provider=${state.providerAddress} model=${state.model}`);
-  return new ZeroGLLMClient({
-    broker,
-    providerAddress: state.providerAddress,
-    serviceUrl: state.serviceUrl,
-    model: state.model,
-  });
-}
+import { createPublicClient, http, type PublicClient } from 'viem';
+import { unichain } from 'viem/chains';
 
 async function main(): Promise<void> {
   let env: Env;
@@ -91,9 +65,35 @@ async function main(): Promise<void> {
   }
   const axlPoller = new AxlPoller(axlClient, queue);
 
-  const walletFactory = new WalletFactory(env, db.transactions);
+  const bootstrapStore = new ZeroGBootstrapStore(env.DB_DIR);
+  const bootstrapState = await bootstrapStore.load();
+  if (bootstrapState && bootstrapState.network !== env.ZEROG_NETWORK) {
+    console.warn(
+      `[bootstrap] WARNING: zerog-bootstrap.json was funded on '${bootstrapState.network}' but env says '${env.ZEROG_NETWORK}'; using the file's network.`,
+    );
+  }
+  if (!bootstrapState) {
+    console.log('[bootstrap] no zerog-bootstrap.json; using StubLLMClient. Run `npm run zerog-bootstrap` to fund a 0G provider.');
+  } else {
+    silenceZeroGSdkNoise();
+    console.log(`[bootstrap] 0G LLM ready — network=${bootstrapState.network} provider=${bootstrapState.providerAddress} model=${bootstrapState.model}`);
+  }
+
+  const zerogNetwork = bootstrapState?.network ?? env.ZEROG_NETWORK;
+  const zerogProvider = buildZeroGProvider(zerogNetwork);
+  const privyClient = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
+  const walletFactory = new WalletFactory({
+    env,
+    walletMode: env.WALLET_MODE,
+    transactions: db.transactions,
+    userWallets: db.userWallets,
+    privy: env.WALLET_MODE === 'pk' ? null : privyClient,
+    publicClient: createPublicClient({ chain: unichain, transport: http(env.UNICHAIN_RPC_URL) }) as PublicClient,
+    zerogProvider,
+    zerogChainId: ZEROG_NETWORKS[zerogNetwork].chainId,
+  });
   const uniswap = new UniswapService(env, db);
-  const llm = await buildLLM(env);
+  const llmFactory = new LLMClientFactory(walletFactory, bootstrapState);
   const coingecko = new CoingeckoService({ apiKey: env.COINGECKO_API_KEY });
   const toolRegistry = new ToolRegistry({
     coingecko,
@@ -106,12 +106,12 @@ async function main(): Promise<void> {
     axlClient,
     localAxlPeerId,
   });
-  const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
+  const runner = new AgentRunner(db, activityLog, walletFactory, llmFactory, toolRegistry);
 
   console.log(`[bootstrap] worker — ZEROG_NETWORK=${env.ZEROG_NETWORK}, DB_DIR=${env.DB_DIR}`);
   console.log(`[bootstrap] postgres at ${env.DATABASE_URL.replace(/:[^:@]+@/, ':***@')}`);
   console.log(`[bootstrap] redis at ${env.REDIS_URL.replace(/:[^:@]+@/, ':***@')}`);
-  console.log(`[bootstrap] tools=${toolRegistry.build().length} llm=${llm.modelName()}`);
+  console.log(`[bootstrap] tools=${toolRegistry.build().length} llm=${llmFactory.modelName()} walletMode=${env.WALLET_MODE}`);
 
   const orchestrator = new AgentOrchestrator(db, queue);
   const dispatcher = new TickDispatcher({ db, runner, activityLog, queue });
@@ -119,7 +119,6 @@ async function main(): Promise<void> {
   axlPoller.start();
   console.log('[bootstrap] AXL poller started');
 
-  const privyClient = new PrivyClient(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET);
   const treasuryWallet = new TreasuryWallet(env);
   const jaineSwap = new JaineSwapService(treasuryWallet);
   const treasuryWatcherRedis = RedisClient.build(env.REDIS_URL);

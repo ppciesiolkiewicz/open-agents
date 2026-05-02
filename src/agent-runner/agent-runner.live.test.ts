@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
+import { JsonRpcProvider } from 'ethers';
+import { createPublicClient, http, type PublicClient } from 'viem';
+import { unichain } from 'viem/chains';
 import { PrismaDatabase } from '../database/prisma-database/prisma-database';
 import { getTestPrisma, truncateAll } from '../database/prisma-database/test-helpers';
 import { AgentActivityLog } from '../database/agent-activity-log';
@@ -16,11 +19,29 @@ import type {
   LLMTurnResult,
   ToolDefinition,
 } from './llm-client';
+import type { LLMClientFactory } from '../ai/chat-model/llm-client-factory';
 import type { AgentConfig } from '../database/types';
 import { createStubTickQueue } from '../test-lib/stub-tick-queue';
+import { ZEROG_NETWORKS } from '../constants';
 
 const TEST_KEY = '0x' + '11'.repeat(32);
 const TEST_ENV = { WALLET_PRIVATE_KEY: TEST_KEY, ALCHEMY_API_KEY: 'unused' };
+
+const TEST_PUBLIC_CLIENT = createPublicClient({ chain: unichain, transport: http() }) as PublicClient;
+const TEST_ZEROG_PROVIDER = new JsonRpcProvider(ZEROG_NETWORKS.testnet.rpcUrl);
+
+function makeTestWalletFactory(db: PrismaDatabase): WalletFactory {
+  return new WalletFactory({
+    env: TEST_ENV,
+    walletMode: 'pk',
+    transactions: db.transactions,
+    userWallets: db.userWallets,
+    privy: null,
+    publicClient: TEST_PUBLIC_CLIENT,
+    zerogProvider: TEST_ZEROG_PROVIDER,
+    zerogChainId: ZEROG_NETWORKS.testnet.chainId,
+  });
+}
 
 function makeAgent(id: string, userId = 'user-placeholder'): AgentConfig {
   return {
@@ -87,6 +108,13 @@ class ScriptedLLMClient implements LLMClient {
   }
 }
 
+function asFactory(llm: LLMClient): LLMClientFactory {
+  return {
+    forAgent: async () => llm,
+    modelName: () => llm.modelName(),
+  } as unknown as LLMClientFactory;
+}
+
 describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
   const prisma = getTestPrisma();
   let db: PrismaDatabase;
@@ -108,7 +136,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
     const u = await db.users.findOrCreateByPrivyDid('did:privy:test', {});
     TEST_USER_ID = u.id;
     activityLog = new AgentActivityLog(db.activityLog);
-    walletFactory = new WalletFactory(TEST_ENV, db.transactions);
+    walletFactory = makeTestWalletFactory(db);
     toolRegistry = new ToolRegistry({
       coingecko: new CoingeckoService({ apiKey: 'dummy' }),
       coinmarketcap: new CoinMarketCapService({ apiKey: 'dummy' }),
@@ -126,7 +154,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
     await db.agents.upsert(agent);
     const fixedClock: Clock = { now: () => 5_000 };
     const llm = new ScriptedLLMClient([{ kind: 'text', content: 'hello there' }]);
-    const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry, fixedClock);
+    const runner = new AgentRunner(db, activityLog, walletFactory, asFactory(llm), toolRegistry, fixedClock);
 
     await runner.run(agent);
 
@@ -150,7 +178,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
       { kind: 'tool', toolName: 'updateMemory', argsJson: JSON.stringify({ appendNote: 'first thought' }) },
       { kind: 'text', content: 'done' },
     ]);
-    const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
+    const runner = new AgentRunner(db, activityLog, walletFactory, asFactory(llm), toolRegistry);
 
     await runner.run(agent);
 
@@ -170,7 +198,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
     const fixedClock: Clock = { now: () => 9_000 };
 
     const llm = new ScriptedLLMClient([{ kind: 'throw', message: 'llm exploded' }]);
-    const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry, fixedClock);
+    const runner = new AgentRunner(db, activityLog, walletFactory, asFactory(llm), toolRegistry, fixedClock);
     await expect(runner.run(agent)).rejects.toThrow('llm exploded');
 
     const types = (await activityLog.list('boom')).map((e) => e.type);
@@ -191,7 +219,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
       { kind: 'tool', toolName: 'getTokenBalance', argsJson: JSON.stringify({ tokenAddress: 'not-an-address' }) },
       { kind: 'text', content: 'recovered' },
     ]);
-    const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
+    const runner = new AgentRunner(db, activityLog, walletFactory, asFactory(llm), toolRegistry);
 
     await runner.run(agent);
 
@@ -219,7 +247,7 @@ describe('AgentRunner (live, real db + activity log + ToolRegistry)', () => {
       argsJson: '{}',
     }));
     const llm = new ScriptedLLMClient(script);
-    const runner = new AgentRunner(db, activityLog, walletFactory, llm, toolRegistry);
+    const runner = new AgentRunner(db, activityLog, walletFactory, asFactory(llm), toolRegistry);
 
     await runner.run(agent);
 

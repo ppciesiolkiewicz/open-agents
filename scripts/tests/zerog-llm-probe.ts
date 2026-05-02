@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { confirmContinue } from '../../src/test-lib/interactive-prompt';
 import { ZeroGBootstrapStore } from '../../src/ai/zerog-broker/zerog-bootstrap-store';
-import { buildZeroGBroker } from '../../src/ai/zerog-broker/zerog-broker-factory';
+import { buildZeroGBroker, buildEnvPkZeroGSigner } from '../../src/ai/zerog-broker/zerog-broker-factory';
 import { ZeroGLLMClient } from '../../src/ai/chat-model/zerog-llm-client';
 
 const dbDir = process.env.DB_DIR ?? './db';
@@ -35,10 +35,8 @@ async function main(): Promise<void> {
   }
 
   console.log(`[llm-probe] connecting to 0G ${state.network}…`);
-  const { broker } = await buildZeroGBroker({
-    WALLET_PRIVATE_KEY: key,
-    ZEROG_NETWORK: state.network,
-  });
+  const signer = buildEnvPkZeroGSigner(key, state.network);
+  const { broker } = await buildZeroGBroker({ signer, ZEROG_NETWORK: state.network });
   const client = new ZeroGLLMClient({
     broker,
     providerAddress: state.providerAddress,
