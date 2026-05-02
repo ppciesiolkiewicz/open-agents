@@ -6,7 +6,7 @@ import type { FirecrawlService } from '../providers/firecrawl/firecrawl-service'
 import type { Database } from '../database/database';
 import type { UniswapService } from '../uniswap/uniswap-service';
 import type { Env } from '../config/env';
-import type { TickQueue } from '../agent-runner/tick-queue';
+import type { AxlClient } from '../axl/axl-client';
 import { buildCoingeckoPriceTool } from './providers/coingecko-price-tool';
 import { buildCoinMarketCapInfoTool } from './providers/coinmarketcap-info-tool';
 import { buildSerperSearchTool } from './providers/serper-search-tool';
@@ -37,7 +37,8 @@ export interface ToolRegistryDeps {
   db: Database;
   uniswap: UniswapService;
   env: Env;
-  tickQueue: TickQueue;
+  axlClient: AxlClient;
+  localAxlPeerId: string;
 }
 
 export class ToolRegistry {
@@ -63,9 +64,9 @@ export class ToolRegistry {
       buildGetTokenByAddressTool(this.deps.db),
       buildListAllowedTokensTool(this.deps.db),
       buildSendMessageToAgentHelpTool(this.deps.db),
-      buildSendMessageToAgentTool(this.deps.db, this.deps.tickQueue),
+      buildSendMessageToAgentTool(this.deps.db, this.deps.axlClient, this.deps.localAxlPeerId),
       buildListAvailableChannelsTool(this.deps.db),
-      buildSendMessageToChannelTool(this.deps.db, this.deps.tickQueue),
+      buildSendMessageToChannelTool(this.deps.db, this.deps.axlClient, this.deps.localAxlPeerId),
       buildFormatTokenAmountTool(),
       buildParseTokenAmountTool(),
     ];
