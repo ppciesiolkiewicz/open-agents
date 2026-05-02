@@ -45,6 +45,11 @@ interface WalletSweepResult {
 const UNICHAIN_ERC20S = [USDC_ON_UNICHAIN, UNI_ON_UNICHAIN, WBTC_ON_UNICHAIN] as const;
 const NATIVE_TRANSFER_GAS = 21_000n;
 const NATIVE_GAS_BUFFER_BPS = 12_000n;
+const ZEROG_MIN_NATIVE_RESERVE = 100_000_000_000_000_000n;
+
+const ZEROG_ERC20S = [
+  { symbol: 'USDC.e', address: '0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E' as `0x${string}`, decimals: 6 },
+] as const;
 
 export function buildSweepRouter(deps: Deps): Router {
   const r = Router();
@@ -107,11 +112,58 @@ export function buildSweepRouter(deps: Deps): Router {
         //   }
         // }
 
+        for (const token of ZEROG_ERC20S) {
+          let raw = 0n;
+          try {
+            raw = await zerogClient.readContract({
+              address: token.address,
+              abi: erc20Abi,
+              functionName: 'balanceOf',
+              args: [addr],
+            }) as bigint;
+          } catch (err) {
+            transfers.push({
+              symbol: token.symbol,
+              chainId: zerogNet.chainId,
+              raw: '0',
+              error: err instanceof Error ? err.message : String(err),
+            });
+            continue;
+          }
+          if (raw === 0n) continue;
+          try {
+            const data = encodeFunctionData({
+              abi: erc20Abi,
+              functionName: 'transfer',
+              args: [recipient, raw],
+            });
+            const { hash } = await deps.privy.walletApi.ethereum.sendTransaction({
+              walletId: w.privyWalletId,
+              caip2: `eip155:${zerogNet.chainId}`,
+              transaction: {
+                to: token.address,
+                data,
+                chainId: zerogNet.chainId,
+              },
+            }) as { hash: string };
+            await zerogClient.waitForTransactionReceipt({ hash: hash as `0x${string}` });
+            transfers.push({ symbol: token.symbol, chainId: zerogNet.chainId, raw: raw.toString(), txHash: hash });
+          } catch (err) {
+            transfers.push({
+              symbol: token.symbol,
+              chainId: zerogNet.chainId,
+              raw: raw.toString(),
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+
         try {
           const balance = await zerogClient.getBalance({ address: addr });
           if (balance > 0n) {
             const gasPrice = await zerogClient.getGasPrice();
-            const reserve = (NATIVE_TRANSFER_GAS * gasPrice * NATIVE_GAS_BUFFER_BPS) / 10_000n;
+            const gasReserve = (NATIVE_TRANSFER_GAS * gasPrice * NATIVE_GAS_BUFFER_BPS) / 10_000n;
+            const reserve = gasReserve > ZEROG_MIN_NATIVE_RESERVE ? gasReserve : ZEROG_MIN_NATIVE_RESERVE;
             if (balance > reserve) {
               const value = balance - reserve;
               try {
