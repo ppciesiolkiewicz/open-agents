@@ -45,6 +45,7 @@ async function main(): Promise<void> {
   const store = new ZeroGBootstrapStore(env.DB_DIR);
 
   console.log(`[zerog-bootstrap] network=${env.ZEROG_NETWORK} wallet=${walletAddress}`);
+  console.log('[zerog-bootstrap] note: 0G ledger funding for Privy wallets is handled via the UI flow, not this script.');
   console.log(`[zerog-bootstrap] listing providers...`);
 
   const providers = await service.listProviders();
